@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Platform Editor - Live JSON + Tilt</title>
+<title>Map Maker</title>
 <style>
 body { margin:0; display:flex; height:100vh; font-family:sans-serif; }
 #editor { flex:1; position:relative; background:#222; overflow:hidden; }
 canvas { width:100%; height:100%; display:block; cursor:crosshair; }
 #sidebar { width:300px; background:#111; color:white; padding:10px; overflow-y:auto; }
 h2 { margin:10px 0; font-size:18px; }
-label { display:block; margin-top:8px; }
+label { display:block; margin-top:8px; font-size:14px; }
 input, select, textarea { width:100%; margin-top:3px; }
 textarea { background:#000; color:#0f0; font-family:monospace; font-size:12px; }
 #jsonIn { height:100px; color:#0ff; background:#000; margin-bottom:10px; }
@@ -27,6 +27,19 @@ textarea { background:#000; color:#0f0; font-family:monospace; font-size:12px; }
 
   <h2>Object eigenschappen</h2>
   <div id="props">
+    <label>Type
+      <select id="propType">
+        <option value="platform">Platform</option>
+        <option value="decor">Decor</option>
+      </select>
+    </label>
+    <label>Layer (decor)
+      <select id="propLayer">
+        <option value="">(geen)</option>
+        <option value="behind">Behind</option>
+        <option value="front">Front</option>
+      </select>
+    </label>
     <label>X <input type="number" id="propX"></label>
     <label>Y <input type="number" id="propY"></label>
     <label>Breedte <input type="number" id="propW"></label>
@@ -51,186 +64,148 @@ textarea { background:#000; color:#0f0; font-family:monospace; font-size:12px; }
 </div>
 
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth - 300;
-canvas.height = window.innerHeight;
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth-300;
+canvas.height=window.innerHeight;
 
-let camX=0, camY=0, isPanning=false, panLastX=0, panLastY=0;
-let objects=[], selected=null, dragging=false, resizeMode=false, rotateMode=false, offsetX=0, offsetY=0, rotateStart=0;
+let camX=0,camY=0,isPanning=false,panLastX=0,panLastY=0;
+let objects=[],selected=null,dragging=false,offsetX=0,offsetY=0;
 let textures=[];
+let player={x:200,y:200,w:50,h:50};
 
-// Start player in midden van scherm
-let player = { x: (window.innerWidth-300)/2, y: window.innerHeight/2, w: 50, h: 50 };
-
-const propX=document.getElementById('propX');
-const propY=document.getElementById('propY');
-const propW=document.getElementById('propW');
-const propH=document.getElementById('propH');
-const propAngle=document.getElementById('propAngle');
-const propTexture=document.getElementById('propTexture');
-const propTextureUrl=document.getElementById('propTextureUrl');
-const playerX=document.getElementById('playerX');
-const playerY=document.getElementById('playerY');
-const playerW=document.getElementById('playerW');
-const playerH=document.getElementById('playerH');
-const jsonOut=document.getElementById('jsonOut');
-const jsonIn=document.getElementById('jsonIn');
-const loadJsonBtn=document.getElementById('loadJsonBtn');
+const propType=document.getElementById("propType");
+const propLayer=document.getElementById("propLayer");
+const propX=document.getElementById("propX");
+const propY=document.getElementById("propY");
+const propW=document.getElementById("propW");
+const propH=document.getElementById("propH");
+const propAngle=document.getElementById("propAngle");
+const propTexture=document.getElementById("propTexture");
+const propTextureUrl=document.getElementById("propTextureUrl");
+const playerX=document.getElementById("playerX");
+const playerY=document.getElementById("playerY");
+const playerW=document.getElementById("playerW");
+const playerH=document.getElementById("playerH");
+const jsonOut=document.getElementById("jsonOut");
+const jsonIn=document.getElementById("jsonIn");
+const loadJsonBtn=document.getElementById("loadJsonBtn");
 
 function updateTextureOptions(){
-    propTexture.innerHTML='<option value="">Geen</option>';
-    textures.forEach(t=>{propTexture.innerHTML+=`<option value="${t}">${t}</option>`;});
+  propTexture.innerHTML='<option value="">Geen</option>';
+  textures.forEach(t=>propTexture.innerHTML+=`<option value="${t}">${t}</option>`);
 }
 
 function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    for(const obj of objects){
-        const drawX=obj.x-camX, drawY=obj.y-camY;
-        ctx.save();
-        ctx.translate(drawX,drawY);
-        ctx.rotate((obj.angle||0)*Math.PI/180);
-        if(obj.texture){
-            const img=new Image();
-            img.src=obj.texture;
-            img.onload=()=>ctx.drawImage(img,-obj.w/2,-obj.h/2,obj.w,obj.h);
-            ctx.drawImage(img,-obj.w/2,-obj.h/2,obj.w,obj.h);
-        } else { ctx.fillStyle=obj===selected?'orange':'gray'; ctx.fillRect(-obj.w/2,-obj.h/2,obj.w,obj.h);}
-        if(obj===selected){ ctx.strokeStyle='yellow'; ctx.lineWidth=2; ctx.strokeRect(-obj.w/2,-obj.h/2,obj.w,obj.h);}
-        ctx.fillStyle='red';
-        ctx.beginPath();
-        ctx.arc(obj.w/2,-obj.h/2,6,0,2*Math.PI);
-        ctx.fill();
-        ctx.restore();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(const obj of objects){
+    const drawX=obj.x-camX,drawY=obj.y-camY;
+    ctx.save();
+    ctx.translate(drawX,drawY);
+    ctx.rotate((obj.angle||0)*Math.PI/180);
+    ctx.fillStyle=obj===selected?'orange':'gray';
+    ctx.fillRect(-obj.w/2,-obj.h/2,obj.w,obj.h);
+    if(obj===selected){
+      ctx.strokeStyle="yellow";ctx.lineWidth=2;
+      ctx.strokeRect(-obj.w/2,-obj.h/2,obj.w,obj.h);
     }
-    ctx.fillStyle='lime';
-    ctx.fillRect(player.x-camX,player.y-camY,player.w,player.h);
-    ctx.strokeStyle='yellow';
-    ctx.lineWidth=2;
-    ctx.strokeRect(player.x-camX,player.y-camY,player.w,player.h);
-    ctx.fillStyle='white';
-    ctx.font='12px sans-serif';
-    ctx.fillText('PLAYER',player.x-camX+5,player.y-camY+15);
+    ctx.restore();
+  }
+  ctx.fillStyle="lime";
+  ctx.fillRect(player.x-camX,player.y-camY,player.w,player.h);
+  ctx.strokeStyle="yellow";ctx.strokeRect(player.x-camX,player.y-camY,player.w,player.h);
+  ctx.fillStyle="white";ctx.fillText("PLAYER",player.x-camX+5,player.y-camY+15);
 }
 
 function updateProps(){
-    if(selected){
-        propX.value=Math.round(selected.x);
-        propY.value=Math.round(selected.y);
-        propW.value=Math.round(selected.w);
-        propH.value=Math.round(selected.h);
-        propAngle.value=Math.round(selected.angle||0);
-        propTexture.value=selected.texture||'';
-        propTextureUrl.value=selected.texture||'';
-    }
-    playerX.value=player.x;
-    playerY.value=player.y;
-    playerW.value=player.w;
-    playerH.value=player.h;
-    updateJSON();
+  if(selected){
+    propType.value=selected.type||"platform";
+    propLayer.value=selected.layer||"";
+    propX.value=Math.round(selected.x);
+    propY.value=Math.round(selected.y);
+    propW.value=Math.round(selected.w);
+    propH.value=Math.round(selected.h);
+    propAngle.value=Math.round(selected.angle||0);
+    propTextureUrl.value=selected.texture||"";
+  }
+  playerX.value=player.x;playerY.value=player.y;
+  playerW.value=player.w;playerH.value=player.h;
+  updateJSON();
 }
 
 function applyProps(){
-    if(selected){
-        selected.x=parseInt(propX.value);
-        selected.y=parseInt(propY.value);
-        selected.w=parseInt(propW.value);
-        selected.h=parseInt(propH.value);
-        selected.angle=parseFloat(propAngle.value)||0;
-        selected.texture=(propTextureUrl.value.trim()||propTexture.value)||null;
-        draw();
-        updateTextureOptions();
-    }
-    player.x=parseInt(playerX.value);
-    player.y=parseInt(playerY.value);
-    player.w=parseInt(playerW.value);
-    player.h=parseInt(playerH.value);
-    draw();
-    updateJSON();
+  if(selected){
+    selected.type=propType.value;
+    selected.layer=propLayer.value||null;
+    selected.x=parseInt(propX.value);selected.y=parseInt(propY.value);
+    selected.w=parseInt(propW.value);selected.h=parseInt(propH.value);
+    selected.angle=parseFloat(propAngle.value)||0;
+    selected.texture=(propTextureUrl.value.trim()||propTexture.value)||null;
+    updateTextureOptions();
+  }
+  player.x=parseInt(playerX.value);
+  player.y=parseInt(playerY.value);
+  player.w=parseInt(playerW.value);
+  player.h=parseInt(playerH.value);
+  draw();updateJSON();
 }
-
-[propX,propY,propW,propH,propAngle,propTexture,propTextureUrl,playerX,playerY,playerW,playerH].forEach(inp=>inp.addEventListener('input',applyProps));
+[propType,propLayer,propX,propY,propW,propH,propAngle,propTexture,propTextureUrl,playerX,playerY,playerW,playerH]
+.forEach(inp=>inp.addEventListener("input",applyProps));
 
 function updateJSON(){
-    const texturesMap=[];
-    const platforms=[];
-    objects.forEach((o,i)=>{
-        let texId=null;
-        if(o.texture){
-            let idx=texturesMap.indexOf(o.texture);
-            if(idx===-1){texturesMap.push(o.texture);idx=texturesMap.length-1;}
-            texId=idx;
-        }
-        platforms.push({x:o.x,y:o.y,w:o.w,h:o.h,id:o.id||'plat'+i,textureId:texId,angle:o.angle||0});
-    });
-    const jsonStr=`{ "playerStart": {"x":${player.x},"y":${player.y},"w":${player.w},"h":${player.h}}, "textures":[${texturesMap.map(t=>`"${t}"`).join(',')}], "platforms":[${platforms.map(p=>`{"x":${p.x},"y":${p.y},"w":${p.w},"h":${p.h},"id":"${p.id}","textureId":${p.textureId},"angle":${p.angle}}`).join(',')}] }`;
-    jsonOut.value=jsonStr;
+  const texturesMap=[];
+  const platforms=[],decor=[];
+  objects.forEach((o,i)=>{
+    let texId=null;
+    if(o.texture){
+      let idx=texturesMap.indexOf(o.texture);
+      if(idx===-1){texturesMap.push(o.texture);idx=texturesMap.length-1;}
+      texId=idx;
+    }
+    const base={x:o.x,y:o.y,w:o.w,h:o.h,id:o.id||"obj"+i,textureId:texId,angle:o.angle||0};
+    if(o.type==="decor"){
+      base.layer=o.layer||"";
+      decor.push(base);
+    }else{
+      platforms.push(base);
+    }
+  });
+  const json={playerStart:player,textures:texturesMap,platforms,decor};
+  jsonOut.value=JSON.stringify(json,null,2);
 }
 
-function distance(x1,y1,x2,y2){return Math.hypot(x1-x2,y1-y2);}
-function overRotateHandle(obj,mx,my){return distance(mx,obj.x+obj.w/2,my,obj.y-obj.h/2)<8;}
-function overObject(obj,mx,my){
-    const dx=mx-obj.x, dy=my-obj.y;
-    const cos=Math.cos(-obj.angle*Math.PI/180);
-    const sin=Math.sin(-obj.angle*Math.PI/180);
-    const localX=dx*cos-dy*sin, localY=dx*sin+dy*cos;
-    return localX>=-obj.w/2 && localX<=obj.w/2 && localY>=-obj.h/2 && localY<=obj.h/2;
-}
-
-canvas.addEventListener('mousedown',e=>{
-    const x=e.offsetX+camX, y=e.offsetY+camY;
-    if(e.button===2){
-        for(let i=objects.length-1;i>=0;i--){
-            if(overObject(objects[i],x,y)){ objects.splice(i,1); selected=null; draw(); updateJSON(); return; }
-        }
-    } else {
-        if(e.shiftKey){ isPanning=true; panLastX=e.offsetX; panLastY=e.offsetY; return;}
-        for(let i=objects.length-1;i>=0;i--){
-            const obj=objects[i];
-            if(overRotateHandle(obj,x,y)){ selected=obj; rotateMode=true; dragging=true; rotateStart=Math.atan2(y-obj.y,x-obj.x)-obj.angle*Math.PI/180; updateProps(); draw(); return;}
-            if(overObject(obj,x,y)){ selected=obj; resizeMode=false; rotateMode=false; dragging=true; offsetX=x-obj.x; offsetY=y-obj.y; updateProps(); draw(); return;}
-        }
-        selected={x:x,y:y,w:200,h:20,texture:null,id:'obj'+(objects.length+1),angle:0};
-        objects.push(selected); dragging=true; resizeMode=false; rotateMode=false; offsetX=0; offsetY=0; updateProps(); draw();
+canvas.addEventListener("mousedown",e=>{
+  const x=e.offsetX+camX,y=e.offsetY+camY;
+  for(let i=objects.length-1;i>=0;i--){
+    const o=objects[i];
+    if(x>=o.x-o.w/2 && x<=o.x+o.w/2 && y>=o.y-o.h/2 && y<=o.y+o.h/2){
+      selected=o;offsetX=x-o.x;offsetY=y-o.y;dragging=true;updateProps();draw();return;
     }
+  }
+  selected={x:x,y:y,w:100,h:20,angle:0,texture:null,type:"platform",layer:null};
+  objects.push(selected);offsetX=0;offsetY=0;dragging=true;updateProps();draw();
 });
-
-canvas.addEventListener('mousemove',e=>{
-    const x=e.offsetX+camX, y=e.offsetY+camY;
-    if(isPanning){ camX-=(e.offsetX-panLastX); camY-=(e.offsetY-panLastY); panLastX=e.offsetX; panLastY=e.offsetY; draw(); return;}
-    if(dragging && selected){
-        if(rotateMode){ selected.angle=(Math.atan2(y-selected.y,x-selected.x)-rotateStart)*180/Math.PI; }
-        else if(resizeMode){ selected.w=Math.max(10,(x-(selected.x-selected.w/2))+offsetX); selected.h=Math.max(10,(y-(selected.y-selected.h/2))+offsetY);}
-        else { selected.x=x-offsetX; selected.y=y-offsetY; }
-        updateProps(); draw();
-    }
+canvas.addEventListener("mousemove",e=>{
+  if(dragging&&selected){
+    const x=e.offsetX+camX,y=e.offsetY+camY;
+    selected.x=x-offsetX;selected.y=y-offsetY;
+    updateProps();draw();
+  }
 });
+canvas.addEventListener("mouseup",()=>dragging=false);
+canvas.addEventListener("contextmenu",e=>{e.preventDefault();if(selected){objects=objects.filter(o=>o!==selected);selected=null;updateJSON();draw();}});
 
-canvas.addEventListener('mouseup',()=>{ dragging=false; isPanning=false; resizeMode=false; rotateMode=false; draw(); });
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener("resize",()=>{canvas.width=window.innerWidth-300;canvas.height=window.innerHeight;draw();});
 
-window.addEventListener('resize',()=>{
-    canvas.width = window.innerWidth-300;
-    canvas.height = window.innerHeight;
-    draw();
-});
-
-// JSON loading
-loadJsonBtn.addEventListener('click',()=>{
-    try{
-        const data=JSON.parse(jsonIn.value);
-        player = {...data.playerStart};
-        objects=[];
-        data.platforms.forEach(p=>{
-            const tex = (p.textureId!=null && data.textures[p.textureId]) ? data.textures[p.textureId] : null;
-            objects.push({x:p.x,y:p.y,w:p.w,h:p.h,angle:p.angle||0,texture:tex,id:p.id});
-        });
-        textures = data.textures || [];
-        updateTextureOptions();
-        selected=null;
-        draw();
-        updateProps();
-    }catch(err){ alert('Ongeldige JSON: '+err); }
+loadJsonBtn.addEventListener("click",()=>{
+  try{
+    const data=JSON.parse(jsonIn.value);
+    player={...data.playerStart};
+    objects=[];
+    (data.platforms||[]).forEach(p=>objects.push({...p,texture:data.textures?.[p.textureId]||null,type:"platform"}));
+    (data.decor||[]).forEach(d=>objects.push({...d,texture:data.textures?.[d.textureId]||null,type:"decor"}));
+    textures=data.textures||[];updateTextureOptions();draw();updateProps();
+  }catch(err){alert("Fout in JSON: "+err);}
 });
 
 draw();
