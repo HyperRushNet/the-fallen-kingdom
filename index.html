@@ -97,8 +97,6 @@
     <div class="ability" id="dash">Dash (Shift): Ready</div>
     <div class="ability" id="airhop">Air Hop (Space): Ready</div>
     <div class="ability" id="sword">Sword (C): Ready</div>
-    <div class="ability" id="ground">Ground: Unknown</div>
-    <div class="ability" id="debug">Debug: Off</div>
   </div>
   <canvas id="gameCanvas"></canvas>
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
@@ -130,7 +128,7 @@
     };
 
     const mapData = {
-      playerStart: { x: 200, y: 200, w: 50, h: 50 },
+      playerStart: { x: 200, y: 245, w: 50, h: 50 },
       textures: [
         "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/27ea359f-4142-4716-af8a-6308370f0c7e/da7ldpg-b277dc63-489f-4475-9138-c3653e4edabd.png/v1/fill/w_1235,h_647/metal_bars__png_stock_photo_long_cc3_by_annamae22_da7ldpg-pre.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9MTAwNiIsInBhdGgiOiIvZi8yN2VhMzU5Zi00MTQyLTQ3MTYtYWY4YS02MzA4MzcwZjBjN2UvZGE3bGRwZy1iMjc3ZGM2My00ODlmLTQ0NzUtOTEzOC1jMzY1M2U0ZWRhYmQucG5nIiwid2lkdGgiOiI8PTE5MjAifV1dLCJhdWQiOlsidXJuOnNlcnZpY2U6aW1hZ2Uub3BlcmF0aW9ucyJdfQ.z5DVrhxG72lpvbehdAEUCiCTeox7NOU9RhGoddREDco"
       ],
@@ -157,15 +155,12 @@
       hud: {
         dash: document.getElementById('dash'),
         airhop: document.getElementById('airhop'),
-        sword: document.getElementById('sword'),
-        ground: document.getElementById('ground'),
-        debug: document.getElementById('debug')
+        sword: document.getElementById('sword')
       }
     };
 
     let canvasWidth = window.innerWidth;
     let canvasHeight = window.innerHeight;
-    let debugMode = false;
     let groundSensor;
 
     function preloadImages() {
@@ -286,7 +281,7 @@
       World.add(engine.world, sword);
 
       const state = {
-        keys: { left: false, right: false, up: false, dash: false, hop: false, sword: false, debug: false },
+        keys: { left: false, right: false, up: false, dash: false, hop: false, sword: false },
         isDashing: false,
         dashStartTime: 0,
         lastDash: 0,
@@ -303,18 +298,13 @@
         ShiftLeft: 'dash',
         ShiftRight: 'dash',
         Space: 'hop',
-        KeyC: 'sword',
-        KeyD: 'debug'
+        KeyC: 'sword'
       };
 
       document.addEventListener('keydown', e => {
         if (keyMap[e.code]) {
           state.keys[keyMap[e.code]] = true;
           if (e.code === 'KeyC') startSwordSwing();
-          if (e.code === 'KeyD') {
-            debugMode = !debugMode;
-            DOM.hud.debug.textContent = `Debug: ${debugMode ? 'On' : 'Off'}`;
-          }
         }
       });
 
@@ -366,7 +356,7 @@
             isSensor: true,
             isStatic: true,
             collisionFilter: CONFIG.sensor.collisionFilter,
-            render: { fillStyle: debugMode ? 'rgba(0, 255, 0, 0.5)' : 'transparent', zIndex: 3 }
+            render: { fillStyle: 'transparent', zIndex: 3 }
           }
         );
 
@@ -401,7 +391,6 @@
         updateStatus(DOM.hud.airhop, 'Air Hop (Space)', state.lastHop, CONFIG.player.hopCooldown);
         DOM.hud.sword.className = 'ability ready';
         DOM.hud.sword.textContent = 'Sword (C): Ready';
-        DOM.hud.ground.textContent = `Ground: ${isPlayerOnGround() ? 'On' : 'Off'}`;
       }
 
       setInterval(updateHUD, 100);
