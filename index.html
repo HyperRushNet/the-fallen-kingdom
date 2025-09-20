@@ -66,6 +66,7 @@ let imagesLoaded=0;
 const DOM={canvas:document.getElementById("gameCanvas"), background:document.getElementById('background'), loadingBar:document.getElementById('loadingBar'), loadingText:document.getElementById('loadingText'), loadingScreen:document.getElementById('loadingScreen'), hud:{dash:document.getElementById('dash'),airhop:document.getElementById('airhop'),sword:document.getElementById('sword')}};
 let canvasWidth=window.innerWidth;
 let canvasHeight=window.innerHeight;
+
 function preloadImages(){
     imagesToLoad.forEach(src=>{
         const img=new Image();
@@ -74,13 +75,16 @@ function preloadImages(){
         img.onerror=()=>{imagesLoaded++; updateLoading();};
     });
 }
+
 function updateLoading(){
     const progress=(imagesLoaded/imagesToLoad.length)*100;
     DOM.loadingBar.style.width=`${progress}%`;
     DOM.loadingText.textContent=`Laden... ${Math.round(progress)}%`;
     if(imagesLoaded===imagesToLoad.length){setTimeout(()=>{DOM.loadingScreen.style.display='none'; startGame();},500);}
 }
+
 let gameStarted=false;
+
 function startGame(){
     if(gameStarted) return;
     gameStarted=true;
@@ -93,12 +97,17 @@ function startGame(){
     Render.run(render);
     const runner=Runner.create();
     Runner.run(runner,engine);
-    let player=Bodies.rectangle(mapData.playerStart.x,mapData.playerStart.y,mapData.playerStart.w,mapData.playerStart.h,{restitution:0,friction:0.01,frictionAir:0.02,render:{fillStyle:'#f00'},label:'player',inertia:Infinity,collisionFilter:CONFIG.player.collisionFilter});
+
+    const PLATFORM_FRICTION = 0; // <--- Frictie op 0 gezet
+
+    let player=Bodies.rectangle(mapData.playerStart.x,mapData.playerStart.y,mapData.playerStart.w,mapData.playerStart.h,{restitution:0,friction:0,frictionAir:0.02,render:{fillStyle:'#f00'},label:'player',inertia:Infinity,collisionFilter:CONFIG.player.collisionFilter});
     player.render.zIndex = 1;
     World.add(engine.world,player);
+
     let camPos={x:mapData.playerStart.x, y:mapData.playerStart.y};
     let camTarget={x:camPos.x, y:camPos.y};
-    const PLATFORM_FRICTION = 0.1;
+
+    // Platforms
     mapData.platforms.forEach(p=>{
         const texture=mapData.textures[p.textureId];
         const imgSize=textureCache.get(texture)||{w:p.w,h:p.h};
@@ -113,10 +122,10 @@ function startGame(){
             zIndex:0
         });
         World.add(engine.world,platform);
-        const leftSensor = Bodies.rectangle(p.x - p.w/2 - 1, p.y, 2, p.h, {isStatic:true, isSensor:true, render:{fillStyle:'transparent', strokeStyle:'transparent', visible:false}, label:'wall-sensor'});
-        const rightSensor = Bodies.rectangle(p.x + p.w/2 + 1, p.y, 2, p.h, {isStatic:true, isSensor:true, render:{fillStyle:'transparent', strokeStyle:'transparent', visible:false}, label:'wall-sensor'});
-        World.add(engine.world,[leftSensor,rightSensor]);
+        // wall-sensors verwijderd
     });
+
+    // Decor
     mapData.decor?.forEach(d=>{
         const texture = mapData.textures[d.textureId];
         const imgSize = textureCache.get(texture) || {w:d.w,h:d.h};
@@ -125,6 +134,8 @@ function startGame(){
         else if(d.layer==='front') decor.render.zIndex=2;
         World.add(engine.world,decor);
     });
+
+    // Sword
     let sword;
     const swordScale = (CONFIG.player.size*0.5)/220;
     sword = Bodies.rectangle(-1000,-1000,540*swordScale,220*swordScale,{isSensor:false,restitution:0,render:{sprite:{texture:swordRightUrl,xScale:swordScale,yScale:swordScale,opacity:1}},label:'sword',collisionFilter:CONFIG.sword.collisionFilter});
@@ -132,6 +143,8 @@ function startGame(){
     sword.active=false;
     sword.render.visible = false;
     World.add(engine.world,sword);
+
+    // Player state
     const state={keys:{left:false,right:false,up:false,dash:false,hop:false,sword:false},isDashing:false,dashStartTime:0,lastDash:0,lastHop:0,isFrozen:false,activeSword:null,facingDirection:1};
     const keyMap={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ShiftLeft:'dash',ShiftRight:'dash',Space:'hop',KeyC:'sword'};
     document.addEventListener('keydown',e=>{
@@ -141,142 +154,149 @@ function startGame(){
         }
     });
     document.addEventListener('keyup',e=>{if(keyMap[e.code]) state.keys[keyMap[e.code]]=false;});
+
     let swordInterval = null;
-function startSwordSwing(){
-    if(!sword) return;
-    if(swordInterval){
-        clearInterval(swordInterval);
-        sword.active = false;
-        sword.render.visible = false;
-        sword.isStatic = false;
-        Body.setPosition(sword, {x:-1000, y:-1000});
-    }
-    sword.active = true;
-    sword.render.visible = true;
-    sword.isStatic = true;
-    const dir = state.facingDirection;
-    sword.render.sprite.texture = dir === 1 ? swordRightUrl : swordLeftUrl;
-    const swingDuration = CONFIG.sword.swingDuration;
-    const startAngle = -Math.PI/4;
-    const endAngle = Math.PI/4;
-    const totalSteps = swingDuration / 16;
-    let stepCount = 0;
-    swordInterval = setInterval(() => {
-        const t = stepCount / totalSteps;
-        const angle = startAngle + (endAngle - startAngle) * t;
-        const offsetX = CONFIG.sword.offsetX * dir;
-        const offsetY = CONFIG.sword.offsetY;
-        const x = player.position.x + offsetX * Math.cos(player.angle) - offsetY * Math.sin(player.angle);
-        const y = player.position.y + offsetX * Math.sin(player.angle) + offsetY * Math.cos(player.angle);
-        Body.setPosition(sword, {x, y});
-        Body.setAngle(sword, angle * dir + player.angle);
-        stepCount++;
-        if(stepCount > totalSteps){
+    function startSwordSwing(){
+        if(!sword) return;
+        if(swordInterval){
             clearInterval(swordInterval);
-            swordInterval = null;
             sword.active = false;
             sword.render.visible = false;
             sword.isStatic = false;
             Body.setPosition(sword, {x:-1000, y:-1000});
         }
-    },16);
-}
-function getGroundAngle(){
-    const leftSensor = Bodies.rectangle(player.bounds.min.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
-    const rightSensor = Bodies.rectangle(player.bounds.max.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
-    const bodies = Composite.allBodies(engine.world);
-    const leftColl = Query.collides(leftSensor,bodies);
-    const rightColl = Query.collides(rightSensor,bodies);
-    World.remove(engine.world,[leftSensor,rightSensor]);
-    let leftAngle=null,rightAngle=null;
-    leftColl.forEach(c=>{if(['static-platform','slope'].includes(c.bodyA.label)||['static-platform','slope'].includes(c.bodyB.label)) leftAngle=(c.bodyA.label==='player'?c.bodyB.angle:c.bodyA.angle)||0;});
-    rightColl.forEach(c=>{if(['static-platform','slope'].includes(c.bodyA.label)||['static-platform','slope'].includes(c.bodyB.label)) rightAngle=(c.bodyA.label==='player'?c.bodyB.angle:c.bodyA.angle)||0;});
-    if(leftAngle!==null&&rightAngle!==null) return (leftAngle+rightAngle)/2;
-    if(leftAngle!==null) return leftAngle;
-    if(rightAngle!==null) return rightAngle;
-    return null;
-}
-function isPlayerOnGround(){return getGroundAngle()!==null;}
-function updateHUD(){
-    const now=Date.now();
-    const dashReady = now-state.lastDash>=CONFIG.player.dashCooldown;
-    const hopReady = now-state.lastHop>=CONFIG.player.hopCooldown;
-    DOM.hud.dash.className = `ability ${dashReady ? 'ready':'cooldown'}`;
-    DOM.hud.dash.textContent = `Dash (Shift): ${dashReady ? 'Ready':Math.ceil((CONFIG.player.dashCooldown-(now-state.lastDash))/1000)+'s'}`;
-    DOM.hud.airhop.className = `ability ${hopReady ? 'ready':'cooldown'}`;
-    DOM.hud.airhop.textContent = `Air Hop (Space): ${hopReady ? 'Ready':Math.ceil((CONFIG.player.hopCooldown-(now-state.lastHop))/1000)+'s'}`;
-    DOM.hud.sword.className='ability ready';
-    DOM.hud.sword.textContent='Sword (C): Ready';
-}
-setInterval(updateHUD,100);
-window.addEventListener('resize',()=>{
-    canvasWidth=window.innerWidth;
-    canvasHeight=window.innerHeight;
-    DOM.canvas.width=canvasWidth;
-    DOM.canvas.height=canvasHeight;
-    render.options.width=canvasWidth;
-    render.options.height=canvasHeight;
-});
-Render.lookAt(render,{min:{x:mapData.playerStart.x-canvasWidth/2,y:mapData.playerStart.y-canvasHeight/2},max:{x:mapData.playerStart.x+canvasWidth/2,y:mapData.playerStart.y+canvasHeight/2}});
-Events.on(engine,'beforeUpdate',()=>{
-    const now=Date.now();
-    if(state.keys.right&&!state.keys.left) state.facingDirection=1;
-    else if(state.keys.left&&!state.keys.right) state.facingDirection=-1;
-    if(!state.isFrozen){
-        if(state.keys.dash && !state.isDashing && now-state.lastDash>=CONFIG.player.dashCooldown){
-            let dashDir=0;
-            if(state.keys.left) dashDir=-CONFIG.player.dashSpeed;
-            if(state.keys.right) dashDir=CONFIG.player.dashSpeed;
-            if(dashDir!==0){Body.setVelocity(player,{x:dashDir,y:player.velocity.y}); state.isDashing=true; state.dashStartTime=now; state.lastDash=now;}
-        }
-        if(state.isDashing && now-state.dashStartTime>=CONFIG.player.dashDuration){state.isDashing=false; Body.setVelocity(player,{x:0,y:player.velocity.y});}
-        if(state.keys.hop && !isPlayerOnGround() && now-state.lastHop>=CONFIG.player.hopCooldown){Body.setVelocity(player,{x:player.velocity.x,y:CONFIG.player.airHopVelocity}); state.lastHop=now;}
-        if(!state.isDashing){
-            const curr=player.velocity.x;
-            const target=(state.keys.right?CONFIG.player.speed:0)-(state.keys.left?CONFIG.player.speed:0);
-            Body.setVelocity(player,{x:curr+(target-curr)*0.2,y:player.velocity.y});
-        }
-        if(state.keys.up && isPlayerOnGround()){Body.setVelocity(player,{x:player.velocity.x,y:CONFIG.player.jumpVelocity});}
-    }
-    const groundAngle=getGroundAngle();
-    if(groundAngle!==null){
-        const current=player.angle;
-        const diff=groundAngle-current;
-        let normalized=diff-(2*Math.PI)*Math.round(diff/(2*Math.PI));
-        Body.setAngle(player,current+normalized*CONFIG.player.rotationLerp);
-    } else {
-        const current=player.angle;
-        const diff=0-current;
-        Body.setAngle(player,current+diff*CONFIG.player.rotationLerp);
-    }
-    camTarget.x=player.position.x;
-    camTarget.y=player.position.y;
-    camPos.x+=(camTarget.x-camPos.x)*CONFIG.camera.smoothFactor;
-    camPos.y+=(camTarget.y-camPos.y)*CONFIG.camera.smoothFactor;
-    const camX=camPos.x-canvasWidth/2;
-    const camY=camPos.y-canvasHeight/2;
-    render.bounds.min.x=camX; render.bounds.min.y=camY;
-    render.bounds.max.x=camX+canvasWidth; render.bounds.max.y=camY+canvasHeight;
-    Render.lookAt(render,{min:{x:camX,y:camY}, max:{x:camX+canvasWidth,y:camY+canvasHeight}});
-    DOM.background.style.backgroundPosition=`${-camX*CONFIG.camera.bgPanSpeed}px ${-camY*CONFIG.camera.bgPanSpeed}px`;
-    const margin=500;
-    const cullBounds={min:{x:camX-margin,y:camY-margin},max:{x:camX+canvasWidth+margin,y:camY+canvasHeight+margin}};
-    const bodies = Composite.allBodies(engine.world);
-    bodies.sort((a,b)=> (a.render.zIndex||0) - (b.render.zIndex||0));
-    bodies.forEach(body=>{
-        if(body.label==='player' || body.label==='sword'){ body.render.visible=true; return; }
-        const b=body.bounds;
-        const inView=b.max.x>cullBounds.min.x && b.min.x<cullBounds.max.x && b.max.y>cullBounds.min.y && b.min.y<cullBounds.max.y;
-        body.render.visible = inView;
-        if(!inView){
-            body.collisionFilter.mask = 0x0000;
-        } else {
-            if(body.label==='slope'||body.label==='static-platform'){
-                body.collisionFilter.mask = 0x0001;
+        sword.active = true;
+        sword.render.visible = true;
+        sword.isStatic = true;
+        const dir = state.facingDirection;
+        sword.render.sprite.texture = dir === 1 ? swordRightUrl : swordLeftUrl;
+        const swingDuration = CONFIG.sword.swingDuration;
+        const startAngle = -Math.PI/4;
+        const endAngle = Math.PI/4;
+        const totalSteps = swingDuration / 16;
+        let stepCount = 0;
+        swordInterval = setInterval(() => {
+            const t = stepCount / totalSteps;
+            const angle = startAngle + (endAngle - startAngle) * t;
+            const offsetX = CONFIG.sword.offsetX * dir;
+            const offsetY = CONFIG.sword.offsetY;
+            const x = player.position.x + offsetX * Math.cos(player.angle) - offsetY * Math.sin(player.angle);
+            const y = player.position.y + offsetX * Math.sin(player.angle) + offsetY * Math.cos(player.angle);
+            Body.setPosition(sword, {x, y});
+            Body.setAngle(sword, angle * dir + player.angle);
+            stepCount++;
+            if(stepCount > totalSteps){
+                clearInterval(swordInterval);
+                swordInterval = null;
+                sword.active = false;
+                sword.render.visible = false;
+                sword.isStatic = false;
+                Body.setPosition(sword, {x:-1000, y:-1000});
             }
-        }
+        },16);
+    }
+
+    // Ground detection
+    function getGroundAngle(){
+        const leftSensor = Bodies.rectangle(player.bounds.min.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
+        const rightSensor = Bodies.rectangle(player.bounds.max.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
+        const bodies = Composite.allBodies(engine.world);
+        const leftColl = Query.collides(leftSensor,bodies);
+        const rightColl = Query.collides(rightSensor,bodies);
+        World.remove(engine.world,[leftSensor,rightSensor]);
+        let leftAngle=null,rightAngle=null;
+        leftColl.forEach(c=>{if(['static-platform','slope'].includes(c.bodyA.label)||['static-platform','slope'].includes(c.bodyB.label)) leftAngle=(c.bodyA.label==='player'?c.bodyB.angle:c.bodyA.angle)||0;});
+        rightColl.forEach(c=>{if(['static-platform','slope'].includes(c.bodyA.label)||['static-platform','slope'].includes(c.bodyB.label)) rightAngle=(c.bodyA.label==='player'?c.bodyB.angle:c.bodyA.angle)||0;});
+        if(leftAngle!==null&&rightAngle!==null) return (leftAngle+rightAngle)/2;
+        if(leftAngle!==null) return leftAngle;
+        if(rightAngle!==null) return rightAngle;
+        return null;
+    }
+
+    function isPlayerOnGround(){return getGroundAngle()!==null;}
+    function updateHUD(){
+        const now=Date.now();
+        const dashReady = now-state.lastDash>=CONFIG.player.dashCooldown;
+        const hopReady = now-state.lastHop>=CONFIG.player.hopCooldown;
+        DOM.hud.dash.className = `ability ${dashReady ? 'ready':'cooldown'}`;
+        DOM.hud.dash.textContent = `Dash (Shift): ${dashReady ? 'Ready':Math.ceil((CONFIG.player.dashCooldown-(now-state.lastDash))/1000)+'s'}`;
+        DOM.hud.airhop.className = `ability ${hopReady ? 'ready':'cooldown'}`;
+        DOM.hud.airhop.textContent = `Air Hop (Space): ${hopReady ? 'Ready':Math.ceil((CONFIG.player.hopCooldown-(now-state.lastHop))/1000)+'s'}`;
+        DOM.hud.sword.className='ability ready';
+        DOM.hud.sword.textContent='Sword (C): Ready';
+    }
+    setInterval(updateHUD,100);
+
+    window.addEventListener('resize',()=>{
+        canvasWidth=window.innerWidth;
+        canvasHeight=window.innerHeight;
+        DOM.canvas.width=canvasWidth;
+        DOM.canvas.height=canvasHeight;
+        render.options.width=canvasWidth;
+        render.options.height=canvasHeight;
     });
-});
+
+    Render.lookAt(render,{min:{x:mapData.playerStart.x-canvasWidth/2,y:mapData.playerStart.y-canvasHeight/2},max:{x:mapData.playerStart.x+canvasWidth/2,y:mapData.playerStart.y+canvasHeight/2}});
+
+    Events.on(engine,'beforeUpdate',()=>{
+        const now=Date.now();
+        if(state.keys.right&&!state.keys.left) state.facingDirection=1;
+        else if(state.keys.left&&!state.keys.right) state.facingDirection=-1;
+        if(!state.isFrozen){
+            if(state.keys.dash && !state.isDashing && now-state.lastDash>=CONFIG.player.dashCooldown){
+                let dashDir=0;
+                if(state.keys.left) dashDir=-CONFIG.player.dashSpeed;
+                if(state.keys.right) dashDir=CONFIG.player.dashSpeed;
+                if(dashDir!==0){Body.setVelocity(player,{x:dashDir,y:player.velocity.y}); state.isDashing=true; state.dashStartTime=now; state.lastDash=now;}
+            }
+            if(state.isDashing && now-state.dashStartTime>=CONFIG.player.dashDuration){state.isDashing=false; Body.setVelocity(player,{x:0,y:player.velocity.y});}
+            if(state.keys.hop && !isPlayerOnGround() && now-state.lastHop>=CONFIG.player.hopCooldown){Body.setVelocity(player,{x:player.velocity.x,y:CONFIG.player.airHopVelocity}); state.lastHop=now;}
+            if(!state.isDashing){
+                const curr=player.velocity.x;
+                const target=(state.keys.right?CONFIG.player.speed:0)-(state.keys.left?CONFIG.player.speed:0);
+                Body.setVelocity(player,{x:curr+(target-curr)*0.2,y:player.velocity.y});
+            }
+            if(state.keys.up && isPlayerOnGround()){Body.setVelocity(player,{x:player.velocity.x,y:CONFIG.player.jumpVelocity});}
+        }
+        const groundAngle=getGroundAngle();
+        if(groundAngle!==null){
+            const current=player.angle;
+            const diff=groundAngle-current;
+            let normalized=diff-(2*Math.PI)*Math.round(diff/(2*Math.PI));
+            Body.setAngle(player,current+normalized*CONFIG.player.rotationLerp);
+        } else {
+            const current=player.angle;
+            const diff=0-current;
+            Body.setAngle(player,current+diff*CONFIG.player.rotationLerp);
+        }
+        camTarget.x=player.position.x;
+        camTarget.y=player.position.y;
+        camPos.x+=(camTarget.x-camPos.x)*CONFIG.camera.smoothFactor;
+        camPos.y+=(camTarget.y-camPos.y)*CONFIG.camera.smoothFactor;
+        const camX=camPos.x-canvasWidth/2;
+        const camY=camPos.y-canvasHeight/2;
+        render.bounds.min.x=camX; render.bounds.min.y=camY;
+        render.bounds.max.x=camX+canvasWidth; render.bounds.max.y=camY+canvasHeight;
+        Render.lookAt(render,{min:{x:camX,y:camY}, max:{x:camX+canvasWidth,y:camY+canvasHeight}});
+        DOM.background.style.backgroundPosition=`${-camX*CONFIG.camera.bgPanSpeed}px ${-camY*CONFIG.camera.bgPanSpeed}px`;
+        const margin=500;
+        const cullBounds={min:{x:camX-margin,y:camY-margin},max:{x:camX+canvasWidth+margin,y:camY+canvasHeight+margin}};
+        const bodies = Composite.allBodies(engine.world);
+        bodies.sort((a,b)=> (a.render.zIndex||0) - (b.render.zIndex||0));
+        bodies.forEach(body=>{
+            if(body.label==='player' || body.label==='sword'){ body.render.visible=true; return; }
+            const b=body.bounds;
+            const inView=b.max.x>cullBounds.min.x && b.min.x<cullBounds.max.x && b.max.y>cullBounds.min.y && b.min.y<cullBounds.max.y;
+            body.render.visible = inView;
+            if(!inView){
+                body.collisionFilter.mask = 0x0000;
+            } else {
+                if(body.label==='slope'||body.label==='static-platform'){
+                    body.collisionFilter.mask = 0x0001;
+                }
+            }
+        });
+    });
 }
 preloadImages();
 </script>
