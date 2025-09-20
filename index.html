@@ -58,8 +58,8 @@ const mapData = {
         {x:600,y:-50,w:100,h:100,textureId:0,layer:"front"}
     ]
 };
-const swordRightUrl='https://hyperrushnet.github.io/v3concept/sword-image-game-no-bg.png';
-const swordLeftUrl='https://hyperrushnet.github.io/game/images/sword-left.png';
+const swordRightUrl='./images/sword-right.png';
+const swordLeftUrl='./images/sword-left.png';
 const textureCache=new Map();
 const imagesToLoad=[...new Set([...mapData.textures, swordRightUrl, swordLeftUrl])];
 let imagesLoaded=0;
@@ -98,8 +98,7 @@ function startGame(){
     const runner=Runner.create();
     Runner.run(runner,engine);
 
-    const PLATFORM_FRICTION = 0; // <--- Frictie op 0 gezet
-
+    const PLATFORM_FRICTION = 0; 
     let player=Bodies.rectangle(mapData.playerStart.x,mapData.playerStart.y,mapData.playerStart.w,mapData.playerStart.h,{restitution:0,friction:0,frictionAir:0.02,render:{fillStyle:'#f00'},label:'player',inertia:Infinity,collisionFilter:CONFIG.player.collisionFilter});
     player.render.zIndex = 1;
     World.add(engine.world,player);
@@ -107,7 +106,6 @@ function startGame(){
     let camPos={x:mapData.playerStart.x, y:mapData.playerStart.y};
     let camTarget={x:camPos.x, y:camPos.y};
 
-    // Platforms
     mapData.platforms.forEach(p=>{
         const texture=mapData.textures[p.textureId];
         const imgSize=textureCache.get(texture)||{w:p.w,h:p.h};
@@ -122,10 +120,9 @@ function startGame(){
             zIndex:0
         });
         World.add(engine.world,platform);
-        // wall-sensors verwijderd
+        
     });
 
-    // Decor
     mapData.decor?.forEach(d=>{
         const texture = mapData.textures[d.textureId];
         const imgSize = textureCache.get(texture) || {w:d.w,h:d.h};
@@ -135,7 +132,6 @@ function startGame(){
         World.add(engine.world,decor);
     });
 
-    // Sword
     let sword;
     const swordScale = (CONFIG.player.size*0.5)/220;
     sword = Bodies.rectangle(-1000,-1000,540*swordScale,220*swordScale,{isSensor:false,restitution:0,render:{sprite:{texture:swordRightUrl,xScale:swordScale,yScale:swordScale,opacity:1}},label:'sword',collisionFilter:CONFIG.sword.collisionFilter});
@@ -144,7 +140,6 @@ function startGame(){
     sword.render.visible = false;
     World.add(engine.world,sword);
 
-    // Player state
     const state={keys:{left:false,right:false,up:false,dash:false,hop:false,sword:false},isDashing:false,dashStartTime:0,lastDash:0,lastHop:0,isFrozen:false,activeSword:null,facingDirection:1};
     const keyMap={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ShiftLeft:'dash',ShiftRight:'dash',Space:'hop',KeyC:'sword'};
     document.addEventListener('keydown',e=>{
@@ -196,7 +191,6 @@ function startGame(){
         },16);
     }
 
-    // Ground detection
     function getGroundAngle(){
         const leftSensor = Bodies.rectangle(player.bounds.min.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
         const rightSensor = Bodies.rectangle(player.bounds.max.x,player.bounds.max.y+CONFIG.sensor.offsetY,CONFIG.sensor.size,CONFIG.sensor.size,{isSensor:true,isStatic:true});
