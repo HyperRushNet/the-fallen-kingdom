@@ -9,7 +9,7 @@
 <title>The Fallen Kingdom</title>
 <style>
 body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
-#background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-image: url('https://www.shutterstock.com/blog/wp-content/uploads/sites/5/2021/01/shutterstock_112280795.jpg?w=750'); background-repeat: repeat; background-size: 350px 350px; filter: brightness(50%); }
+#background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: #000; }
 canvas { display: block; background: transparent; }
 #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 1; }
 .ability { margin-bottom: 5px; }
@@ -120,7 +120,6 @@ function startGame(){
             zIndex:0
         });
         World.add(engine.world,platform);
-        
     });
 
     mapData.decor?.forEach(d=>{
@@ -272,22 +271,22 @@ function startGame(){
         render.bounds.min.x=camX; render.bounds.min.y=camY;
         render.bounds.max.x=camX+canvasWidth; render.bounds.max.y=camY+canvasHeight;
         Render.lookAt(render,{min:{x:camX,y:camY}, max:{x:camX+canvasWidth,y:camY+canvasHeight}});
-        DOM.background.style.backgroundPosition=`${-camX*CONFIG.camera.bgPanSpeed}px ${-camY*CONFIG.camera.bgPanSpeed}px`;
-        const margin=500;
-        const cullBounds={min:{x:camX-margin,y:camY-margin},max:{x:camX+canvasWidth+margin,y:camY+canvasHeight+margin}};
+        DOM.background.style.backgroundPosition=`0px 0px`;
+
+        const MARGIN = 500;
         const bodies = Composite.allBodies(engine.world);
         bodies.sort((a,b)=> (a.render.zIndex||0) - (b.render.zIndex||0));
         bodies.forEach(body=>{
             if(body.label==='player' || body.label==='sword'){ body.render.visible=true; return; }
-            const b=body.bounds;
-            const inView=b.max.x>cullBounds.min.x && b.min.x<cullBounds.max.x && b.max.y>cullBounds.min.y && b.min.y<cullBounds.max.y;
-            body.render.visible = inView;
-            if(!inView){
+            const dx = body.position.x - player.position.x;
+            const dy = body.position.y - player.position.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+            if(distance > MARGIN){
+                body.render.visible = false;
                 body.collisionFilter.mask = 0x0000;
             } else {
-                if(body.label==='slope'||body.label==='static-platform'){
-                    body.collisionFilter.mask = 0x0001;
-                }
+                body.render.visible = true;
+                if(body.label==='slope'||body.label==='static-platform') body.collisionFilter.mask = 0x0001;
             }
         });
     });
