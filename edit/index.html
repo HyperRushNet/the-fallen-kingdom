@@ -26,6 +26,8 @@ textarea { height:120px; resize:none; }
   <h2>JSON Import / Export</h2>
   <textarea id="jsonIn" placeholder="Paste JSON here"></textarea>
   <button id="loadJsonBtn">Load JSON</button>
+<button id="clearBtn">Clear Map</button>
+<button id="resetBtn">Reset Map</button>
 
   <h2>Selected Object</h2>
   <label>Type
@@ -39,7 +41,7 @@ textarea { height:120px; resize:none; }
   <label>Width <input type="number" id="propW"></label>
   <label>Height <input type="number" id="propH"></label>
   <label>Rotation <input type="number" id="propAngle"></label>
-  <label>Texture URL <input type="text" id="propTextureUrl"></label>
+  <label>Texture URL <input type="text" id="propTextureUrl" placeholder="Enter image URL"></label>
 
   <h2>Player</h2>
   <label>X <input type="number" id="playerX"></label>
@@ -60,6 +62,7 @@ canvas.height = window.innerHeight;
 let camX = 0, camY = 0, isPanning = false, panStartX = 0, panStartY = 0;
 let objects = [], selected = null, dragging = false, dragOffsetX = 0, dragOffsetY = 0;
 let player = { x: 200, y: 200, w: 50, h: 50 };
+let clipboard = null;
 
 const propType = document.getElementById("propType");
 const propLayer = document.getElementById("propLayer");
@@ -76,187 +79,271 @@ const playerH = document.getElementById("playerH");
 const jsonOut = document.getElementById("jsonOut");
 const jsonIn = document.getElementById("jsonIn");
 const loadJsonBtn = document.getElementById("loadJsonBtn");
+const clearBtn = document.getElementById("clearBtn");
+const resetBtn = document.getElementById("resetBtn");
 
-function draw() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// Clear: verwijder alle objects, behoud player
+clearBtn.addEventListener("click", () => {
+  objects = [];
+  selected = null;
+  draw();
+  updateJSON();
+});
+
+// Reset: lege map + default player
+resetBtn.addEventListener("click", () => {
+  objects = [];
+  selected = null;
+  player = { x: 200, y: 200, w: 50, h: 50 };
+  draw();
+  updateJSON();
+});
+
+// --- Image cache ---
+const imageCache = {};
+
+// --- Generate long random ID ---
+function generateId() {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let part1="", part2="";
+  for(let i=0;i<12;i++) part1+=chars[Math.floor(Math.random()*chars.length)];
+  for(let i=0;i<12;i++) part2+=chars[Math.floor(Math.random()*chars.length)];
+  return part1+"-"+part2;
+}
+
+// --- Draw function ---
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
-  ctx.translate(-camX, -camY);
+  ctx.translate(-camX,-camY);
 
-  const behind = objects.filter(o => o.layer === "behind");
-  const front = objects.filter(o => o.layer !== "behind");
-  [...behind, ...front].forEach(o => {
+  const behind = objects.filter(o=>o.layer==="behind");
+  const front = objects.filter(o=>o.layer!=="behind");
+  [...behind,...front].forEach(o=>{
     ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.rotate((o.angle || 0) * Math.PI / 180);
+    ctx.translate(o.x,o.y);
+    ctx.rotate((o.angle||0)*Math.PI/180);
 
-    ctx.fillStyle = o.type === "platform" ? "#654321" : o.type === "wall" ? "#444" : "#880088";
-    ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
-
-    if (o.texture) {
-      const img = new Image();
-      img.src = o.texture;
-      ctx.drawImage(img, -o.w / 2, -o.h / 2, o.w, o.h);
+    if(o.texture){
+      if(!imageCache[o.texture]){
+        const img = new Image();
+        img.src = o.texture;
+        img.onload = ()=>draw();
+        img.onerror = ()=>console.warn("Broken image:", o.texture);
+        imageCache[o.texture] = img;
+      }
+      const img = imageCache[o.texture];
+      if(img.complete && img.naturalWidth>0) ctx.drawImage(img,-o.w/2,-o.h/2,o.w,o.h);
+    } else {
+      ctx.fillStyle = o.type==="platform"? "#654321" : o.type==="wall"? "#444" : "#880088";
+      ctx.fillRect(-o.w/2,-o.h/2,o.w,o.h);
     }
 
-    if (o === selected) {
-      ctx.strokeStyle = "cyan";
-      ctx.lineWidth = 3;
-      const inset = ctx.lineWidth / 2;
+    if(o===selected){
+      ctx.strokeStyle="cyan";
+      ctx.lineWidth=3;
+      const inset = ctx.lineWidth/2;
       ctx.beginPath();
-      ctx.rect(-o.w / 2 + inset, -o.h / 2 + inset, o.w - ctx.lineWidth, o.h - ctx.lineWidth);
+      ctx.rect(-o.w/2+inset,-o.h/2+inset,o.w-ctx.lineWidth,o.h-ctx.lineWidth);
       ctx.stroke();
     }
     ctx.restore();
   });
 
-  ctx.fillStyle = "lime";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
-
-  ctx.strokeStyle = "#0ff";
-  ctx.lineWidth = 2;
-  const inset = ctx.lineWidth / 2;
+  ctx.fillStyle="lime";
+  ctx.fillRect(player.x,player.y,player.w,player.h);
+  ctx.strokeStyle="#0ff";
+  ctx.lineWidth=2;
+  const inset=ctx.lineWidth/2;
   ctx.beginPath();
-  ctx.rect(player.x + inset, player.y + inset, player.w - ctx.lineWidth, player.h - ctx.lineWidth);
+  ctx.rect(player.x+inset,player.y+inset,player.w-ctx.lineWidth,player.h-ctx.lineWidth);
   ctx.stroke();
-
-  ctx.fillStyle = "#fff";
-  ctx.fillText("PLAYER", player.x + 5, player.y + 15);
-
+  ctx.fillStyle="#fff";
+  ctx.fillText("PLAYER",player.x+5,player.y+15);
   ctx.restore();
 }
 
-function updateProps() {
-  if (selected) {
-    propType.value = selected.type || "platform";
-    propLayer.value = selected.layer || "front";
-    propX.value = Math.round(selected.x);
-    propY.value = Math.round(selected.y);
-    propW.value = Math.round(selected.w);
-    propH.value = Math.round(selected.h);
-    propAngle.value = Math.round(selected.angle || 0);
-    propTextureUrl.value = selected.texture || "";
+// --- Update & apply props ---
+function updateProps(){
+  if(selected){
+    propType.value=selected.type||"platform";
+    propLayer.value=selected.layer||"front";
+    propX.value=Math.round(selected.x);
+    propY.value=Math.round(selected.y);
+    propW.value=Math.round(selected.w);
+    propH.value=Math.round(selected.h);
+    propAngle.value=Math.round(selected.angle||0);
+    propTextureUrl.value=selected.texture||"";
   }
-  playerX.value = player.x;
-  playerY.value = player.y;
-  playerW.value = player.w;
-  playerH.value = player.h;
+  playerX.value=player.x; playerY.value=player.y; playerW.value=player.w; playerH.value=player.h;
   updateJSON();
 }
 
-function applyProps() {
-  if (selected) {
-    selected.type = propType.value;
-    selected.layer = propLayer.value || "front";
-    selected.x = parseInt(propX.value);
-    selected.y = parseInt(propY.value);
-    selected.w = parseInt(propW.value);
-    selected.h = parseInt(propH.value);
-    selected.angle = parseFloat(propAngle.value) || 0;
-    selected.texture = propTextureUrl.value || null;
+function applyProps(){
+  if(selected){
+    selected.type=propType.value;
+    selected.layer=propLayer.value||"front";
+    selected.x=parseInt(propX.value);
+    selected.y=parseInt(propY.value);
+    selected.w=parseInt(propW.value);
+    selected.h=parseInt(propH.value);
+    selected.angle=parseFloat(propAngle.value)||0;
+    selected.texture=propTextureUrl.value||null;
   }
-  player.x = parseInt(playerX.value);
-  player.y = parseInt(playerY.value);
-  player.w = parseInt(playerW.value);
-  player.h = parseInt(playerH.value);
+  player.x=parseInt(playerX.value);
+  player.y=parseInt(playerY.value);
+  player.w=parseInt(playerW.value);
+  player.h=parseInt(playerH.value);
   draw();
   updateJSON();
 }
-[propType, propLayer, propX, propY, propW, propH, propAngle, propTextureUrl, playerX, playerY, playerW, playerH].forEach(i => i.addEventListener("input", applyProps));
+[propType,propLayer,propX,propY,propW,propH,propAngle,propTextureUrl,playerX,playerY,playerW,playerH].forEach(i=>i.addEventListener("input",applyProps));
 
+// --- JSON update ---
 function updateJSON() {
   const textures = [];
-  objects.forEach(o => { if (o.texture && !textures.includes(o.texture)) textures.push(o.texture); });
-  const platforms = objects.filter(o => o.type === "platform" || o.type === "wall").map((o, i) => ({
-    x: o.x,
-    y: o.y,
-    w: o.w,
-    h: o.h,
-    angle: o.angle || 0,
-    id: o.id || ("obj" + i),
-    textureId: o.texture ? textures.indexOf(o.texture) : null,
-    type: o.type
-  }));
-  const decor = objects.filter(o => o.type === "decor").map((o, i) => ({
-    x: o.x,
-    y: o.y,
-    w: o.w,
-    h: o.h,
-    angle: o.angle || 0,
-    id: o.id || ("objD" + i),
-    textureId: o.texture ? textures.indexOf(o.texture) : null,
-    layer: o.layer || "front"
-  }));
-  const json = { playerStart: player, textures, platforms, decor };
+  // Verzamel unieke textures
+  objects.forEach(o => {
+    if (o.texture && !textures.includes(o.texture)) textures.push(o.texture);
+  });
+
+  // Platforms en walls
+  const platforms = objects
+    .filter(o => o.type === "platform" || o.type === "wall")
+    .map(o => ({
+      id: o.id || generateId(),
+      type: o.type,
+      x: o.x,
+      y: o.y,
+      w: o.w,
+      h: o.h,
+      angle: o.angle || 0,
+      textureId: o.texture ? textures.indexOf(o.texture) : null
+    }));
+
+  // Decor
+  const decor = objects
+    .filter(o => o.type === "decor")
+    .map(o => ({
+      id: o.id || generateId(),
+      type: o.type,
+      x: o.x,
+      y: o.y,
+      w: o.w,
+      h: o.h,
+      angle: o.angle || 0,
+      layer: o.layer || "front",
+      textureId: o.texture ? textures.indexOf(o.texture) : null
+    }));
+
+  // Player
+  const json = {
+    playerStart: {
+      x: player.x,
+      y: player.y,
+      w: player.w,
+      h: player.h
+    },
+    textures: textures,
+    platforms: platforms,
+    decor: decor
+  };
+
   jsonOut.value = JSON.stringify(json, null, 2);
+  localStorage.setItem("fkmapeditor", JSON.stringify(json));
 }
 
-function pointInRotatedRect(px, py, o) {
-  const rad = -o.angle * Math.PI / 180;
-  const dx = px - o.x;
-  const dy = py - o.y;
-  const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
-  const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
-  return localX >= -o.w / 2 && localX <= o.w / 2 && localY >= -o.h / 2 && localY <= o.h / 2;
+
+// --- Mouse ---
+function pointInRotatedRect(px,py,o){
+  const rad=-o.angle*Math.PI/180;
+  const dx=px-o.x,dy=py-o.y;
+  const localX=dx*Math.cos(rad)-dy*Math.sin(rad);
+  const localY=dx*Math.sin(rad)+dy*Math.cos(rad);
+  return localX>=-o.w/2 && localX<=o.w/2 && localY>=-o.h/2 && localY<=o.h/2;
 }
 
-canvas.addEventListener("mousedown", e => {
-  const x = e.offsetX + camX, y = e.offsetY + camY;
-  if (e.shiftKey) { isPanning = true; panStartX = e.clientX; panStartY = e.clientY; return; }
-
-  let clicked = null;
-  for (let i = objects.length - 1; i >= 0; i--) {
-    if (pointInRotatedRect(x, y, objects[i])) { clicked = objects[i]; break; }
+canvas.addEventListener("mousedown",e=>{
+  const x=e.offsetX+camX,y=e.offsetY+camY;
+  if(e.shiftKey){isPanning=true; panStartX=e.clientX; panStartY=e.clientY; return;}
+  let clicked=null;
+  for(let i=objects.length-1;i>=0;i--){
+    if(pointInRotatedRect(x,y,objects[i])){clicked=objects[i]; break;}
   }
-
-  if (clicked) { selected = clicked; dragging = true; dragOffsetX = x - selected.x; dragOffsetY = y - selected.y; }
-  else { selected = { x: x, y: y, w: 100, h: 20, angle: 0, texture: null, type: "platform", layer: "front" }; objects.push(selected); dragging = true; dragOffsetX = 0; dragOffsetY = 0; }
-  updateProps();
-  draw();
+  if(clicked){selected=clicked; dragging=true; dragOffsetX=x-selected.x; dragOffsetY=y-selected.y;}
+  else{
+    selected={x:x,y:y,w:100,h:20,angle:0,texture:null,type:"platform",layer:"front", id:generateId()};
+    objects.push(selected); dragging=true; dragOffsetX=0; dragOffsetY=0;
+  }
+  updateProps(); draw();
 });
 
-canvas.addEventListener("mousemove", e => {
-  const x = e.offsetX + camX, y = e.offsetY + camY;
-  if (isPanning) { camX -= (e.clientX - panStartX); camY -= (e.clientY - panStartY); panStartX = e.clientX; panStartY = e.clientY; draw(); }
-  else if (dragging && selected) { selected.x = x - dragOffsetX; selected.y = y - dragOffsetY; updateProps(); draw(); }
+canvas.addEventListener("mousemove",e=>{
+  const x=e.offsetX+camX,y=e.offsetY+camY;
+  if(isPanning){camX-=(e.clientX-panStartX); camY-=(e.clientY-panStartY); panStartX=e.clientX; panStartY=e.clientY; draw();}
+  else if(dragging && selected){selected.x=x-dragOffsetX; selected.y=y-dragOffsetY; updateProps(); draw();}
 });
 
-canvas.addEventListener("mouseup", () => { dragging = false; isPanning = false; });
+canvas.addEventListener("mouseup",()=>{dragging=false;isPanning=false;});
 
-canvas.addEventListener("contextmenu", e => {
+canvas.addEventListener("contextmenu",e=>{
   e.preventDefault();
-  if (selected) { objects = objects.filter(o => o !== selected); selected = null; updateJSON(); draw(); }
+  if(selected){objects=objects.filter(o=>o!==selected); selected=null; updateJSON(); draw();}
 });
 
-window.addEventListener("resize", () => { canvas.width = window.innerWidth - 320; canvas.height = window.innerHeight; draw(); });
+window.addEventListener("resize",()=>{canvas.width=window.innerWidth-320; canvas.height=window.innerHeight; draw();});
 
-loadJsonBtn.addEventListener("click", () => {
-  try {
-    const data = JSON.parse(jsonIn.value);
-    player = { ...data.playerStart };
-    objects = [];
-    (data.platforms || []).forEach(p => objects.push({ ...p, type: p.type, layer: "front", texture: data.textures?.[p.textureId] || null }));
-    (data.decor || []).forEach(d => objects.push({ ...d, type: "decor", layer: d.layer || "front", texture: data.textures?.[d.textureId] || null }));
-    selected = null;
-    draw();
+window.addEventListener("keydown",e=>{
+  if(!selected) return;
+  if(e.ctrlKey && e.key==="c"){clipboard={...selected}; return;}
+  if(e.ctrlKey && e.key==="v" && clipboard){
+    const newObj = {...clipboard};
+    newObj.id = generateId(); // volledig unieke ID
+    newObj.x += 20; newObj.y += 20;
+    objects.push(newObj);
+    selected = newObj;
     updateProps();
-  } catch (err) { alert("Invalid JSON: " + err); }
-});
-
-window.addEventListener("keydown", e => {
-  if (!selected) return;
-  switch (e.key) {
-    case "ArrowLeft": selected.x -= 5; break;
-    case "ArrowRight": selected.x += 5; break;
-    case "ArrowUp": selected.y -= 5; break;
-    case "ArrowDown": selected.y += 5; break;
+    draw();
+    return;
+  }
+  switch(e.key){
+    case "ArrowLeft": selected.x-=5; break;
+    case "ArrowRight": selected.x+=5; break;
+    case "ArrowUp": selected.y-=5; break;
+    case "ArrowDown": selected.y+=5; break;
     default: return;
   }
-  updateProps();
-  draw();
+  updateProps(); draw();
 });
 
-function animate() { draw(); requestAnimationFrame(animate); }
+// --- JSON load ---
+loadJsonBtn.addEventListener("click",()=>{
+  try{
+    const data=JSON.parse(jsonIn.value);
+    player={...data.playerStart};
+    objects=[];
+    (data.platforms||[]).forEach(p=>objects.push({...p,type:p.type,layer:"front",texture:data.textures?.[p.textureId]||null, id:generateId()}));
+    (data.decor||[]).forEach(d=>objects.push({...d,type:"decor",layer:d.layer||"front",texture:data.textures?.[d.textureId]||null, id:generateId()}));
+    selected=null; draw(); updateProps();
+  }catch(err){alert("Invalid JSON: "+err);}
+});
+
+// --- Load localStorage ---
+const saved=localStorage.getItem("fkmapeditor");
+if(saved){
+  try{
+    const data=JSON.parse(saved);
+    player={...data.playerStart};
+    objects=[];
+    (data.platforms||[]).forEach(p=>objects.push({...p,type:p.type,layer:"front",texture:data.textures?.[p.textureId]||null, id:generateId()}));
+    (data.decor||[]).forEach(d=>objects.push({...d,type:"decor",layer:d.layer||"front",texture:data.textures?.[d.textureId]||null, id:generateId()}));
+    draw(); updateProps();
+  }catch{}
+}
+
+// --- Animate ---
+function animate(){draw(); requestAnimationFrame(animate);}
 animate();
 </script>
 </body>
