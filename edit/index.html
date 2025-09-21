@@ -89,26 +89,37 @@ function draw() {
     ctx.save();
     ctx.translate(o.x, o.y);
     ctx.rotate((o.angle || 0) * Math.PI / 180);
+
     ctx.fillStyle = o.type === "platform" ? "#654321" : o.type === "wall" ? "#444" : "#880088";
     ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
+
     if (o.texture) {
       const img = new Image();
       img.src = o.texture;
       ctx.drawImage(img, -o.w / 2, -o.h / 2, o.w, o.h);
     }
+
     if (o === selected) {
       ctx.strokeStyle = "cyan";
       ctx.lineWidth = 3;
-      ctx.strokeRect(-o.w / 2, -o.h / 2, o.w, o.h);
+      const inset = ctx.lineWidth / 2;
+      ctx.beginPath();
+      ctx.rect(-o.w / 2 + inset, -o.h / 2 + inset, o.w - ctx.lineWidth, o.h - ctx.lineWidth);
+      ctx.stroke();
     }
     ctx.restore();
   });
 
   ctx.fillStyle = "lime";
   ctx.fillRect(player.x, player.y, player.w, player.h);
+
   ctx.strokeStyle = "#0ff";
   ctx.lineWidth = 2;
-  ctx.strokeRect(player.x, player.y, player.w, player.h);
+  const inset = ctx.lineWidth / 2;
+  ctx.beginPath();
+  ctx.rect(player.x + inset, player.y + inset, player.w - ctx.lineWidth, player.h - ctx.lineWidth);
+  ctx.stroke();
+
   ctx.fillStyle = "#fff";
   ctx.fillText("PLAYER", player.x + 5, player.y + 15);
 
