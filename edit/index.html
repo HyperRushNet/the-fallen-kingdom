@@ -16,6 +16,8 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#0f0; box
 button { cursor:pointer; border:1px solid #0ff; color:#0ff; background:transparent; transition:0.2s; }
 button:hover { background:#0ff; color:#000; }
 textarea { height:120px; resize:none; }
+.layer-controls { display: flex; gap: 10px; margin-top: 10px; }
+.layer-btn { flex: 1; padding: 8px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -34,6 +36,12 @@ textarea { height:120px; resize:none; }
     <select id="propType"><option value="platform">Platform</option><option value="wall">Wall</option><option value="decor">Decor</option></select>
   </label>
   <label>Z-Index <input type="number" id="propZIndex"></label>
+  <div class="layer-controls">
+    <button class="layer-btn" id="moveToFront">To Front</button>
+    <button class="layer-btn" id="moveToBack">To Back</button>
+    <button class="layer-btn" id="moveUp">Up</button>
+    <button class="layer-btn" id="moveDown">Down</button>
+  </div>
   <label>X <input type="number" id="propX"></label>
   <label>Y <input type="number" id="propY"></label>
   <label>Width <input type="number" id="propW"></label>
@@ -96,6 +104,51 @@ const jsonIn=document.getElementById("jsonIn");
 const loadJsonBtn=document.getElementById("loadJsonBtn");
 const clearBtn=document.getElementById("clearBtn");
 const resetBtn=document.getElementById("resetBtn");
+const moveToFront=document.getElementById("moveToFront");
+const moveToBack=document.getElementById("moveToBack");
+const moveUp=document.getElementById("moveUp");
+const moveDown=document.getElementById("moveDown");
+
+// --- Layering Logic ---
+function getMaxZIndex() {
+  return objects.length > 0 ? Math.max(...objects.map(o => o.zIndex || 0)) : 0;
+}
+
+function getMinZIndex() {
+  return objects.length > 0 ? Math.min(...objects.map(o => o.zIndex || 0)) : 0;
+}
+
+moveToFront.addEventListener("click", () => {
+  if (selected) {
+    selected.zIndex = getMaxZIndex() + 1;
+    updateProps();
+    draw();
+  }
+});
+
+moveToBack.addEventListener("click", () => {
+  if (selected) {
+    selected.zIndex = getMinZIndex() - 1;
+    updateProps();
+    draw();
+  }
+});
+
+moveUp.addEventListener("click", () => {
+  if (selected) {
+    selected.zIndex = (selected.zIndex || 0) + 1;
+    updateProps();
+    draw();
+  }
+});
+
+moveDown.addEventListener("click", () => {
+  if (selected) {
+    selected.zIndex = (selected.zIndex || 0) - 1;
+    updateProps();
+    draw();
+  }
+});
 
 // --- Draw ---
 function draw(){
@@ -106,12 +159,12 @@ function draw(){
 
   // Sort objects by zIndex
   const sortedObjects = objects.slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-  sortedObjects.forEach(o=>{
+  sortedObjects.forEach(o => {
     ctx.save();
     ctx.translate(o.x,o.y);
     ctx.rotate((o.angle||0)*Math.PI/180);
     if(o.texture){
-      if(o.texture.endsWith('.webm')){
+      if(o.texture.endsWith('.webm') || o.texture.endsWith('.mp4')){
         if(!videoCache.has(o.texture)){
           const video = document.createElement('video');
           video.src = o.texture;
@@ -238,7 +291,17 @@ function applyProps(){
   draw();
   updateJSON();
 }
-[propType,propZIndex,propX,propY,propW,propH,propAngle,propTextureUrl,playerZIndex,playerX,playerY,playerW,playerH].forEach(i=>i.addEventListener("input",applyProps));
+
+// Prevent new platform creation on texture URL paste
+propTextureUrl.addEventListener("input", (e) => {
+  if (selected) {
+    selected.texture = e.target.value || null;
+    draw();
+    updateJSON();
+  }
+});
+
+[propType,propZIndex,propX,propY,propW,propH,propAngle,playerZIndex,playerX,playerY,playerW,playerH].forEach(i=>i.addEventListener("input",applyProps));
 
 // --- JSON ---
 function updateJSON(){
@@ -304,7 +367,7 @@ canvas.addEventListener("mousedown", e => {
     dragOffsetX = x - selected.x;
     dragOffsetY = y - selected.y;
   } else {
-    selected = { x, y, w: 100, h: 20, angle: 0, texture: null, type: "platform", zIndex: 0, id: generateId() };
+    selected = { x, y, w: 100, h: 20, angle: 0, texture: null, type: "platform", zIndex: getMaxZIndex() + 1, id: generateId() };
     objects.push(selected);
     dragging = true;
     dragOffsetX = 0;
@@ -358,7 +421,7 @@ window.addEventListener("keydown", e => {
     return;
   }
   if(e.ctrlKey && e.key === "v" && clipboard){
-    const newObj = { ...clipboard, id: generateId(), x: clipboard.x + 20, y: clipboard.y + 20 };
+    const newObj = { ...clipboard, id: generateId(), x: clipboard.x + 20, y: clipboard.y + 20, zIndex: getMaxZIndex() + 1 };
     objects.push(newObj);
     selected = newObj;
     updateProps();
