@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Platformer Runner - No Fall Rotation + Video Texture</title>
+<title>Platformer Runner - No Fall Rotation + Video Texture + SAT Wall Collision (Stop Only)</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #08003b }
@@ -266,6 +266,7 @@ function startGame() {
   let camPos = { x: mapData.playerStart.x, y: mapData.playerStart.y };
   let camTarget = { x: camPos.x, y: camPos.y };
 
+  const walls = [];
   mapData.platforms.forEach(p => {
     let body;
     const texture = mapData.textures[p.textureId];
@@ -275,9 +276,9 @@ function startGame() {
         restitution: 0,
         friction: 0,
         frictionStatic: 0,
-        label: 'platform',
+        label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
-        collisionFilter: { category: 0x0002, mask: 0x0001 },
+        collisionFilter: { category: 0x0002, mask: p.type === 'wall' ? 0x0000 : 0x0001 },
         zIndex: p.zIndex || 0,
         id: p.id
       });
@@ -297,7 +298,7 @@ function startGame() {
         render: texture ? { sprite: { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } } : { fillStyle: p.type === 'wall' ? '#444' : '#654321' },
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
-        collisionFilter: { category: 0x0002, mask: 0x0001 },
+        collisionFilter: { category: 0x0002, mask: p.type === 'wall' ? 0x0000 : 0x0001 },
         zIndex: p.zIndex || 0,
         id: p.id
       });
@@ -305,6 +306,7 @@ function startGame() {
       body.height = p.h;
     }
     World.add(engine.world, body);
+    if (p.type === 'wall') walls.push(body);
   });
 
   mapData.decor?.forEach(d => {
@@ -417,6 +419,76 @@ function startGame() {
     }, 16);
   }
 
+  function getVertices(body) {
+    const { position, angle, width, height } = body;
+    const hw = width / 2, hh = height / 2;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const vertices = [
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh }
+    ];
+    return vertices.map(v => {
+      const vx = v.x * cos - v.y * sin + position.x;
+      const vy = v.x * sin + v.y * cos + position.y;
+      return { x: vx, y: vy };
+    });
+  }
+
+  function projectVertices(vertices, axis) {
+    let min = Infinity, max = -Infinity;
+    for (const v of vertices) {
+      const dot = v.x * axis.x + v.y * axis.y;
+      min = Math.min(min, dot);
+      max = Math.max(max, dot);
+    }
+    return { min, max };
+  }
+
+  function getAxes(body) {
+    const vertices = getVertices(body);
+    const axes = [];
+    for (let i = 0; i < vertices.length; i++) {
+      const p1 = vertices[i];
+      const p2 = vertices[(i + 1) % vertices.length];
+      const edge = { x: p2.x - p1.x, y: p2.y - p1.y };
+      const normal = { x: -edge.y, y: edge.x };
+      const len = Math.sqrt(normal.x * normal.x + normal.y * normal.y);
+      axes.push({ x: normal.x / len, y: normal.y / len });
+    }
+    return axes;
+  }
+
+  function satCollision(bodyA, bodyB) {
+    const axes = [...getAxes(bodyA), ...getAxes(bodyB)];
+    let mtv = null, overlap = Infinity;
+
+    for (const axis of axes) {
+      const projA = projectVertices(getVertices(bodyA), axis);
+      const projB = projectVertices(getVertices(bodyB), axis);
+      if (projA.max < projB.min || projB.max < projA.min) {
+        return null; 
+      }
+      const o = Math.min(projA.max - projB.min, projB.max - projA.min);
+      if (o < overlap) {
+        overlap = o;
+        mtv = { axis, overlap };
+      }
+    }
+
+    const aCenter = bodyA.position;
+    const bCenter = bodyB.position;
+    const centerDiff = { x: aCenter.x - bCenter.x, y: aCenter.y - bCenter.y };
+    const dot = centerDiff.x * mtv.axis.x + centerDiff.y * mtv.axis.y;
+    if (dot < 0) {
+      mtv.axis.x = -mtv.axis.x;
+      mtv.axis.y = -mtv.axis.y;
+    }
+
+    return mtv;
+  }
+
   function isPlayerOnGround() {
     const sensorOffsetY = CONFIG.player.size / 2 + 0.5;
     const groundSensor = Bodies.rectangle(player.position.x, player.position.y + sensorOffsetY, CONFIG.player.size, 2, {
@@ -527,6 +599,27 @@ function startGame() {
         Body.setVelocity(player, { x: player.velocity.x, y: CONFIG.player.jumpVelocity });
       }
     }
+
+    walls.forEach(wall => {
+      const mtv = satCollision(player, wall);
+      if (mtv) {
+
+        const pos = player.position;
+        Body.setPosition(player, {
+          x: pos.x + mtv.axis.x * mtv.overlap,
+          y: pos.y + mtv.axis.y * mtv.overlap
+        });
+
+        const vel = player.velocity;
+        const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
+        if (dot < 0) { 
+          Body.setVelocity(player, {
+            x: vel.x - dot * mtv.axis.x,
+            y: vel.y - dot * mtv.axis.y
+          });
+        }
+      }
+    });
 
     const { onSlope, slopeAngle } = isPlayerOnGround();
     const maxTilt = CONFIG.rotationLimit * Math.PI / 180;
