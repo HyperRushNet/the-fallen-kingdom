@@ -6,9 +6,9 @@
 <title>Platformer Runner - Custom Player Size Collision</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
-  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #08003b }
+  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #000000 }
   canvas { display: block; background: transparent; }
-  #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 1; }
+  #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 100; }
   .ability { margin-bottom: 5px; }
   .ready { color: #0f0; }
   .cooldown { color: #f00; }
@@ -16,7 +16,7 @@
   #loadingBarContainer { width: 300px; height: 20px; background: #333; border: 1px solid #666; border-radius: 10px; overflow: hidden; }
   #loadingBar { width: 0; height: 100%; background: #0f0; transition: width 0.1s ease; }
   #loadingText { color: white; margin-top: 10px; font-size: 18px; }
-  #fpsMeter { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 5px 10px; border-radius: 5px; font-family: monospace; z-index: 2; }
+  #fpsMeter { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 5px 10px; border-radius: 5px; font-family: monospace; z-index: 101; }
 </style>
 </head>
 <body>
@@ -38,7 +38,15 @@
 <script>
 const CONFIG = {
   gravity: 1.3,
-  maxGravityAcceleration: 15, // Maximum gravity acceleration in pixels per frame
+  maxGravityAcceleration: 15,
+  zIndex: {
+    player: 10,
+    sword: 15,
+    platform: 5,
+    wall: 5,
+    decor: 1,
+    default: 0
+  },
   player: {
     size: 50,
     speed: 5,
@@ -50,7 +58,7 @@ const CONFIG = {
     dashCooldown: 2000,
     hopCooldown: 1000,
     collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 },
-    zIndex: 1
+    zIndex: 10
   },
   sword: {
     height: 25,
@@ -59,7 +67,7 @@ const CONFIG = {
     offsetX: 35,
     offsetY: 0,
     collisionFilter: { category: 0x0008, mask: 0x0002 },
-    zIndex: 1
+    zIndex: 15
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0.5 },
   culling: { physicsMargin: 200, renderMargin: 100 },
@@ -72,10 +80,12 @@ const mapData = {
     "y": 200,
     "w": 50,
     "h": 50,
-    "zIndex": 1
+    "zIndex": 9
   },
   "textures": [
-    "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
+    "https://hyperrushnet.github.io/game/rickroll.webm",
+    "https://media.istockphoto.com/id/947324428/photo/black-slate-or-stone-texture-background.jpg?s=612x612&w=0&k=20&c=VpyD89OmvHNoeJkrq9NVjgSulqcXjVv0PLkc2lT3lAQ="
   ],
   "platforms": [
     {
@@ -87,7 +97,7 @@ const mapData = {
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": 1
+      "zIndex": 5
     },
     {
       "id": "LE0V4KZ7J3bm-HCsghkQIscgs",
@@ -98,7 +108,7 @@ const mapData = {
       "h": 20,
       "angle": 90,
       "textureId": 0,
-      "zIndex": 2
+      "zIndex": 5
     },
     {
       "id": "r06Bbtu8Akr5-JZtqSAgBzoHP",
@@ -109,7 +119,7 @@ const mapData = {
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": 3
+      "zIndex": 6
     }
   ],
   "decor": [
@@ -117,45 +127,100 @@ const mapData = {
       "id": "XDqzXwIAOpmB-qPcnaNPU2HwI",
       "type": "decor",
       "x": 513,
-      "y": 10188,
+      "y": 10256.533299005194,
       "w": 100,
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": -1
+      "zIndex": 1
     },
     {
       "id": "rQI7D3TTTAes-Cpep7l40OLH3",
       "type": "decor",
       "x": 575,
-      "y": 10192,
+      "y": 10260.533299005194,
       "w": 200,
       "h": 20,
       "angle": 90,
       "textureId": 0,
-      "zIndex": -1
+      "zIndex": 1
     },
     {
       "id": "O7CQLTjhTtMh-PRSkTiNwssJ1",
       "type": "decor",
       "x": 455,
-      "y": 10183,
+      "y": 10251.533299005194,
       "w": 200,
       "h": 20,
       "angle": 90,
       "textureId": 0,
-      "zIndex": -1
+      "zIndex": 1
     },
     {
       "id": "FvDf47psLMoh-5Golz49OsB4y",
       "type": "decor",
       "x": 670,
-      "y": 10192,
+      "y": 10260.533299005194,
       "w": 200,
       "h": 20,
       "angle": 90,
       "textureId": 0,
-      "zIndex": -1
+      "zIndex": 1
+    },
+    {
+      "id": "hJ9Tmgopz986-aH5e4GKjLS72",
+      "type": "decor",
+      "x": 562.839855821787,
+      "y": 10027.235050822255,
+      "w": 225,
+      "h": 150,
+      "angle": 0,
+      "textureId": 1,
+      "zIndex": 1
+    },
+    {
+      "id": "wyBMJ8fIfZVg-zAoDMlmIpeMp",
+      "type": "decor",
+      "x": 564.3728477368309,
+      "y": 9940.237086420986,
+      "w": 265,
+      "h": 20,
+      "angle": 0,
+      "textureId": 2,
+      "zIndex": 2
+    },
+    {
+      "id": "TWFMqyjSVIaz-1SZPSKEW6b5H",
+      "type": "decor",
+      "x": 562.979501424087,
+      "y": 10113.78653222848,
+      "w": 265,
+      "h": 20,
+      "angle": 0,
+      "textureId": 2,
+      "zIndex": 7
+    },
+    {
+      "id": "cUX2U6ZqeyUe-HwO9aZ7jLKIX",
+      "type": "decor",
+      "x": 686.3230573125418,
+      "y": 10027,
+      "w": 155,
+      "h": 20,
+      "angle": 90,
+      "textureId": 2,
+      "zIndex": 8
+    },
+    {
+      "id": "xc4VvhAOrgI8-1z0w1MOL7TSk",
+      "type": "decor",
+      "x": 441.4945236827678,
+      "y": 10026.55709564963,
+      "w": 155,
+      "h": 20,
+      "angle": 90,
+      "textureId": 2,
+      "zIndex": 9
     }
   ]
 };
@@ -259,20 +324,26 @@ function startGame() {
     ctx.drawImage(source, -w / 2, -h / 2, w, h);
     ctx.restore();
   }
+  // Custom renderer with proper z-index handling
   Render.bodies = function (render, bodies, context) {
     const c = context;
     const cullBounds = {
       min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
       max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
-    const sortedBodies = bodies.slice().sort((a, b) => (a.render.zIndex || 0) - (b.render.zIndex || 0));
+    // Sort bodies by zIndex (both render.zIndex and root zIndex)
+    const sortedBodies = bodies.slice().sort((a, b) => {
+      const aZ = (a.render && a.render.zIndex !== undefined) ? a.render.zIndex : (a.zIndex !== undefined ? a.zIndex : CONFIG.zIndex.default);
+      const bZ = (b.render && b.render.zIndex !== undefined) ? b.render.zIndex : (b.zIndex !== undefined ? b.zIndex : CONFIG.zIndex.default);
+      return aZ - bZ;
+    });
     for (let i = 0; i < sortedBodies.length; i++) {
       const body = sortedBodies[i];
-      if (!body.render.visible) continue;
+      if (!body.render || !body.render.visible) continue;
       const b = body.bounds;
       const inView = b.max.x > cullBounds.min.x && b.min.x < cullBounds.max.x && b.max.y > cullBounds.min.y && b.min.y < cullBounds.max.y;
       if (!inView) continue;
-      let sprite = body.render.sprite, fill = body.render.fillStyle;
+      // Draw video textures first if they exist
       if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
         const videoData = videoTextures.get(body.videoTextureId);
         if (videoData && videoData.loaded && videoData.video) {
@@ -282,6 +353,7 @@ function startGame() {
           }
           drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
         } else {
+          // Fallback drawing for video textures
           c.save();
           c.translate(body.position.x, body.position.y);
           c.rotate(body.angle);
@@ -289,16 +361,28 @@ function startGame() {
           c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
           c.restore();
         }
-      } else if (sprite && sprite.texture) {
-        let img = textureCache.get(sprite.texture)?.img;
+      }
+      // Draw sprites
+      else if (body.render.sprite && body.render.sprite.texture) {
+        let img = textureCache.get(body.render.sprite.texture)?.img;
         if (img && img.complete) {
-          drawBodyVideo(c, img, body.position.x, body.position.y, sprite.xScale * img.width, sprite.yScale * img.height, body.angle);
+          c.save();
+          c.translate(body.position.x, body.position.y);
+          c.rotate(body.angle);
+          c.drawImage(
+            img,
+            -body.width / 2, -body.height / 2,
+            body.width, body.height
+          );
+          c.restore();
         }
-      } else if (fill) {
+      }
+      // Draw filled rectangles
+      else if (body.render.fillStyle) {
         c.save();
         c.translate(body.position.x, body.position.y);
         c.rotate(body.angle);
-        c.fillStyle = fill;
+        c.fillStyle = body.render.fillStyle;
         c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
         c.restore();
       }
@@ -307,25 +391,37 @@ function startGame() {
   Render.run(render);
   const runner = Runner.create();
   Runner.run(runner, engine);
-  let player = Bodies.rectangle(mapData.playerStart.x, mapData.playerStart.y, mapData.playerStart.w, mapData.playerStart.h, {
-    restitution: 0,
-    friction: 0,
-    frictionAir: 0,
-    render: { fillStyle: '#f00' },
-    label: 'player',
-    collisionFilter: CONFIG.player.collisionFilter
-  });
+  // Create player with proper z-index
+  let player = Bodies.rectangle(
+    mapData.playerStart.x,
+    mapData.playerStart.y,
+    mapData.playerStart.w,
+    mapData.playerStart.h,
+    {
+      restitution: 0,
+      friction: 0,
+      frictionAir: 0,
+      render: {
+        fillStyle: '#f00',
+        zIndex: CONFIG.player.zIndex
+      },
+      label: 'player',
+      collisionFilter: CONFIG.player.collisionFilter,
+      zIndex: CONFIG.player.zIndex
+    }
+  );
   player.width = mapData.playerStart.w;
   player.height = mapData.playerStart.h;
-  player.render.zIndex = mapData.playerStart.zIndex;
   World.add(engine.world, player);
   let camPos = { x: mapData.playerStart.x, y: mapData.playerStart.y };
   let camTarget = { x: camPos.x, y: camPos.y };
   const walls = [];
   const platforms = [];
+  // Create platforms with proper z-index
   mapData.platforms.forEach(p => {
     let body;
     const texture = mapData.textures[p.textureId];
+    const zIndex = p.zIndex !== undefined ? p.zIndex : CONFIG.zIndex.platform;
     if (texture.endsWith('.webm')) {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
@@ -335,15 +431,14 @@ function startGame() {
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
-        zIndex: p.zIndex || 0,
+        render: { zIndex: zIndex },
+        zIndex: zIndex,
         id: p.id
       });
       body.platformVideo = true;
       body.videoTextureId = p.textureId;
       body.videoW = p.w;
       body.videoH = p.h;
-      body.width = p.w;
-      body.height = p.h;
     } else {
       const imgSize = textureCache.get(texture) || { w: p.w, h: p.h };
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
@@ -351,23 +446,29 @@ function startGame() {
         restitution: 0,
         friction: 0,
         frictionStatic: 0,
-        render: texture ? { sprite: { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } } : { fillStyle: p.type === 'wall' ? '#444' : '#654321' },
+        render: {
+          sprite: texture ? { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } : undefined,
+          fillStyle: texture ? undefined : (p.type === 'wall' ? '#444' : '#654321'),
+          zIndex: zIndex
+        },
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
-        zIndex: p.zIndex || 0,
+        zIndex: zIndex,
         id: p.id
       });
-      body.width = p.w;
-      body.height = p.h;
     }
+    body.width = p.w;
+    body.height = p.h;
     World.add(engine.world, body);
     if (p.type === 'wall') walls.push(body);
     if (p.type === 'platform') platforms.push(body);
   });
-  mapData.decor?.forEach(d => {
+  // Create decor with proper z-index
+  mapData.decor.forEach(d => {
     let body;
     const texture = mapData.textures[d.textureId];
+    const zIndex = d.zIndex !== undefined ? d.zIndex : CONFIG.zIndex.decor;
     if (texture.endsWith('.webm')) {
       body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
         isStatic: true,
@@ -375,45 +476,52 @@ function startGame() {
         label: 'decor',
         angle: (d.angle || 0) * Math.PI / 180,
         collisionFilter: { mask: 0x0000 },
-        zIndex: d.zIndex || 0
+        render: { zIndex: zIndex },
+        zIndex: zIndex
       });
       body.decorVideo = true;
       body.videoTextureId = d.textureId;
       body.videoW = d.w;
       body.videoH = d.h;
-      body.width = d.w;
-      body.height = d.h;
     } else {
       const imgSize = textureCache.get(texture) || { w: d.w, h: d.h };
       body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
         isStatic: true,
         isSensor: true,
-        render: texture ? { sprite: { texture, xScale: d.w / imgSize.w, yScale: d.h / imgSize.h } } : { fillStyle: '#888' },
+        render: {
+          sprite: texture ? { texture, xScale: d.w / imgSize.w, yScale: d.h / imgSize.h } : undefined,
+          fillStyle: texture ? undefined : '#888',
+          zIndex: zIndex
+        },
         label: 'decor',
         angle: (d.angle || 0) * Math.PI / 180,
         collisionFilter: { mask: 0x0000 },
-        zIndex: d.zIndex || 0
+        zIndex: zIndex
       });
-      body.width = d.w;
-      body.height = d.h;
     }
+    body.width = d.w;
+    body.height = d.h;
     World.add(engine.world, body);
   });
+  // Create sword with proper z-index
   let sword;
   const swordScale = (CONFIG.player.size * 0.5) / 220;
   sword = Bodies.rectangle(-1000, -1000, 540 * swordScale, 220 * swordScale, {
     isSensor: false,
     restitution: 0,
-    render: { sprite: { texture: swordRightUrl, xScale: swordScale, yScale: swordScale, opacity: 1 } },
+    render: {
+      sprite: { texture: swordRightUrl, xScale: swordScale, yScale: swordScale, opacity: 1 },
+      zIndex: CONFIG.sword.zIndex
+    },
     label: 'sword',
     collisionFilter: CONFIG.sword.collisionFilter,
     zIndex: CONFIG.sword.zIndex
   });
   sword.width = 540 * swordScale;
   sword.height = 220 * swordScale;
-  sword.render.zIndex = CONFIG.sword.zIndex;
   sword.active = false;
   World.add(engine.world, sword);
+  // Game state
   const state = {
     keys: { left: false, right: false, up: false, dash: false, hop: false, sword: false, run: false },
     isDashing: false,
@@ -429,6 +537,7 @@ function startGame() {
   let lastSwordTime = 0;
   const swordCooldown = 50;
   let swordInterval;
+  // Input handling
   document.addEventListener('keydown', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = true;
     if (e.code === 'KeyC') startSwordSwing();
@@ -477,6 +586,7 @@ function startGame() {
     player.width = width;
     player.height = height;
   }
+  // Helper functions for collision detection
   function getVertices(body) {
     const { position, angle, width, height } = body;
     const hw = width / 2, hh = height / 2;
@@ -593,10 +703,12 @@ function startGame() {
     render.options.width = canvasWidth;
     render.options.height = canvasHeight;
   });
+  // Initial camera setup
   Render.lookAt(render, {
     min: { x: mapData.playerStart.x - canvasWidth / 2, y: mapData.playerStart.y - canvasHeight / 2 },
     max: { x: mapData.playerStart.x + canvasWidth / 2, y: mapData.playerStart.y + canvasHeight / 2 }
   });
+  // FPS counter
   let lastTime = performance.now();
   let frames = 0;
   let fps = 0;
@@ -614,7 +726,6 @@ function startGame() {
   updateFPS();
   function endDash() {
     if (state.isDashing) {
-      console.log("Dash beëindigd na:", Date.now() - state.dashStartTime, "ms");
       state.isDashing = false;
       state.lastDash = Date.now();
       player.frictionAir = 0.02;
@@ -625,8 +736,10 @@ function startGame() {
       Body.setVelocity(player, { x: scaledX, y: scaledY });
     }
   }
+  // Game loop
   Events.on(engine, 'beforeUpdate', () => {
     const now = Date.now();
+    // Update facing direction
     if (state.keys.right && !state.keys.left) {
       state.facingDirection = 1;
       state.lastDirection = { x: 1, y: 0 };
@@ -638,12 +751,13 @@ function startGame() {
     }
     if (!state.isFrozen) {
       const groundInfo = isPlayerOnGround();
+      // Handle dashing
       if (state.isDashing && now - state.dashStartTime < CONFIG.player.dashDuration) {
         Body.setVelocity(player, state.dashVelocity);
         player.force.y = -engine.world.gravity.y * player.mass * engine.world.gravity.scale;
       }
+      // Start dash
       if (state.keys.dash && !state.isDashing && now - state.lastDash >= CONFIG.player.dashCooldown) {
-        console.log("Dash gestart, duur:", CONFIG.player.dashDuration, "ms");
         const dashSpeed = CONFIG.player.dashSpeed;
         let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
         let dashY = 0;
@@ -654,11 +768,13 @@ function startGame() {
         player.frictionAir = 0;
         setTimeout(endDash, CONFIG.player.dashDuration);
       }
+      // Handle movement
       if (!state.isDashing) {
         let moveSpeed = (state.keys.right ? CONFIG.player.speed : 0) - (state.keys.left ? CONFIG.player.speed : 0);
         if (state.keys.run) moveSpeed = (state.keys.right ? CONFIG.player.runSpeed : 0) - (state.keys.left ? CONFIG.player.runSpeed : 0);
         Body.setVelocity(player, { x: player.velocity.x + (moveSpeed - player.velocity.x) * 0.2, y: player.velocity.y });
       }
+      // Handle air hop
       if (state.keys.hop && !groundInfo.isOnGround && now - state.lastHop >= CONFIG.player.hopCooldown) {
         const hopVelocity = state.isDashing ? CONFIG.player.jumpVelocity : CONFIG.player.airHopVelocity;
         Body.setVelocity(player, { x: player.velocity.x, y: hopVelocity });
@@ -667,10 +783,11 @@ function startGame() {
           state.dashVelocity.y = hopVelocity;
         }
       }
+      // Handle jump
       if (state.keys.up && groundInfo.isOnGround) {
         Body.setVelocity(player, { x: player.velocity.x, y: CONFIG.player.jumpVelocity });
       }
-      // Cap gravity-induced vertical velocity to maxGravityAcceleration (15 pixels per frame)
+      // Cap gravity-induced vertical velocity
       if (!state.isDashing && !groundInfo.isOnGround) {
         const maxFallSpeed = CONFIG.maxGravityAcceleration;
         if (player.velocity.y > maxFallSpeed) {
@@ -678,6 +795,7 @@ function startGame() {
         }
       }
     }
+    // Handle collisions
     let wallCollision = false;
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
@@ -691,8 +809,7 @@ function startGame() {
         const vel = player.velocity;
         const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
         if (state.isDashing) {
-          if (dot < 0 && Math.abs(mtv.axis.x) > 0.5) { // Front collision with vertical surface
-            console.log("Dash beëindigd door frontale botsing!");
+          if (dot < 0 && Math.abs(mtv.axis.x) > 0.5) {
             endDash();
             Body.setVelocity(player, {
               x: Math.abs(mtv.axis.x) > 0.7 ? 0 : vel.x,
@@ -710,13 +827,15 @@ function startGame() {
         wallCollision = true;
       }
     });
+    // Handle player rotation based on slope
     const { onSlope, slopeAngle } = isPlayerOnGround();
     const maxTilt = CONFIG.rotationLimit * Math.PI / 180;
     let targetAngle = state.isDashing ? 0 : onSlope ? slopeAngle * Math.PI / 180 : 0;
     let clampedAngle = Math.max(Math.min(player.angle, targetAngle + maxTilt), targetAngle - maxTilt);
-    const lerpSpeed = onSlope ? 0.2 : 0.5; // Faster correction when not on slope
+    const lerpSpeed = onSlope ? 0.2 : 0.5;
     const newAngle = player.angle + (clampedAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newAngle);
+    // Camera follow
     camTarget.x = player.position.x;
     camTarget.y = player.position.y;
     camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
@@ -729,6 +848,7 @@ function startGame() {
     render.bounds.max.y = camY + canvasHeight;
     Render.lookAt(render, { min: { x: camX, y: camY }, max: { x: camX + canvasWidth, y: camY + canvasHeight } });
     DOM.background.style.backgroundPosition = `${-camX * CONFIG.camera.bgPanSpeed}px ${-camY * CONFIG.camera.bgPanSpeed}px`;
+    // Culling for performance
     const physicsMargin = CONFIG.culling.physicsMargin;
     const physCullBounds = { min: { x: camX - physicsMargin, y: camY - physicsMargin }, max: { x: camX + canvasWidth + physicsMargin, y: camY + canvasHeight + physicsMargin } };
     const bodies = Composite.allBodies(engine.world);
@@ -750,6 +870,7 @@ function startGame() {
       }
     });
   });
+  // Update HUD regularly
   setInterval(updateHUD, 16);
 }
 preloadImages();
