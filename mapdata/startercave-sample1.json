@@ -1,0 +1,158 @@
+{
+  "playerStart": {
+    "x": 200,
+    "y": 187,
+    "w": 50,
+    "h": 75,
+    "zIndex": 1
+  },
+  "textures": [
+    "u"
+  ],
+  "platforms": [
+    {
+      "id": "s6Yv1HPc3eUC-ybFRG0L8hefN",
+      "type": "platform",
+      "x": 199,
+      "y": 236,
+      "w": 175,
+      "h": 20,
+      "angle": 0,
+      "textureId": 0,
+      "zIndex": 1
+    },
+    {
+      "id": "kF7RzTmdQULk-5BneH3VRhETy",
+      "type": "platform",
+      "x": 330,
+      "y": 219,
+      "w": 100,
+      "h": 20,
+      "angle": -20,
+      "textureId": 0,
+      "zIndex": 3
+    },
+    {
+      "id": "zjUxwpHanB7A-60LfpTyALiJX",
+      "type": "platform",
+      "x": 77,
+      "y": 209,
+      "w": 100,
+      "h": 20,
+      "angle": 35,
+      "textureId": 0,
+      "zIndex": 5
+    },
+    {
+      "id": "KuMOMQ36KB9r-qOlLnFVoEe5B",
+      "type": "platform",
+      "x": 60,
+      "y": 47,
+      "w": 100,
+      "h": 20,
+      "angle": -40,
+      "textureId": 0,
+      "zIndex": 6
+    },
+    {
+      "id": "OCSTBqgkGoOY-I7RdNYJZy56q",
+      "type": "wall",
+      "x": 34,
+      "y": 129,
+      "w": 120,
+      "h": 20,
+      "angle": 83,
+      "textureId": 0,
+      "zIndex": 8
+    },
+    {
+      "id": "baKIEEgjZfB2-nxJrhcBaoddA",
+      "type": "platform",
+      "x": 423,
+      "y": 194,
+      "w": 100,
+      "h": 20,
+      "angle": -10,
+      "textureId": 0,
+      "zIndex": 10
+    },
+    {
+      "id": "jIXg5C4C0a99-jIGFxh5iorNT",
+      "type": "platform",
+      "x": 520,
+      "y": 186,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": 0,
+      "zIndex": 11
+    },
+    {
+      "id": "rzWEh4ROYeQP-I0W5RRFbk6ve",
+      "type": "platform",
+      "x": 549,
+      "y": 73,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": 0,
+      "zIndex": 12
+    },
+    {
+      "id": "p4AyGzoIS9Gi-ruTD3jx5k2Qf",
+      "type": "platform",
+      "x": 143,
+      "y": 0,
+      "w": 100,
+      "h": 20,
+      "angle": -20,
+      "textureId": 0,
+      "zIndex": 13
+    },
+    {
+      "id": "aFhs25Nh0tJt-zo7Z6wvCZs7u",
+      "type": "platform",
+      "x": 230,
+      "y": 0,
+      "w": 100,
+      "h": 20,
+      "angle": 20,
+      "textureId": 0,
+      "zIndex": 14
+    },
+    {
+      "id": "pbfc3IfjyD9M-5uWEjQCUMNcB",
+      "type": "platform",
+      "x": 320,
+      "y": 8,
+      "w": 100,
+      "h": 20,
+      "angle": -10,
+      "textureId": 0,
+      "zIndex": 15
+    },
+    {
+      "id": "gyeIvUEBtcNQ-aNJU8WR7Wlaw",
+      "type": "platform",
+      "x": 387,
+      "y": 20,
+      "w": 70,
+      "h": 20,
+      "angle": 40,
+      "textureId": 0,
+      "zIndex": 16
+    },
+    {
+      "id": "sxmC6HrUjsvq-JuI7rT6dtDvN",
+      "type": "platform",
+      "x": 457,
+      "y": 57,
+      "w": 100,
+      "h": 20,
+      "angle": 20,
+      "textureId": 0,
+      "zIndex": 17
+    }
+  ],
+  "decor": []
+}
