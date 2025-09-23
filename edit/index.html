@@ -58,9 +58,43 @@ textarea { height:120px; resize:none; }
 
   <h2>Live JSON</h2>
   <textarea id="jsonOut" readonly></textarea>
+  <div style="margin-top:10px;">
+  <button id="toggleHelp" style="width:100%; margin-top:10px;">Show Instructions</button>
+  <div id="helpContent" style="display:none; margin-top:10px; font-size:12px; color:#ccc; max-height:200px; overflow-y:auto; background:#111; border:1px solid #0ff; padding:10px; border-radius:6px;">
+    <strong>Fallen Kingdom Map Editor Instructions:</strong>
+    <p>Welcome to the map editor! Here's how to use it:</p>
+    <ul>
+      <li><strong>Select or create objects:</strong> Click on an object to select it, or click empty space to create a new platform.</li>
+      <li><strong>Move objects:</strong> Drag the selected object, or use arrow keys for fine adjustments. Hold Shift to move faster.</li>
+      <li><strong>Resize and rotate:</strong> Use the sidebar inputs for width, height, and rotation.</li>
+      <li><strong>Layering:</strong> Adjust Z-index or use "To Front"/"To Back"/"Up"/"Down" buttons to control overlapping.</li>
+      <li><strong>Textures:</strong> Enter an image or video URL in the Texture URL field.</li>
+      <li><strong>Player:</strong> Adjust the player start position and size in the Player section.</li>
+      <li><strong>Zoom & Pan:</strong> Scroll the mouse wheel to zoom. Hold Shift + drag to pan the canvas.</li>
+      <li><strong>Clipboard:</strong> Ctrl+C to copy, Ctrl+V to paste objects.</li>
+      <li><strong>Delete:</strong> Press Backspace to remove the selected object.</li>
+      <li><strong>JSON:</strong> Use the Import/Export section to save or load your map.</li>
+      <li><strong>Sidebar:</strong> When the mouse is over the sidebar, canvas interactions are paused.</li>
+    </ul>
+  </div>
+</div>
+
 </div>
 
 <script>
+const toggleHelpBtn = document.getElementById("toggleHelp");
+const helpContent = document.getElementById("helpContent");
+
+toggleHelpBtn.addEventListener("click", () => {
+  if(helpContent.style.display === "none"){
+    helpContent.style.display = "block";
+    toggleHelpBtn.textContent = "Hide Instructions";
+  } else {
+    helpContent.style.display = "none";
+    toggleHelpBtn.textContent = "Show Instructions";
+  }
+});
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const sidebar = document.getElementById("sidebar");
@@ -259,20 +293,39 @@ canvas.addEventListener("mousemove",e=>{
 });
 
 canvas.addEventListener("mouseup",()=>{ dragging=false; isPanning=false; });
-canvas.addEventListener("contextmenu",e=>{ e.preventDefault(); if(sidebarActive) return; if(selected){ objects=objects.filter(o=>o!==selected); selected=null; updateProps(); draw(); } });
-canvas.addEventListener("wheel",e=>{ if(sidebarActive){ e.preventDefault(); return; } e.preventDefault(); const zoom=e.deltaY<0?1+zoomSpeed:1-zoomSpeed; const mx=(e.offsetX/scale+camX); const my=(e.offsetY/scale+camY); scale*=zoom; scale=Math.min(Math.max(scale,0.2),5); camX=mx-(e.offsetX/scale); camY=my-(e.offsetY/scale); draw(); });
+
+// --- DISABLE right-click delete ---
+canvas.addEventListener("contextmenu", e=>{ e.preventDefault(); });
+
+// --- Zoom ---
+canvas.addEventListener("wheel",e=>{
+  if(sidebarActive){ e.preventDefault(); return; }
+  e.preventDefault();
+  const zoom=e.deltaY<0?1+zoomSpeed:1-zoomSpeed;
+  const mx=(e.offsetX/scale+camX); const my=(e.offsetY/scale+camY);
+  scale*=zoom; scale=Math.min(Math.max(scale,0.2),5);
+  camX=mx-(e.offsetX/scale); camY=my-(e.offsetY/scale);
+  draw();
+});
 
 // --- Keyboard ---
-window.addEventListener("keydown",e=>{
+window.addEventListener("keydown", e => {
   if(sidebarActive) return;
   if(!selected) return;
+
   if(e.ctrlKey && e.key==="c"){ clipboard={...selected}; return; }
   if(e.ctrlKey && e.key==="v" && clipboard){ const newObj={...clipboard,id:generateId(),x:clipboard.x+20,y:clipboard.y+20,zIndex:getMaxZIndex()+1}; objects.push(newObj); selected=newObj; updateProps(); draw(); return; }
+
+  // DELETE with Backspace
+  if(e.key === "Backspace"){ e.preventDefault(); objects = objects.filter(o=>o!==selected); selected=null; updateProps(); draw(); return; }
+
+  // Arrow movement
   switch(e.key){
     case "ArrowLeft": selected.x-=(e.shiftKey?20:5)/scale; break;
     case "ArrowRight": selected.x+=(e.shiftKey?20:5)/scale; break;
     case "ArrowUp": selected.y-=(e.shiftKey?20:5)/scale; break;
     case "ArrowDown": selected.y+=(e.shiftKey?20:5)/scale; break;
+    default: return;
   }
   updateProps(); draw();
 });
@@ -284,7 +337,7 @@ moveUp.addEventListener("click",()=>{ if(selected){ selected.zIndex=(selected.zI
 moveDown.addEventListener("click",()=>{ if(selected){ selected.zIndex=(selected.zIndex||0)-1; updateProps(); draw(); } });
 
 // --- JSON buttons ---
-loadJsonBtn.addEventListener("click",()=>{
+loadJsonBtn.addEventListener("click", ()=>{
   try{
     const data=JSON.parse(jsonIn.value);
     player={...data.playerStart,zIndex:data.playerStart.zIndex||1};
@@ -295,12 +348,12 @@ loadJsonBtn.addEventListener("click",()=>{
   }catch(err){ alert("Invalid JSON: "+err); }
 });
 
-clearBtn.addEventListener("click",()=>{ objects=[]; selected=null; draw(); updateJSON(); });
-resetBtn.addEventListener("click",()=>{ objects=[]; selected=null; player={x:200,y:200,w:50,h:50,zIndex:1}; draw(); updateJSON(); });
+clearBtn.addEventListener("click", ()=>{ objects=[]; selected=null; draw(); updateJSON(); });
+resetBtn.addEventListener("click", ()=>{ objects=[]; selected=null; player={x:200,y:200,w:50,h:50,zIndex:1}; draw(); updateJSON(); });
 
 // --- Load localStorage ---
-const saved=localStorage.getItem("fkmapeditor");
-if(saved){ try{ const data=JSON.parse(saved); player={...data.playerStart,zIndex:data.playerStart.zIndex||1}; objects=[]; (data.platforms||[]).forEach(p=>objects.push({...p,type:p.type,zIndex:p.zIndex||0,texture:data.textures?.[p.textureId]||null,id:p.id||generateId()})); (data.decor||[]).forEach(d=>objects.push({...d,type:"decor",zIndex:d.zIndex||0,texture:data.textures?.[d.textureId]||null,id:d.id||generateId()})); draw(); updateProps(); }catch{} }
+const saved = localStorage.getItem("fkmapeditor");
+if(saved){ try{ const data=JSON.parse(saved); player={...data.playerStart,zIndex:data.playerStart.zIndex||1}; objects=[]; (data.platforms||[]).forEach(p=>objects.push({...p,type:p.type,zIndex:p.zIndex||0,texture:data.textures?.[p.textureId]||null,id:p.id||generateId()})); (data.decor||[]).forEach(d=>objects.push({...d,type:"decor",zIndex:d.zIndex||0,texture:data.textures?.[d.textureId]||null,id:p.id||generateId()})); draw(); updateProps(); }catch{} }
 
 // --- Animate ---
 function animate(){ draw(); requestAnimationFrame(animate); }
