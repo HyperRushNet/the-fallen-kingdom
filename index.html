@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.2</title>
+<title>Game Engine - v2.3</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #000000 }
@@ -60,10 +60,11 @@ const CONFIG = {
     default: 0
   },
   player: {
-    size: 50,
+    width: 50,
+    height: 50,
     speed: 5,
     runSpeed: 7,
-    dashSpeed: 20,
+    dashSpeed: 15,
     jumpVelocity: -15,
     airHopVelocity: -12,
     dashDuration: 200,
@@ -84,7 +85,7 @@ const CONFIG = {
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0.5 },
   culling: { physicsMargin: 200, renderMargin: 100 },
-  rotationLimit: 1,
+  rotationLimit: 5, 
   maxVideoResolution: { width: 1920, height: 1080 }
 };
 const mapData = {
@@ -279,7 +280,7 @@ const videoTextures = new Map();
 let soundtrack;
 const assetsToLoad = [...new Set([...mapData.textures.filter(src => !src.endsWith('.webm')), swordRightUrl, swordLeftUrl])];
 const videoUrls = mapData.textures.filter(src => src.endsWith('.webm'));
-let totalAssets = assetsToLoad.length + videoUrls.length + 1; 
+let totalAssets = assetsToLoad.length + videoUrls.length + 1;
 let loadedAssets = 0;
 const DOM = {
   canvas: document.getElementById("gameCanvas"),
@@ -313,10 +314,9 @@ function preloadImages() {
       updateLoading();
     };
   });
-
   soundtrack = new Audio('https://github.com/HyperRushNet/game/releases/download/soundtrack/soundtrack.mp3');
   soundtrack.loop = true;
-  soundtrack.volume = 0.5;
+  soundtrack.volume = 1;
   soundtrack.preload = "auto";
   soundtrack.addEventListener('canplaythrough', () => {
     loadedAssets++;
@@ -365,7 +365,6 @@ let gameStarted = false;
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
-
   soundtrack.play().catch(e => console.error('Audio playback failed:', e));
   const { Engine, Render, Runner, Bodies, World, Body, Events, Composite, Query } = Matter;
   DOM.canvas.width = canvasWidth;
@@ -382,7 +381,6 @@ function startGame() {
       background: 'transparent'
     }
   });
-
   const swordState = {
     active: false,
     x: -1000,
@@ -398,14 +396,12 @@ function startGame() {
     ctx.drawImage(source, -w / 2, -h / 2, w, h);
     ctx.restore();
   }
-
   Render.bodies = function (render, bodies, context) {
     const c = context;
     const cullBounds = {
       min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
       max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
-
     const sortedBodies = bodies.slice().sort((a, b) => {
       const aZ = (a.render && a.render.zIndex !== undefined) ? a.render.zIndex : (a.zIndex !== undefined ? a.zIndex : CONFIG.zIndex.default);
       const bZ = (b.render && b.render.zIndex !== undefined) ? b.render.zIndex : (b.zIndex !== undefined ? a.zIndex : CONFIG.zIndex.default);
@@ -417,7 +413,6 @@ function startGame() {
       const b = body.bounds;
       const inView = b.max.x > cullBounds.min.x && b.min.x < cullBounds.max.x && b.max.y > cullBounds.min.y && b.min.y < cullBounds.max.y;
       if (!inView) continue;
-
       if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
         const videoData = videoTextures.get(body.videoTextureId);
         if (videoData && videoData.loaded && videoData.video) {
@@ -435,7 +430,6 @@ function startGame() {
           c.restore();
         }
       }
-
       else if (body.render.sprite && body.render.sprite.texture) {
         let img = textureCache.get(body.render.sprite.texture)?.img;
         if (img && img.complete) {
@@ -450,7 +444,6 @@ function startGame() {
           c.restore();
         }
       }
-
       else if (body.render.fillStyle) {
         c.save();
         c.translate(body.position.x, body.position.y);
@@ -460,18 +453,15 @@ function startGame() {
         c.restore();
       }
     }
-
     if (swordState.active && swordState.visible) {
       const dir = state.facingDirection;
       const texture = dir === 1 ? swordRightUrl : swordLeftUrl;
       const img = textureCache.get(texture)?.img;
       if (img && img.complete) {
-
         const offsetX = CONFIG.sword.offsetX * dir;
         const offsetY = CONFIG.sword.offsetY;
         swordState.x = player.position.x + offsetX;
         swordState.y = player.position.y + offsetY;
-
         if (
           swordState.x >= cullBounds.min.x && swordState.x <= cullBounds.max.x &&
           swordState.y >= cullBounds.min.y && swordState.y <= cullBounds.max.y
@@ -479,7 +469,7 @@ function startGame() {
           c.save();
           c.translate(swordState.x, swordState.y);
           c.rotate(swordState.angle * dir);
-          const scale = CONFIG.sword.scale * (CONFIG.player.size / 220);
+          const scale = CONFIG.sword.scale * (CONFIG.player.height / 220);
           c.drawImage(
             img,
             -CONFIG.sword.width * scale / 2,
@@ -491,20 +481,20 @@ function startGame() {
         }
       }
     }
-  };
+  }
   Render.run(render);
   const runner = Runner.create();
   Runner.run(runner, engine);
-
   let player = Bodies.rectangle(
     mapData.playerStart.x,
     mapData.playerStart.y,
-    mapData.playerStart.w,
-    mapData.playerStart.h,
+    CONFIG.player.width,
+    CONFIG.player.height,
     {
       restitution: 0,
-      friction: 0,
+      friction: 0, 
       frictionAir: 0,
+      inertia: Infinity,
       render: {
         fillStyle: '#f00',
         zIndex: CONFIG.player.zIndex
@@ -514,14 +504,13 @@ function startGame() {
       zIndex: CONFIG.player.zIndex
     }
   );
-  player.width = mapData.playerStart.w;
-  player.height = mapData.playerStart.h;
+  player.width = CONFIG.player.width;
+  player.height = CONFIG.player.height;
   World.add(engine.world, player);
   let camPos = { x: mapData.playerStart.x, y: mapData.playerStart.y };
   let camTarget = { x: camPos.x, y: camPos.y };
   const walls = [];
   const platforms = [];
-
   mapData.platforms.forEach(p => {
     let body;
     const texture = mapData.textures[p.textureId];
@@ -530,8 +519,8 @@ function startGame() {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0,
-        frictionStatic: 0,
+        friction: p.type === 'wall' ? 0 : 0, 
+        frictionStatic: p.type === 'wall' ? 0 : 0, 
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
@@ -548,8 +537,8 @@ function startGame() {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0,
-        frictionStatic: 0,
+        friction: p.type === 'wall' ? 0 : 0, 
+        frictionStatic: p.type === 'wall' ? 0 : 0, 
         render: {
           sprite: texture ? { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } : undefined,
           fillStyle: texture ? undefined : (p.type === 'wall' ? '#444' : '#654321'),
@@ -568,13 +557,12 @@ function startGame() {
     if (p.type === 'wall') walls.push(body);
     if (p.type === 'platform') platforms.push(body);
   });
-
 mapData.decor.forEach(d => {
   let body;
   const texture = mapData.textures[d.textureId];
   const zIndex = d.zIndex !== undefined ? d.zIndex : CONFIG.zIndex.decor;
   if (texture.endsWith('.webm')) {
-    body = Bodies.rectangle(d.x, d.y, d.w, d.h, { 
+    body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
       isStatic: true,
       isSensor: true,
       label: 'decor',
@@ -607,7 +595,6 @@ mapData.decor.forEach(d => {
   body.height = d.h;
   World.add(engine.world, body);
 });
-
   const state = {
     keys: { left: false, right: false, up: false, dash: false, hop: false, sword: false, run: false },
     isDashing: false,
@@ -618,14 +605,12 @@ mapData.decor.forEach(d => {
     facingDirection: 1,
     lastDirection: { x: 0, y: 0 },
     dashVelocity: { x: 0, y: 0 },
-    onSlopeAndTilted: false,
-    correctAngleStartTime: null
+    wasInAir: false
   };
   const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
   let lastSwordTime = 0;
   const swordCooldown = 50;
   let swordInterval = null;
-
   document.addEventListener('keydown', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = true;
     if (e.code === 'KeyC') startSwordSwing();
@@ -672,7 +657,6 @@ mapData.decor.forEach(d => {
     player.width = width;
     player.height = height;
   }
-
   function getVertices(body) {
     const { position, angle, width, height } = body;
     const hw = width / 2, hh = height / 2;
@@ -737,30 +721,47 @@ mapData.decor.forEach(d => {
     return mtv;
   }
   function isPlayerOnGround() {
-    const sensorOffsetY = player.height / 2 + 0.5;
-    const groundSensor = Bodies.rectangle(player.position.x, player.position.y + sensorOffsetY, player.width, 2, {
+    const sensorHeight = 3;  
+    const sensorOffsetY = player.height / 2 + 1;  
+    const angle = player.angle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const offsetX = -sensorOffsetY * sin;  
+    const offsetY = sensorOffsetY * cos;
+    const sensorPosX = player.position.x + offsetX;
+    const sensorPosY = player.position.y + offsetY;
+    const groundSensor = Bodies.rectangle(sensorPosX, sensorPosY, player.width, sensorHeight, {
       isSensor: true,
       isStatic: true,
+      angle: angle,  
       collisionFilter: CONFIG.player.collisionFilter,
       render: { fillStyle: 'transparent' }
     });
     groundSensor.width = player.width;
-    groundSensor.height = 2;
+    groundSensor.height = sensorHeight;
     World.add(engine.world, groundSensor);
     const bodies = Composite.allBodies(engine.world);
     const collisions = Query.collides(groundSensor, bodies);
     World.remove(engine.world, groundSensor);
     let isOnGround = false, onSlope = false, slopeAngle = 0;
+    let deepestCollision = null;
+    let maxDepth = 0;
     for (const collision of collisions) {
-      const otherBody = collision.bodyA.label === 'platform' ? collision.bodyA : collision.bodyB.label === 'platform' ? collision.bodyB : null;
-      if (otherBody && otherBody.label === 'platform') {
-        isOnGround = true;
-        const platform = mapData.platforms.find(p => p.id === otherBody.id);
-        if (platform && platform.angle !== 0) {
-          onSlope = true;
-          slopeAngle = Math.round(platform.angle);
+      const otherBody = collision.bodyA.label === 'platform' ? collision.bodyA : (collision.bodyB.label === 'platform' ? collision.bodyB : null);
+      if (otherBody) {
+        const depth = collision.depth;  
+        if (depth > maxDepth) {
+          maxDepth = depth;
+          deepestCollision = otherBody;
         }
-        break;
+      }
+    }
+    if (deepestCollision) {
+      isOnGround = true;
+      const platform = mapData.platforms.find(p => p.id === deepestCollision.id);
+      if (platform && Math.abs(platform.angle) > 5) {  
+        onSlope = true;
+        slopeAngle = Math.round(platform.angle);
       }
     }
     return { isOnGround, onSlope, slopeAngle };
@@ -789,12 +790,10 @@ mapData.decor.forEach(d => {
     render.options.width = canvasWidth;
     render.options.height = canvasHeight;
   });
-
   Render.lookAt(render, {
     min: { x: mapData.playerStart.x - canvasWidth / 2, y: mapData.playerStart.y - canvasHeight / 2 },
     max: { x: mapData.playerStart.x + canvasWidth / 2, y: mapData.playerStart.y + canvasHeight / 2 }
   });
-
   let lastTime = performance.now();
   let frames = 0;
   let fps = 0;
@@ -814,7 +813,6 @@ mapData.decor.forEach(d => {
     if (state.isDashing) {
       state.isDashing = false;
       state.lastDash = Date.now();
-      player.frictionAir = 0.02;
       const postDashSpeed = CONFIG.player.speed;
       const magnitude = Math.sqrt(state.dashVelocity.x ** 2 + state.dashVelocity.y ** 2);
       const scaledX = magnitude > 0 ? state.dashVelocity.x * (postDashSpeed / magnitude) : 0;
@@ -822,48 +820,44 @@ mapData.decor.forEach(d => {
       Body.setVelocity(player, { x: scaledX, y: scaledY });
     }
   }
-
-  let frameCount = 0;
+  let lastGroundState = { isOnGround: false, onSlope: false, slopeAngle: 0 };
+  let slopeFrameCount = 0; 
+  const hysteresisFrames = 3; 
   Events.on(engine, 'beforeUpdate', () => {
     const now = Date.now();
-    frameCount++;
-
-    const { onSlope, slopeAngle } = isPlayerOnGround();
+    if (state.keys.right && !state.keys.left) {
+      state.facingDirection = 1;
+      state.lastDirection = { x: 1, y: 0 };
+    } else if (state.keys.left && !state.keys.right) {
+      state.facingDirection = -1;
+      state.lastDirection = { x: -1, y: 0 };
+    } else if (state.keys.up && !state.keys.right && !state.keys.left) {
+      state.lastDirection = { x: 0, y: -1 };
+    }
+    const groundInfo = isPlayerOnGround();
+    const justLanded = !lastGroundState.isOnGround && groundInfo.isOnGround;
     const maxTilt = CONFIG.rotationLimit * Math.PI / 180;
-    let targetAngle = state.isDashing ? 0 : onSlope ? slopeAngle * Math.PI / 180 : 0;
-    let clampedAngle = Math.max(Math.min(player.angle, targetAngle + maxTilt), targetAngle - maxTilt);
-
-    if (frameCount % 5 === 0) {
-      if (onSlope && Math.abs(player.angle) > 0.1 && !state.keys.left && !state.keys.right && !state.keys.up) {
-        if (!state.onSlopeAndTilted) {
-          state.onSlopeAndTilted = true;
-          state.correctAngleStartTime = now;
-        }
-      } else {
-        state.onSlopeAndTilted = false;
-      }
+    if (groundInfo.onSlope) {
+      slopeFrameCount = Math.min(slopeFrameCount + 1, hysteresisFrames);
+    } else {
+      slopeFrameCount = Math.max(slopeFrameCount - 1, 0);
     }
-
-    if (state.onSlopeAndTilted) {
-      const timeElapsed = now - state.correctAngleStartTime;
-      if (timeElapsed < 200) {
-        const progress = timeElapsed / 200;
-        targetAngle = player.angle * (1 - progress);
-      } else {
-        targetAngle = 0;
-        state.onSlopeAndTilted = false;
-      }
+    groundInfo.onSlope = slopeFrameCount >= hysteresisFrames;
+    if (!groundInfo.onSlope) groundInfo.slopeAngle = 0;
+    let targetAngle = state.isDashing ? 0 : groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
+    targetAngle = Math.max(-maxTilt * 10, Math.min(targetAngle, maxTilt * 10));  
+    let lerpSpeed = 0.1;  
+    if (justLanded && groundInfo.onSlope) {
+      lerpSpeed = 0.3;  
     }
-    const lerpSpeed = onSlope ? 0.2 : 0.5;
     const newAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newAngle);
-    const groundInfo = isPlayerOnGround();
-
+    lastGroundState = groundInfo;
+    state.wasInAir = !groundInfo.isOnGround;
     if (state.isDashing && now - state.dashStartTime < CONFIG.player.dashDuration) {
       Body.setVelocity(player, state.dashVelocity);
       player.force.y = -engine.world.gravity.y * player.mass * engine.world.gravity.scale;
     }
-
     if (state.keys.dash && !state.isDashing && now - state.lastDash >= CONFIG.player.dashCooldown) {
       const dashSpeed = CONFIG.player.dashSpeed;
       let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
@@ -875,15 +869,24 @@ mapData.decor.forEach(d => {
       player.frictionAir = 0;
       setTimeout(endDash, CONFIG.player.dashDuration);
     }
-
     if (!state.isDashing) {
-      let moveSpeed = (state.keys.right ? CONFIG.player.speed : 0) - (state.keys.left ? CONFIG.player.speed : 0);
-      if (state.keys.run) moveSpeed = (state.keys.right ? CONFIG.player.runSpeed : 0) - (state.keys.left ? CONFIG.player.runSpeed : 0);
-      Body.setVelocity(player, { x: player.velocity.x + (moveSpeed - player.velocity.x) * 0.2, y: player.velocity.y });
+      const input = (state.keys.right ? 1 : 0) - (state.keys.left ? 1 : 0);
+      const speed = state.keys.run ? CONFIG.player.runSpeed : CONFIG.player.speed;
+      let targetVelX = input * speed;
+      let targetVelY = 0;
+      if (groundInfo.isOnGround && groundInfo.onSlope) {
+        const theta = groundInfo.slopeAngle * Math.PI / 180;
+        targetVelX = input * speed * Math.cos(theta);
+        targetVelY = input * speed * Math.sin(theta);
+      }
+      if (groundInfo.isOnGround) {
+        Body.setVelocity(player, { x: targetVelX, y: targetVelY });
+      } else {
+        Body.setVelocity(player, { x: player.velocity.x + (targetVelX - player.velocity.x) * 0.1, y: player.velocity.y });
+      }
       if (state.keys.right) state.facingDirection = 1;
       if (state.keys.left) state.facingDirection = -1;
     }
-
     if (state.keys.hop && !groundInfo.isOnGround && now - state.lastHop >= CONFIG.player.hopCooldown) {
       const hopVelocity = state.isDashing ? CONFIG.player.jumpVelocity : CONFIG.player.airHopVelocity;
       Body.setVelocity(player, { x: player.velocity.x, y: hopVelocity });
@@ -892,18 +895,15 @@ mapData.decor.forEach(d => {
         state.dashVelocity.y = hopVelocity;
       }
     }
-
     if (state.keys.up && groundInfo.isOnGround) {
       Body.setVelocity(player, { x: player.velocity.x, y: CONFIG.player.jumpVelocity });
     }
-
     if (!state.isDashing && !groundInfo.isOnGround) {
       const maxFallSpeed = CONFIG.maxGravityAcceleration;
       if (player.velocity.y > maxFallSpeed) {
         Body.setVelocity(player, { x: player.velocity.x, y: maxFallSpeed });
       }
     }
-
     let wallCollision = false;
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
@@ -935,7 +935,6 @@ mapData.decor.forEach(d => {
         wallCollision = true;
       }
     });
-
     camTarget.x = player.position.x;
     camTarget.y = player.position.y;
     camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
@@ -948,7 +947,6 @@ mapData.decor.forEach(d => {
     render.bounds.max.y = camY + canvasHeight;
     Render.lookAt(render, { min: { x: camX, y: camY }, max: { x: camX + canvasWidth, y: camY + canvasHeight } });
     DOM.background.style.backgroundPosition = `${-camX * CONFIG.camera.bgPanSpeed}px ${-camY * CONFIG.camera.bgPanSpeed}px`;
-
     const physicsMargin = CONFIG.culling.physicsMargin;
     const physCullBounds = { min: { x: camX - physicsMargin, y: camY - physicsMargin }, max: { x: camX + canvasWidth + physicsMargin, y: camY + canvasHeight + physicsMargin } };
     const bodies = Composite.allBodies(engine.world);
@@ -970,7 +968,6 @@ mapData.decor.forEach(d => {
       }
     });
   });
-
   setInterval(updateHUD, 16);
 }
 preloadImages();
