@@ -1,28 +1,28 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.3</title>
+<title>Game Engine - v2.3.1</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
-  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #000000 }
-  canvas { display: block; background: transparent; }
+  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: #000000 }
+  canvas { display: block; background: transparent; position: relative; z-index: 10; }
   #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 100; }
   .ability { margin-bottom: 5px; }
   .ready { color: #0f0; }
   .cooldown { color: #f00; }
   #loadingScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
   #loadingBarContainer { width: 300px; height: 20px; background: #333; border: 1px solid #666; border-radius: 10px; overflow: hidden; }
-  #loadingBar { width: 0; height: 100%; background: #0f0; transition: width 0.1s ease; }
+  #loadingBar { width: 0; height: 100%; background: #305CDE; transition: width 0.1s ease; }
   #loadingText { color: white; margin-top: 10px; font-size: 18px; }
   #startButton {
     margin-top: 20px;
     padding: 10px 20px;
-    background: #0f0;
+    background: #305CDE;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 50px;
     font-size: 18px;
     cursor: pointer;
     display: none;
@@ -33,7 +33,7 @@
 <body>
 <div id="loadingScreen">
   <div id="loadingBarContainer"><div id="loadingBar"></div></div>
-  <div id="loadingText">Laden... 0%</div>
+  <div id="loadingText">Loading... 0%</div>
   <button id="startButton">Start Game</button>
 </div>
 <div id="background"></div>
@@ -52,11 +52,11 @@ const CONFIG = {
   gravity: 1.3,
   maxGravityAcceleration: 15,
   zIndex: {
-    player: 10,
+    background: 0,
+    hud: 100,
+    fpsMeter: 101,
+    loadingScreen: 1000,
     sword: 15,
-    platform: 5,
-    wall: 5,
-    decor: 1,
     default: 0
   },
   player: {
@@ -70,8 +70,7 @@ const CONFIG = {
     dashDuration: 200,
     dashCooldown: 2000,
     hopCooldown: 1000,
-    collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 },
-    zIndex: 10
+    collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 }
   },
   sword: {
     swingDuration: 200,
@@ -80,12 +79,11 @@ const CONFIG = {
     offsetY: 0,
     width: 540,
     height: 220,
-    scale: 0.5,
-    zIndex: 15
+    scale: 0.5
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0.5 },
   culling: { physicsMargin: 200, renderMargin: 100 },
-  rotationLimit: 5, 
+  rotationLimit: 5,
   maxVideoResolution: { width: 1920, height: 1080 }
 };
 const mapData = {
@@ -94,7 +92,7 @@ const mapData = {
     "y": 200,
     "w": 50,
     "h": 50,
-    "zIndex": 9
+    "zIndex": 4
   },
   "textures": [
     "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
@@ -214,7 +212,7 @@ const mapData = {
       "h": 20,
       "angle": 0,
       "textureId": 4,
-      "zIndex": 10
+      "zIndex": 3
     },
     {
       "id": "LLaGPlzXCKje-SuWTJ05vq662",
@@ -225,7 +223,7 @@ const mapData = {
       "h": 20,
       "angle": 90,
       "textureId": 4,
-      "zIndex": 11
+      "zIndex": 3
     },
     {
       "id": "t2KQaKbSnEVA-d9LgM4i9FaRL",
@@ -236,7 +234,7 @@ const mapData = {
       "h": 20,
       "angle": 45,
       "textureId": 4,
-      "zIndex": 12
+      "zIndex": 3
     },
     {
       "id": "KVPLn6ta65S0-7G7GKb0kQCNJ",
@@ -247,7 +245,7 @@ const mapData = {
       "h": 20,
       "angle": -45,
       "textureId": 4,
-      "zIndex": 13
+      "zIndex": 3
     },
     {
       "id": "XSH8DomWepcK-oovmfws7VZBq",
@@ -258,7 +256,7 @@ const mapData = {
       "h": 30,
       "angle": -45,
       "textureId": 4,
-      "zIndex": 14
+      "zIndex": 3
     },
     {
       "id": "Fb7VOMJ12RMz-lwjvI4UKLosa",
@@ -269,7 +267,7 @@ const mapData = {
       "h": 20,
       "angle": 90,
       "textureId": 4,
-      "zIndex": 15
+      "zIndex": 3
     }
   ]
 };
@@ -325,7 +323,7 @@ function preloadImages() {
   soundtrack.onerror = () => {
     loadedAssets++;
     updateLoading();
-    console.warn('Soundtrack kon niet geladen worden!');
+    console.warn('Soundtrack could not be loaded!');
   };
   soundtrack.load();
 }
@@ -348,13 +346,13 @@ function setupVideoTexture(src, textureId) {
     videoTextures.set(textureId, { video: null, w: 0, h: 0, loaded: true, isPlaying: false });
     loadedAssets++;
     updateLoading();
-    console.warn(`Video ${src} kon niet geladen worden!`);
+    console.warn(`Video ${src} could not be loaded!`);
   };
 }
 function updateLoading() {
   const progress = totalAssets > 0 ? Math.min((loadedAssets / totalAssets) * 100, 100) : 0;
   DOM.loadingBar.style.width = `${progress}%`;
-  DOM.loadingText.textContent = `Laden... ${Math.round(progress)}%`;
+  DOM.loadingText.textContent = `Loading... ${Math.round(progress)}%`;
   if (loadedAssets >= totalAssets) {
     setTimeout(() => {
       DOM.startButton.style.display = 'block';
@@ -403,8 +401,8 @@ function startGame() {
       max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
     const sortedBodies = bodies.slice().sort((a, b) => {
-      const aZ = (a.render && a.render.zIndex !== undefined) ? a.render.zIndex : (a.zIndex !== undefined ? a.zIndex : CONFIG.zIndex.default);
-      const bZ = (b.render && b.render.zIndex !== undefined) ? b.render.zIndex : (b.zIndex !== undefined ? a.zIndex : CONFIG.zIndex.default);
+      const aZ = a.render.zIndex || CONFIG.zIndex.default || 0;
+      const bZ = b.render.zIndex || CONFIG.zIndex.default || 0;
       return aZ - bZ;
     });
     for (let i = 0; i < sortedBodies.length; i++) {
@@ -492,16 +490,15 @@ function startGame() {
     CONFIG.player.height,
     {
       restitution: 0,
-      friction: 0, 
+      friction: 0,
       frictionAir: 0,
       inertia: Infinity,
       render: {
         fillStyle: '#f00',
-        zIndex: CONFIG.player.zIndex
+        zIndex: mapData.playerStart.zIndex
       },
       label: 'player',
-      collisionFilter: CONFIG.player.collisionFilter,
-      zIndex: CONFIG.player.zIndex
+      collisionFilter: CONFIG.player.collisionFilter
     }
   );
   player.width = CONFIG.player.width;
@@ -514,18 +511,17 @@ function startGame() {
   mapData.platforms.forEach(p => {
     let body;
     const texture = mapData.textures[p.textureId];
-    const zIndex = p.zIndex !== undefined ? p.zIndex : CONFIG.zIndex.platform;
+    const zIndex = p.zIndex || CONFIG.zIndex.default;
     if (texture.endsWith('.webm')) {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0, 
-        frictionStatic: p.type === 'wall' ? 0 : 0, 
+        friction: p.type === 'wall' ? 0 : 0,
+        frictionStatic: p.type === 'wall' ? 0 : 0,
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
         render: { zIndex: zIndex },
-        zIndex: zIndex,
         id: p.id
       });
       body.platformVideo = true;
@@ -537,8 +533,8 @@ function startGame() {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0, 
-        frictionStatic: p.type === 'wall' ? 0 : 0, 
+        friction: p.type === 'wall' ? 0 : 0,
+        frictionStatic: p.type === 'wall' ? 0 : 0,
         render: {
           sprite: texture ? { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } : undefined,
           fillStyle: texture ? undefined : (p.type === 'wall' ? '#444' : '#654321'),
@@ -547,7 +543,6 @@ function startGame() {
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
-        zIndex: zIndex,
         id: p.id
       });
     }
@@ -560,7 +555,7 @@ function startGame() {
 mapData.decor.forEach(d => {
   let body;
   const texture = mapData.textures[d.textureId];
-  const zIndex = d.zIndex !== undefined ? d.zIndex : CONFIG.zIndex.decor;
+  const zIndex = d.zIndex || CONFIG.zIndex.default;
   if (texture.endsWith('.webm')) {
     body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
       isStatic: true,
@@ -568,8 +563,7 @@ mapData.decor.forEach(d => {
       label: 'decor',
       angle: (d.angle || 0) * Math.PI / 180,
       collisionFilter: { mask: 0x0000 },
-      render: { zIndex: zIndex },
-      zIndex: zIndex
+      render: { zIndex: zIndex }
     });
     body.decorVideo = true;
     body.videoTextureId = d.textureId;
@@ -587,8 +581,7 @@ mapData.decor.forEach(d => {
       },
       label: 'decor',
       angle: (d.angle || 0) * Math.PI / 180,
-      collisionFilter: { mask: 0x0000 },
-      zIndex: zIndex
+      collisionFilter: { mask: 0x0000 }
     });
   }
   body.width = d.w;
@@ -721,19 +714,19 @@ mapData.decor.forEach(d => {
     return mtv;
   }
   function isPlayerOnGround() {
-    const sensorHeight = 3;  
-    const sensorOffsetY = player.height / 2 + 1;  
+    const sensorHeight = 3;
+    const sensorOffsetY = player.height / 2 + 1;
     const angle = player.angle;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const offsetX = -sensorOffsetY * sin;  
+    const offsetX = -sensorOffsetY * sin;
     const offsetY = sensorOffsetY * cos;
     const sensorPosX = player.position.x + offsetX;
     const sensorPosY = player.position.y + offsetY;
     const groundSensor = Bodies.rectangle(sensorPosX, sensorPosY, player.width, sensorHeight, {
       isSensor: true,
       isStatic: true,
-      angle: angle,  
+      angle: angle,
       collisionFilter: CONFIG.player.collisionFilter,
       render: { fillStyle: 'transparent' }
     });
@@ -749,7 +742,7 @@ mapData.decor.forEach(d => {
     for (const collision of collisions) {
       const otherBody = collision.bodyA.label === 'platform' ? collision.bodyA : (collision.bodyB.label === 'platform' ? collision.bodyB : null);
       if (otherBody) {
-        const depth = collision.depth;  
+        const depth = collision.depth;
         if (depth > maxDepth) {
           maxDepth = depth;
           deepestCollision = otherBody;
@@ -759,7 +752,7 @@ mapData.decor.forEach(d => {
     if (deepestCollision) {
       isOnGround = true;
       const platform = mapData.platforms.find(p => p.id === deepestCollision.id);
-      if (platform && Math.abs(platform.angle) > 5) {  
+      if (platform && Math.abs(platform.angle) > 5) {
         onSlope = true;
         slopeAngle = Math.round(platform.angle);
       }
@@ -821,8 +814,8 @@ mapData.decor.forEach(d => {
     }
   }
   let lastGroundState = { isOnGround: false, onSlope: false, slopeAngle: 0 };
-  let slopeFrameCount = 0; 
-  const hysteresisFrames = 3; 
+  let slopeFrameCount = 0;
+  const hysteresisFrames = 3;
   Events.on(engine, 'beforeUpdate', () => {
     const now = Date.now();
     if (state.keys.right && !state.keys.left) {
@@ -845,10 +838,10 @@ mapData.decor.forEach(d => {
     groundInfo.onSlope = slopeFrameCount >= hysteresisFrames;
     if (!groundInfo.onSlope) groundInfo.slopeAngle = 0;
     let targetAngle = state.isDashing ? 0 : groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
-    targetAngle = Math.max(-maxTilt * 10, Math.min(targetAngle, maxTilt * 10));  
-    let lerpSpeed = 0.1;  
+    targetAngle = Math.max(-maxTilt * 10, Math.min(targetAngle, maxTilt * 10));
+    let lerpSpeed = 0.1;
     if (justLanded && groundInfo.onSlope) {
-      lerpSpeed = 0.3;  
+      lerpSpeed = 0.3;
     }
     const newAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newAngle);
