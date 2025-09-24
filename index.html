@@ -92,12 +92,10 @@ const mapData = {
     "y": 200,
     "w": 50,
     "h": 50,
-    "zIndex": 4
+    "zIndex": 2
   },
   "textures": [
     "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
-    "https://media.istockphoto.com/id/947324428/photo/black-slate-or-stone-texture-background.jpg?s=612x612&w=0&k=20&c=VpyD89OmvHNoeJkrq9NVjgSulqcXjVv0PLkc2lT3lAQ=",
-    "https://hyperrushnet.github.io/game/rickroll.webm",
     "https://lh5.googleusercontent.com/proxy/iztBv17dD5tx6Jx7L3BnX4HkjxAagEr60XK4z-5_abcjE_KlSsJd2yJ0PNx5jQt_LwVH83C35uqjbJDLgXsn4aU_PhKNo92hSVQbM2fw6XWgeRvJU1_8sMAizAU8NPrh5T9LJ_nWU8GN3UpnUc0jyWgGh4uk",
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToA-lx8GWIjx538HunoTtxCajiovpBaDUWHQ&s"
   ],
@@ -136,71 +134,38 @@ const mapData = {
       "zIndex": 6
     },
     {
-      "id": "wyBMJ8fIfZVg-zAoDMlmIpeMp",
+      "id": "bDLGk8Qv6KOi-N0b2auRkLsmX",
       "type": "platform",
-      "x": 564,
-      "y": 9940,
-      "w": 265,
+      "x": 449,
+      "y": 10071,
+      "w": 100,
       "h": 20,
       "angle": 0,
-      "textureId": 1,
-      "zIndex": 2
+      "textureId": 0,
+      "zIndex": 11
     },
     {
-      "id": "TWFMqyjSVIaz-1SZPSKEW6b5H",
-      "type": "platform",
-      "x": 564,
-      "y": 10114,
-      "w": 265,
-      "h": 20,
-      "angle": 0,
-      "textureId": 1,
-      "zIndex": 7
-    },
-    {
-      "id": "cUX2U6ZqeyUe-HwO9aZ7jLKIX",
+      "id": "6oXBg8TwMxIj-v2sdDKmdchti",
       "type": "wall",
-      "x": 686,
-      "y": 10027,
-      "w": 155,
+      "x": 489,
+      "y": 10111,
+      "w": 100,
       "h": 20,
       "angle": 90,
-      "textureId": 1,
-      "zIndex": 8
-    },
-    {
-      "id": "xc4VvhAOrgI8-1z0w1MOL7TSk",
-      "type": "wall",
-      "x": 441,
-      "y": 10027,
-      "w": 155,
-      "h": 20,
-      "angle": 90,
-      "textureId": 1,
-      "zIndex": 9
+      "textureId": 0,
+      "zIndex": 12
     }
   ],
   "decor": [
     {
-      "id": "hJ9Tmgopz986-aH5e4GKjLS72",
-      "type": "decor",
-      "x": 563,
-      "y": 10027,
-      "w": 225,
-      "h": 150,
-      "angle": 0,
-      "textureId": 2,
-      "zIndex": 1
-    },
-    {
       "id": "ytp3aL2bTvCY-y9h9Ny3sTKBw",
       "type": "decor",
-      "x": 568,
-      "y": 10227,
+      "x": 364,
+      "y": 10156,
       "w": 225,
       "h": 150,
       "angle": 0,
-      "textureId": 3,
+      "textureId": 1,
       "zIndex": 1
     },
     {
@@ -211,7 +176,7 @@ const mapData = {
       "w": 100,
       "h": 20,
       "angle": 0,
-      "textureId": 4,
+      "textureId": 2,
       "zIndex": 3
     },
     {
@@ -222,7 +187,7 @@ const mapData = {
       "w": 100,
       "h": 20,
       "angle": 90,
-      "textureId": 4,
+      "textureId": 2,
       "zIndex": 3
     },
     {
@@ -233,18 +198,7 @@ const mapData = {
       "w": 50,
       "h": 20,
       "angle": 45,
-      "textureId": 4,
-      "zIndex": 3
-    },
-    {
-      "id": "KVPLn6ta65S0-7G7GKb0kQCNJ",
-      "type": "decor",
-      "x": 361,
-      "y": 206,
-      "w": 50,
-      "h": 20,
-      "angle": -45,
-      "textureId": 4,
+      "textureId": 2,
       "zIndex": 3
     },
     {
@@ -255,7 +209,7 @@ const mapData = {
       "w": 30,
       "h": 30,
       "angle": -45,
-      "textureId": 4,
+      "textureId": 2,
       "zIndex": 3
     },
     {
@@ -266,8 +220,19 @@ const mapData = {
       "w": 50,
       "h": 20,
       "angle": 90,
-      "textureId": 4,
+      "textureId": 2,
       "zIndex": 3
+    },
+    {
+      "id": "6fZJp7OtJ9Rx-XqskYBAsrq94",
+      "type": "decor",
+      "x": 359,
+      "y": 208,
+      "w": 50,
+      "h": 20,
+      "angle": -45,
+      "textureId": 2,
+      "zIndex": 10
     }
   ]
 };
@@ -452,7 +417,6 @@ function startGame() {
         c.restore();
       }
     }
-    
     if (swordState.active && swordState.visible) {
       const dir = state.facingDirection;
       const texture = dir === 1 ? swordRightUrl : swordLeftUrl;
@@ -465,8 +429,7 @@ function startGame() {
         if (
           swordState.x >= cullBounds.min.x && swordState.x <= cullBounds.max.x &&
           swordState.y >= cullBounds.min.y && swordState.y <= cullBounds.max.y
-        )
-        {
+        ) {
           c.save();
           c.translate(swordState.x, swordState.y);
           c.rotate(swordState.angle * dir);
@@ -483,7 +446,6 @@ function startGame() {
       }
     }
   }
-  
   Render.run(render);
   const runner = Runner.create();
   Runner.run(runner, engine);
@@ -505,7 +467,6 @@ function startGame() {
       collisionFilter: CONFIG.player.collisionFilter
     }
   );
-  
   player.width = CONFIG.player.width;
   player.height = CONFIG.player.height;
   World.add(engine.world, player);
@@ -529,13 +490,11 @@ function startGame() {
         render: { zIndex: zIndex },
         id: p.id
       });
-      
       body.platformVideo = true;
       body.videoTextureId = p.textureId;
       body.videoW = p.w;
       body.videoH = p.h;
-    }
-    else {
+    } else {
       const imgSize = textureCache.get(texture) || { w: p.w, h: p.h };
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
@@ -553,14 +512,12 @@ function startGame() {
         id: p.id
       });
     }
-    
     body.width = p.w;
     body.height = p.h;
     World.add(engine.world, body);
     if (p.type === 'wall') walls.push(body);
     if (p.type === 'platform') platforms.push(body);
   });
-  
 mapData.decor.forEach(d => {
   let body;
   const texture = mapData.textures[d.textureId];
@@ -578,8 +535,7 @@ mapData.decor.forEach(d => {
     body.videoTextureId = d.textureId;
     body.videoW = d.w;
     body.videoH = d.h;
-  }
-  else {
+  } else {
     const imgSize = textureCache.get(texture) || { w: d.w, h: d.h };
     body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
       isStatic: true,
@@ -822,7 +778,6 @@ mapData.decor.forEach(d => {
       Body.setVelocity(player, { x: scaledX, y: scaledY });
     }
   }
-  
   let lastGroundState = { isOnGround: false, onSlope: false, slopeAngle: 0 };
   let slopeFrameCount = 0;
   const hysteresisFrames = 3;
@@ -837,17 +792,14 @@ mapData.decor.forEach(d => {
     } else if (state.keys.up && !state.keys.right && !state.keys.left) {
       state.lastDirection = { x: 0, y: -1 };
     }
-    
     const groundInfo = isPlayerOnGround();
     const justLanded = !lastGroundState.isOnGround && groundInfo.isOnGround;
     const maxTilt = CONFIG.rotationLimit * Math.PI / 180;
     if (groundInfo.onSlope) {
       slopeFrameCount = Math.min(slopeFrameCount + 1, hysteresisFrames);
-    } else
-    {
+    } else {
       slopeFrameCount = Math.max(slopeFrameCount - 1, 0);
     }
-    
     groundInfo.onSlope = slopeFrameCount >= hysteresisFrames;
     if (!groundInfo.onSlope) groundInfo.slopeAngle = 0;
     let targetAngle = state.isDashing ? 0 : groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
@@ -856,7 +808,6 @@ mapData.decor.forEach(d => {
     if (justLanded && groundInfo.onSlope) {
       lerpSpeed = 0.3;
     }
-    
     const newAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newAngle);
     lastGroundState = groundInfo;
@@ -865,7 +816,6 @@ mapData.decor.forEach(d => {
       Body.setVelocity(player, state.dashVelocity);
       player.force.y = -engine.world.gravity.y * player.mass * engine.world.gravity.scale;
     }
-    
     if (state.keys.dash && !state.isDashing && now - state.lastDash >= CONFIG.player.dashCooldown) {
       const dashSpeed = CONFIG.player.dashSpeed;
       let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
@@ -877,7 +827,6 @@ mapData.decor.forEach(d => {
       player.frictionAir = 0;
       setTimeout(endDash, CONFIG.player.dashDuration);
     }
-    
     if (!state.isDashing) {
       const input = (state.keys.right ? 1 : 0) - (state.keys.left ? 1 : 0);
       const speed = state.keys.run ? CONFIG.player.runSpeed : CONFIG.player.speed;
@@ -913,7 +862,6 @@ mapData.decor.forEach(d => {
         Body.setVelocity(player, { x: player.velocity.x, y: maxFallSpeed });
       }
     }
-    
     let wallCollision = false;
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
@@ -934,9 +882,7 @@ mapData.decor.forEach(d => {
               y: Math.abs(mtv.axis.y) > 0.7 ? 0 : vel.y
             });
           }
-        }
-        
-        else {
+        } else {
           if (dot < 0) {
             Body.setVelocity(player, {
               x: vel.x - dot * mtv.axis.x,
@@ -951,10 +897,8 @@ mapData.decor.forEach(d => {
     camTarget.y = player.position.y;
     camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
     camPos.y += (camTarget.y - camPos.y) * CONFIG.camera.smoothFactor;
-    
     const camX = camPos.x - canvasWidth / 2;
     const camY = camPos.y - canvasHeight / 2;
-    
     render.bounds.min.x = camX;
     render.bounds.min.y = camY;
     render.bounds.max.x = camX + canvasWidth;
@@ -986,8 +930,7 @@ mapData.decor.forEach(d => {
 }
 preloadImages();
 mapData.textures.forEach((src, index) => {
-  if (src.endsWith('.webm')) 
-  {
+  if (src.endsWith('.webm')) {
     setupVideoTexture(src, index);
   }
 });
