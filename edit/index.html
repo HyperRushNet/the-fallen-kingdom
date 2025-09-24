@@ -30,6 +30,8 @@ textarea { height:120px; resize:none; }
   <button id="loadJsonBtn">Load JSON</button>
   <button id="clearBtn">Clear Map</button>
   <button id="resetBtn">Reset Map</button>
+  <h2>Debug</h2>
+  <button id="toggleDebug">Toggle Debug Mode</button>
   <h2>Selected Object</h2>
   <label>Type
     <select id="propType"><option value="platform">Platform</option><option value="wall">Wall</option><option value="decor">Decor</option></select>
@@ -71,6 +73,7 @@ textarea { height:120px; resize:none; }
         <li><strong>Clipboard:</strong> Ctrl+C to copy, Ctrl+V to paste objects.</li>
         <li><strong>Delete:</strong> Press Backspace to remove the selected object.</li>
         <li><strong>JSON:</strong> Use the Import/Export section to save or load your map.</li>
+        <li><strong>Debug Mode:</strong> Toggle to show hitboxes for all objects.</li>
         <li><strong>Sidebar:</strong> When the mouse is over the sidebar, canvas interactions are paused.</li>
       </ul>
     </div>
@@ -97,6 +100,7 @@ canvas.height = window.innerHeight;
 let camX = 0, camY = 0, isPanning = false, panStartX = 0, panStartY = 0;
 let scale = 1, zoomSpeed = 0.1;
 let sidebarActive = false;
+let debugMode = false;
 
 // Sidebar hover blocks canvas interactions
 sidebar.addEventListener("mouseenter", () => sidebarActive = true);
@@ -221,6 +225,14 @@ const moveToFront = document.getElementById("moveToFront");
 const moveToBack = document.getElementById("moveToBack");
 const moveUp = document.getElementById("moveUp");
 const moveDown = document.getElementById("moveDown");
+const toggleDebug = document.getElementById("toggleDebug");
+
+// Debug mode toggle
+toggleDebug.addEventListener("click", () => {
+  debugMode = !debugMode;
+  toggleDebug.textContent = debugMode ? "Disable Debug Mode" : "Enable Debug Mode";
+  draw();
+});
 
 // Layering helpers
 function getMaxZIndex() {
@@ -230,53 +242,52 @@ function getMinZIndex() {
   return objects.length > 0 ? Math.min(...objects.map(o => o.zIndex || 0)) : 0;
 }
 
-// Draw function with proper z-index handling
+// Draw function with centered objects and debug hitboxes
 function draw() {
+  // Reset transform & clear
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
   ctx.scale(scale, scale);
   ctx.translate(-camX, -camY);
+
+  // Sorteer op zIndex
   const sortedObjects = objects.slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-  const viewBounds = {
-    left: camX,
-    right: camX + canvas.width / scale,
-    top: camY,
-    bottom: camY + canvas.height / scale
-  };
+
   sortedObjects.forEach(o => {
+    let angle = Math.round(o.angle || 0) % 360;
+
+    // Pixel-perfect rounding
+    const w = Math.round(o.w);
+    const h = Math.round(o.h);
+    const px = Math.round(o.x);
+    const py = Math.round(o.y);
+
     ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.rotate((o.angle || 0) * Math.PI / 180);
-    const objBounds = {
-      left: o.x - o.w / 2,
-      right: o.x + o.w / 2,
-      top: o.y - o.h / 2,
-      bottom: o.y + o.h / 2
-    };
-    const isInView = !(objBounds.right < viewBounds.left ||
-                      objBounds.left > viewBounds.right ||
-                      objBounds.bottom < viewBounds.top ||
-                      objBounds.top > viewBounds.bottom);
+    ctx.translate(px, py); // Center of object
+    ctx.rotate(angle * Math.PI / 180); // Rotatie rond center
+
+    // Tekenen van texture of fallback
     if (o.texture) {
       if (o.texture.match(/\.(webm|mp4)$/i)) {
         const videoData = videoManager.getVideo(o.texture);
         if (videoData && videoData.ready) {
+          const isInView = px + w / 2 >= camX && px - w / 2 <= camX + canvas.width / scale &&
+                          py + h / 2 >= camY && py - h / 2 <= camY + canvas.height / scale;
           if (isInView && !videoManager.isVideoPlaying(o.texture)) {
             videoManager.playVideo(o.texture);
           } else if (!isInView && videoManager.isVideoPlaying(o.texture)) {
             videoManager.pauseVideo(o.texture);
           }
-          if (videoManager.isVideoPlaying(o.texture) && videoData.ready) {
-            ctx.drawImage(videoData.video, -o.w / 2, -o.h / 2, o.w, o.h);
+          if (videoManager.isVideoPlaying(o.texture)) {
+            ctx.drawImage(videoData.video, -w / 2, -h / 2, w, h);
           } else {
-            ctx.fillStyle = o.type === "platform" ? "#654321" :
-                           o.type === "wall" ? "#444" : "#880088";
-            ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
+            ctx.fillStyle = "#888";
+            ctx.fillRect(-w / 2, -h / 2, w, h);
           }
         } else {
           ctx.fillStyle = "#888";
-          ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
+          ctx.fillRect(-w / 2, -h / 2, w, h);
         }
       } else {
         if (!imageCache.has(o.texture)) {
@@ -289,35 +300,57 @@ function draw() {
         }
         const img = imageCache.get(o.texture);
         if (img && img.complete && img.naturalWidth > 0) {
-          ctx.drawImage(img, -o.w / 2, -o.h / 2, o.w, o.h);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
         } else {
           ctx.fillStyle = "#888";
-          ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
+          ctx.fillRect(-w / 2, -h / 2, w, h);
         }
       }
     } else {
       ctx.fillStyle = o.type === "platform" ? "#654321" :
                      o.type === "wall" ? "#444" : "#880088";
-      ctx.fillRect(-o.w / 2, -o.h / 2, o.w, o.h);
+      ctx.fillRect(-w / 2, -h / 2, w, h);
     }
+
+    // Highlight selected
     if (o === selected) {
       ctx.strokeStyle = "cyan";
       ctx.lineWidth = 3 / scale;
-      ctx.strokeRect(-o.w / 2, -o.h / 2, o.w, o.h);
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
     }
+
+    // Debug hitbox
+    if (debugMode) {
+      ctx.strokeStyle = o.type === "platform" ? "yellow" : o.type === "wall" ? "red" : "purple";
+      ctx.lineWidth = 1 / scale;
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
+    }
+
     ctx.restore();
   });
+
+  // Player
+  const pw = Math.round(player.w);
+  const ph = Math.round(player.h);
+  const px = Math.round(player.x);
+  const py = Math.round(player.y);
+
   ctx.save();
-  ctx.translate(player.x, player.y);
+  ctx.translate(px, py);
   ctx.fillStyle = "lime";
-  ctx.fillRect(-player.w / 2, -player.h / 2, player.w, player.h);
+  ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
   ctx.strokeStyle = "#0ff";
   ctx.lineWidth = 2 / scale;
-  ctx.strokeRect(-player.w / 2, -player.h / 2, player.w, player.h);
+  ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+  if (debugMode) {
+    ctx.strokeStyle = "green";
+    ctx.lineWidth = 1 / scale;
+    ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
+  }
   ctx.fillStyle = "#fff";
   ctx.font = `${12 / scale}px monospace`;
   ctx.textAlign = "center";
-  ctx.fillText("PLAYER", 0, -player.h / 2 + 15 / scale);
+  ctx.fillText("PLAYER", 0, -ph / 2 - 4 / scale);
   ctx.restore();
   ctx.restore();
 }
