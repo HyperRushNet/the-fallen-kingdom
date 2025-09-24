@@ -56,7 +56,7 @@ const CONFIG = {
     hud: 100,
     fpsMeter: 101,
     loadingScreen: 1000,
-    sword: 15,
+    sword: 0,
     default: 0
   },
   player: {
@@ -149,7 +149,7 @@ const mapData = {
     {
       "id": "TWFMqyjSVIaz-1SZPSKEW6b5H",
       "type": "platform",
-      "x": 563,
+      "x": 564,
       "y": 10114,
       "w": 265,
       "h": 20,
@@ -184,8 +184,8 @@ const mapData = {
     {
       "id": "hJ9Tmgopz986-aH5e4GKjLS72",
       "type": "decor",
-      "x": 562.839855821787,
-      "y": 10027.235050822255,
+      "x": 563,
+      "y": 10027,
       "w": 225,
       "h": 150,
       "angle": 0,
@@ -217,8 +217,8 @@ const mapData = {
     {
       "id": "LLaGPlzXCKje-SuWTJ05vq662",
       "type": "decor",
-      "x": 334.2090507543897,
-      "y": 167.24958079644549,
+      "x": 334,
+      "y": 167,
       "w": 100,
       "h": 20,
       "angle": 90,
@@ -228,8 +228,8 @@ const mapData = {
     {
       "id": "t2KQaKbSnEVA-d9LgM4i9FaRL",
       "type": "decor",
-      "x": 311.6009992784597,
-      "y": 206.8590869200453,
+      "x": 312,
+      "y": 207,
       "w": 50,
       "h": 20,
       "angle": 45,
@@ -239,8 +239,8 @@ const mapData = {
     {
       "id": "KVPLn6ta65S0-7G7GKb0kQCNJ",
       "type": "decor",
-      "x": 361.19999999999993,
-      "y": 206.80000000000004,
+      "x": 361,
+      "y": 206,
       "w": 50,
       "h": 20,
       "angle": -45,
@@ -250,8 +250,8 @@ const mapData = {
     {
       "id": "XSH8DomWepcK-oovmfws7VZBq",
       "type": "decor",
-      "x": 336.40000000000003,
-      "y": 224.40000000000003,
+      "x": 336,
+      "y": 224,
       "w": 30,
       "h": 30,
       "angle": -45,
@@ -261,8 +261,8 @@ const mapData = {
     {
       "id": "Fb7VOMJ12RMz-lwjvI4UKLosa",
       "type": "decor",
-      "x": 237.9627191030222,
-      "y": 126.85640216166007,
+      "x": 238,
+      "y": 127,
       "w": 50,
       "h": 20,
       "angle": 90,
@@ -384,7 +384,8 @@ function startGame() {
     x: -1000,
     y: -1000,
     angle: 0,
-    visible: false
+    visible: false,
+    startTime: 0
   };
   function drawBodyVideo(ctx, source, x, y, w, h, angle) {
     ctx.save();
@@ -451,6 +452,7 @@ function startGame() {
         c.restore();
       }
     }
+    
     if (swordState.active && swordState.visible) {
       const dir = state.facingDirection;
       const texture = dir === 1 ? swordRightUrl : swordLeftUrl;
@@ -463,7 +465,8 @@ function startGame() {
         if (
           swordState.x >= cullBounds.min.x && swordState.x <= cullBounds.max.x &&
           swordState.y >= cullBounds.min.y && swordState.y <= cullBounds.max.y
-        ) {
+        )
+        {
           c.save();
           c.translate(swordState.x, swordState.y);
           c.rotate(swordState.angle * dir);
@@ -480,6 +483,7 @@ function startGame() {
       }
     }
   }
+  
   Render.run(render);
   const runner = Runner.create();
   Runner.run(runner, engine);
@@ -501,6 +505,7 @@ function startGame() {
       collisionFilter: CONFIG.player.collisionFilter
     }
   );
+  
   player.width = CONFIG.player.width;
   player.height = CONFIG.player.height;
   World.add(engine.world, player);
@@ -524,11 +529,13 @@ function startGame() {
         render: { zIndex: zIndex },
         id: p.id
       });
+      
       body.platformVideo = true;
       body.videoTextureId = p.textureId;
       body.videoW = p.w;
       body.videoH = p.h;
-    } else {
+    }
+    else {
       const imgSize = textureCache.get(texture) || { w: p.w, h: p.h };
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
@@ -546,12 +553,14 @@ function startGame() {
         id: p.id
       });
     }
+    
     body.width = p.w;
     body.height = p.h;
     World.add(engine.world, body);
     if (p.type === 'wall') walls.push(body);
     if (p.type === 'platform') platforms.push(body);
   });
+  
 mapData.decor.forEach(d => {
   let body;
   const texture = mapData.textures[d.textureId];
@@ -569,7 +578,8 @@ mapData.decor.forEach(d => {
     body.videoTextureId = d.textureId;
     body.videoW = d.w;
     body.videoH = d.h;
-  } else {
+  }
+  else {
     const imgSize = textureCache.get(texture) || { w: d.w, h: d.h };
     body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
       isStatic: true,
@@ -603,7 +613,6 @@ mapData.decor.forEach(d => {
   const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
   let lastSwordTime = 0;
   const swordCooldown = 50;
-  let swordInterval = null;
   document.addEventListener('keydown', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = true;
     if (e.code === 'KeyC') startSwordSwing();
@@ -615,33 +624,33 @@ mapData.decor.forEach(d => {
     const now = Date.now();
     if (now - lastSwordTime < swordCooldown) return;
     lastSwordTime = now;
-    if (swordInterval) clearInterval(swordInterval);
     swordState.active = true;
     swordState.visible = true;
+    swordState.startTime = performance.now();
     const swingDuration = CONFIG.sword.swingDuration;
     const startAngle = -Math.PI / 4;
     const endAngle = Math.PI / 4;
-    const totalSteps = swingDuration / 16;
-    let stepCount = 0;
-    swordInterval = setInterval(() => {
-      const t = stepCount / totalSteps;
+    function animateSword(timestamp) {
+      if (!swordState.active) return;
+      const elapsed = timestamp - swordState.startTime;
+      const t = Math.min(elapsed / swingDuration, 1);
       swordState.angle = startAngle + (endAngle - startAngle) * t;
       const dir = state.facingDirection;
       const offsetX = CONFIG.sword.offsetX * dir;
       const offsetY = CONFIG.sword.offsetY;
       swordState.x = player.position.x + offsetX;
       swordState.y = player.position.y + offsetY;
-      stepCount++;
-      if (stepCount >= totalSteps) {
-        clearInterval(swordInterval);
-        swordInterval = null;
+      if (t >= 1) {
         swordState.active = false;
         swordState.visible = false;
         swordState.x = -1000;
         swordState.y = -1000;
         swordState.angle = 0;
+      } else {
+        requestAnimationFrame(animateSword);
       }
-    }, 16);
+    }
+    requestAnimationFrame(animateSword);
   }
   function resizePlayer(width, height) {
     const scaleX = width / player.width;
@@ -813,6 +822,7 @@ mapData.decor.forEach(d => {
       Body.setVelocity(player, { x: scaledX, y: scaledY });
     }
   }
+  
   let lastGroundState = { isOnGround: false, onSlope: false, slopeAngle: 0 };
   let slopeFrameCount = 0;
   const hysteresisFrames = 3;
@@ -827,14 +837,17 @@ mapData.decor.forEach(d => {
     } else if (state.keys.up && !state.keys.right && !state.keys.left) {
       state.lastDirection = { x: 0, y: -1 };
     }
+    
     const groundInfo = isPlayerOnGround();
     const justLanded = !lastGroundState.isOnGround && groundInfo.isOnGround;
     const maxTilt = CONFIG.rotationLimit * Math.PI / 180;
     if (groundInfo.onSlope) {
       slopeFrameCount = Math.min(slopeFrameCount + 1, hysteresisFrames);
-    } else {
+    } else
+    {
       slopeFrameCount = Math.max(slopeFrameCount - 1, 0);
     }
+    
     groundInfo.onSlope = slopeFrameCount >= hysteresisFrames;
     if (!groundInfo.onSlope) groundInfo.slopeAngle = 0;
     let targetAngle = state.isDashing ? 0 : groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
@@ -843,6 +856,7 @@ mapData.decor.forEach(d => {
     if (justLanded && groundInfo.onSlope) {
       lerpSpeed = 0.3;
     }
+    
     const newAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newAngle);
     lastGroundState = groundInfo;
@@ -851,6 +865,7 @@ mapData.decor.forEach(d => {
       Body.setVelocity(player, state.dashVelocity);
       player.force.y = -engine.world.gravity.y * player.mass * engine.world.gravity.scale;
     }
+    
     if (state.keys.dash && !state.isDashing && now - state.lastDash >= CONFIG.player.dashCooldown) {
       const dashSpeed = CONFIG.player.dashSpeed;
       let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
@@ -862,6 +877,7 @@ mapData.decor.forEach(d => {
       player.frictionAir = 0;
       setTimeout(endDash, CONFIG.player.dashDuration);
     }
+    
     if (!state.isDashing) {
       const input = (state.keys.right ? 1 : 0) - (state.keys.left ? 1 : 0);
       const speed = state.keys.run ? CONFIG.player.runSpeed : CONFIG.player.speed;
@@ -897,6 +913,7 @@ mapData.decor.forEach(d => {
         Body.setVelocity(player, { x: player.velocity.x, y: maxFallSpeed });
       }
     }
+    
     let wallCollision = false;
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
@@ -917,7 +934,9 @@ mapData.decor.forEach(d => {
               y: Math.abs(mtv.axis.y) > 0.7 ? 0 : vel.y
             });
           }
-        } else {
+        }
+        
+        else {
           if (dot < 0) {
             Body.setVelocity(player, {
               x: vel.x - dot * mtv.axis.x,
@@ -932,8 +951,10 @@ mapData.decor.forEach(d => {
     camTarget.y = player.position.y;
     camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
     camPos.y += (camTarget.y - camPos.y) * CONFIG.camera.smoothFactor;
+    
     const camX = camPos.x - canvasWidth / 2;
     const camY = camPos.y - canvasHeight / 2;
+    
     render.bounds.min.x = camX;
     render.bounds.min.y = camY;
     render.bounds.max.x = camX + canvasWidth;
@@ -965,7 +986,8 @@ mapData.decor.forEach(d => {
 }
 preloadImages();
 mapData.textures.forEach((src, index) => {
-  if (src.endsWith('.webm')) {
+  if (src.endsWith('.webm')) 
+  {
     setupVideoTexture(src, index);
   }
 });
