@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +7,7 @@
 <title>Game Engine - v2.3.2 - Performance Update</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
-  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-image: linear-gradient(to right, red, blue) }
+  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
   canvas { display: block; background: transparent; position: relative; z-index: 10; }
   #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 100; }
   .ability { margin-bottom: 5px; }
@@ -53,7 +54,7 @@ const CONFIG = {
   maxGravityAcceleration: 15,
   zIndex: {
     background: 0,
-    sword: 1,
+    sword: 5,
     decor: 2,
     platform: 3,
     player: 4,
@@ -81,7 +82,7 @@ const CONFIG = {
     offsetY: 0,
     width: 540,
     height: 220,
-    scale: 0.5
+    scale: 0.4
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0 },
   culling: { physicsMargin: 200, renderMargin: 100 },
@@ -97,7 +98,9 @@ const mapData = {
     "zIndex": 1
   },
   "textures": [
-    "https://media.istockphoto.com/id/947324428/photo/black-slate-or-stone-texture-background.jpg?s=612x612&w=0&k=20&c=VpyD89OmvHNoeJkrq9NVjgSulqcXjVv0PLkc2lT3lAQ="
+    "https://t4.ftcdn.net/jpg/02/92/73/13/360_F_292731351_p4objwWzlIieS2Kh7kbWVWmOhNrNE5Ft.jpg",
+    "https://static.vecteezy.com/system/resources/previews/034/384/201/non_2x/hanging-vines-creepers-leaves-forest-shrubs-ai-generated-free-png.png",
+    "https://t3.ftcdn.net/jpg/02/83/47/42/360_F_283474271_w1zqr8GUvlg7lTvBssUokMUYHOKdahWN.jpg"
   ],
   "platforms": [
     {
@@ -244,7 +247,96 @@ const mapData = {
       "zIndex": 17
     }
   ],
-  "decor": []
+  "decor": [
+    {
+      "id": "nzPwEXTvixS2-zuszZnVRvBjr",
+      "type": "decor",
+      "x": 225,
+      "y": 21,
+      "w": 140,
+      "h": 60,
+      "angle": 20,
+      "textureId": 1,
+      "zIndex": 18
+    },
+    {
+      "id": "zKKSk3fVJ2tn-mGkBlxccK7Nk",
+      "type": "decor",
+      "x": 153,
+      "y": 26,
+      "w": 140,
+      "h": 60,
+      "angle": -20,
+      "textureId": 1,
+      "zIndex": 19
+    },
+    {
+      "id": "fFtAXxjPS6uG-vnlhk1Xj6Jpx",
+      "type": "decor",
+      "x": 86,
+      "y": 61,
+      "w": 140,
+      "h": 60,
+      "angle": -40,
+      "textureId": 1,
+      "zIndex": 20
+    },
+    {
+      "id": "15YKaT3kbMqg-Ruqxg8WitFAS",
+      "type": "decor",
+      "x": 320,
+      "y": 35,
+      "w": 140,
+      "h": 60,
+      "angle": -10,
+      "textureId": 1,
+      "zIndex": 21
+    },
+    {
+      "id": "Cn3zQ4hjJu1O-3mEa8yohh0c3",
+      "type": "decor",
+      "x": 381,
+      "y": 53,
+      "w": 140,
+      "h": 60,
+      "angle": 40,
+      "textureId": 1,
+      "zIndex": 22
+    },
+    {
+      "id": "hUqElZ2qVGKm-yQscx6pvTWbA",
+      "type": "decor",
+      "x": 452,
+      "y": 85,
+      "w": 140,
+      "h": 60,
+      "angle": 20,
+      "textureId": 1,
+      "zIndex": 23
+    },
+    {
+      "id": "9HGxfKBVomKg-ZijM1o6O93gp",
+      "type": "decor",
+      "x": 542,
+      "y": 101,
+      "w": 140,
+      "h": 60,
+      "angle": 0,
+      "textureId": 1,
+      "zIndex": 24
+    },
+    {
+      "id": "5nWBxxnEzyHF-RLdhIlAGnj4B",
+      "type": "decor",
+      "x": 310,
+      "y": 108,
+      "w": 589,
+      "h": 259,
+      "angle": 0,
+      "textureId": 2,
+      "zIndex": 0
+    }
+  ]
 };
 const swordRightUrl = 'https://hyperrushnet.github.io/v3concept/sword-image-game-no-bg.png';
 const swordLeftUrl = 'https://hyperrushnet.github.io/game/images/sword-left.png';
