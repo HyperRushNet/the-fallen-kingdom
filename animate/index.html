@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel Animator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <style>
         canvas {
             image-rendering: pixelated;
@@ -28,6 +29,92 @@
         .project-item:hover:not(.selected) {
             background-color: #e5e7eb;
         }
+        #colorList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .color-card {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+        .color-card:hover {
+            border-color: #2563eb;
+        }
+        .color-card span {
+            font-size: 12px;
+            color: white;
+            text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            word-break: break-all;
+        }
+        .color-card button {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #dc2626;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            line-height: 1;
+            padding: 0;
+        }
+        #exportString {
+            width: 100%;
+            min-height: 60px;
+            resize: vertical;
+        }
+        #modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #modalContent {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+        }
+        #modalClose {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #dc2626;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 font-sans">
@@ -39,27 +126,52 @@
             </h2>
             <div class="flex gap-2 mb-3">
                 <input type="text" id="newProjectName" placeholder="Projectnaam" maxlength="30" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="file" id="imageUpload" accept="image/*" class="border border-gray-300 rounded-md px-3 py-2 text-gray-700">
                 <button id="createProject" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Project</button>
             </div>
+            <div class="flex gap-2 mb-3">
+                <button id="exportProject" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition">Exporteer Project</button>
+                <input type="text" id="importString" placeholder="Plak projectstring" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="importProject" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition">Importeer Project</button>
+            </div>
+            <textarea id="exportString" readonly class="border border-gray-300 rounded-md px-3 py-2 text-gray-700 mb-3" placeholder="Projectstring verschijnt hier na export"></textarea>
+            <div id="canvasInfo" class="text-sm text-gray-600 mb-2"></div>
             <div id="projectList" class="border border-gray-200 rounded-md p-2 bg-white">
                 <p id="noProjects" class="text-gray-500 text-sm text-center">Geen projecten beschikbaar</p>
             </div>
         </div>
-        <div class="relative w-[600px] h-[900px] mx-auto mb-6 border border-gray-300 rounded-md overflow-hidden bg-white">
-            <canvas id="mainCanvas" width="100" height="150" class="absolute top-0 left-0 w-[600px] h-[900px]"></canvas>
-            <canvas id="overlayCanvas" width="100" height="150" class="absolute top-0 left-0 w-[600px] h-[900px]"></canvas>
+        <div id="canvasWrapper" class="relative mx-auto mb-6 border border-gray-300 rounded-md overflow-hidden bg-white">
+            <canvas id="mainCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
+            <canvas id="overlayCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
         </div>
         <div class="grid grid-cols-1 gap-4">
             <div class="flex justify-center items-center gap-3 flex-wrap">
                 <input type="color" id="colorPicker" value="#000000" class="w-10 h-10 rounded-md cursor-pointer border border-gray-300">
                 <button id="drawMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition active">Tekenen</button>
                 <button id="eraseMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Gommen</button>
+                <button id="pickMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Kleurkiezer</button>
+                <select id="mirrorMode" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="none">Geen spiegeling</option>
+                    <option value="horizontal">Horizontaal (X-as)</option>
+                    <option value="vertical">Verticaal (Y-as)</option>
+                    <option value="both">Beide (X+Y-as)</option>
+                </select>
                 <label class="flex items-center gap-2 text-gray-700">
                     <input type="checkbox" id="overlayToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
                     Overlay
                 </label>
+                <label class="flex items-center gap-2 text-gray-700">
+                    <input type="checkbox" id="crosshairToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
+                    Kruislijnen
+                </label>
             </div>
             <div class="flex justify-center gap-2 flex-wrap">
+                <input type="text" id="colorName" placeholder="Kleurnaam" maxlength="20" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="saveColor" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">Kleur Opslaan</button>
+            </div>
+            <div id="colorList" class="border border-gray-200 rounded-md p-2 bg-white"></div>
+            <div class="flex justify-center gap-2 flex-wrap">
+                <button id="playAnimation" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">Speel Animatie</button>
                 <button id="newFrame" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Frame</button>
                 <button id="prevFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Vorige</button>
                 <button id="nextFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Volgende</button>
@@ -74,24 +186,38 @@
     <script>
         const mainCanvas = document.getElementById('mainCanvas');
         const overlayCanvas = document.getElementById('overlayCanvas');
-        const mainCtx = mainCanvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const mainCtx = mainCanvas.getContext('2d', { willReadFrequently: true });
         const overlayCtx = overlayCanvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const drawModeBtn = document.getElementById('drawMode');
         const eraseModeBtn = document.getElementById('eraseMode');
+        const pickModeBtn = document.getElementById('pickMode');
+        const mirrorModeSelect = document.getElementById('mirrorMode');
         const overlayToggle = document.getElementById('overlayToggle');
+        const crosshairToggle = document.getElementById('crosshairToggle');
         const newFrameBtn = document.getElementById('newFrame');
         const prevFrameBtn = document.getElementById('prevFrame');
         const nextFrameBtn = document.getElementById('nextFrame');
         const deleteFrameBtn = document.getElementById('deleteFrame');
         const deleteAllFramesBtn = document.getElementById('deleteAllFrames');
         const exportVideoBtn = document.getElementById('exportVideo');
+        const playAnimationBtn = document.getElementById('playAnimation');
         const frameInfo = document.getElementById('frameInfo');
         const newProjectName = document.getElementById('newProjectName');
+        const imageUpload = document.getElementById('imageUpload');
         const createProjectBtn = document.getElementById('createProject');
+        const exportProjectBtn = document.getElementById('exportProject');
+        const importStringInput = document.getElementById('importString');
+        const importProjectBtn = document.getElementById('importProject');
+        const exportStringTextarea = document.getElementById('exportString');
         const projectList = document.getElementById('projectList');
         const noProjects = document.getElementById('noProjects');
         const currentProjectName = document.getElementById('currentProjectName');
+        const canvasInfo = document.getElementById('canvasInfo');
+        const colorNameInput = document.getElementById('colorName');
+        const saveColorBtn = document.getElementById('saveColor');
+        const colorList = document.getElementById('colorList');
 
         let projects = JSON.parse(localStorage.getItem('pixelAnimatorProjects')) || {};
         let currentProject = null;
@@ -99,21 +225,35 @@
         let currentFrame = 0;
         let isDrawing = false;
         let mode = 'drawing';
+        let canvasWidth = 100;
+        let canvasHeight = 100;
 
-        // Teken grid
-        function drawGrid() {
+        // Teken grid en kruislijnen
+        function drawGuides() {
             mainCtx.strokeStyle = '#d3d3d3';
             mainCtx.lineWidth = 0.1;
-            for (let x = 0; x <= 100; x++) {
+            for (let x = 0; x <= canvasWidth; x++) {
                 mainCtx.beginPath();
                 mainCtx.moveTo(x, 0);
-                mainCtx.lineTo(x, 150);
+                mainCtx.lineTo(x, canvasHeight);
                 mainCtx.stroke();
             }
-            for (let y = 0; y <= 150; y++) {
+            for (let y = 0; y <= canvasHeight; y++) {
                 mainCtx.beginPath();
                 mainCtx.moveTo(0, y);
-                mainCtx.lineTo(100, y);
+                mainCtx.lineTo(canvasWidth, y);
+                mainCtx.stroke();
+            }
+            if (crosshairToggle.checked) {
+                mainCtx.strokeStyle = '#d3d3d3';
+                mainCtx.lineWidth = 0.5;
+                mainCtx.beginPath();
+                mainCtx.moveTo(canvasWidth / 2, 0);
+                mainCtx.lineTo(canvasWidth / 2, canvasHeight);
+                mainCtx.stroke();
+                mainCtx.beginPath();
+                mainCtx.moveTo(0, canvasHeight / 2);
+                mainCtx.lineTo(canvasWidth, canvasHeight / 2);
                 mainCtx.stroke();
             }
         }
@@ -121,23 +261,29 @@
         // Update canvas en overlay
         function updateCanvas() {
             if (!currentProject) {
-                mainCtx.clearRect(0, 0, 100, 150);
-                overlayCtx.clearRect(0, 0, 100, 150);
+                mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+                overlayCtx.clearRect(0, 0, canvasWidth, canvasHeight);
                 frameInfo.textContent = 'Geen project geselecteerd';
                 currentProjectName.textContent = 'Geen project geselecteerd';
+                canvasInfo.textContent = '';
+                colorList.innerHTML = '';
+                exportStringTextarea.value = '';
                 disableControls(true);
                 return;
             }
             disableControls(false);
+            mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
             mainCtx.putImageData(frames[currentFrame], 0, 0);
-            drawGrid();
+            drawGuides();
+            overlayCtx.clearRect(0, 0, canvasWidth, canvasHeight);
             if (overlayToggle.checked && currentFrame > 0) {
                 overlayCtx.putImageData(frames[currentFrame - 1], 0, 0);
-            } else {
-                overlayCtx.clearRect(0, 0, 100, 150);
             }
             frameInfo.textContent = `Frame ${currentFrame + 1} / ${frames.length}`;
             currentProjectName.textContent = currentProject;
+            canvasInfo.textContent = `Canvas: ${canvasWidth}x${canvasHeight} pixels`;
+            updateColorList();
+            exportStringTextarea.value = '';
             deleteFrameBtn.disabled = frames.length <= 1;
             deleteAllFramesBtn.disabled = frames.length <= 1;
             saveCurrentProject();
@@ -145,36 +291,61 @@
 
         // Schakel controls in/uit
         function disableControls(disabled) {
-            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, colorPicker, drawModeBtn, eraseModeBtn, overlayToggle].forEach(el => {
+            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, playAnimationBtn, exportProjectBtn, importProjectBtn, colorPicker, drawModeBtn, eraseModeBtn, pickModeBtn, overlayToggle, mirrorModeSelect, crosshairToggle, saveColorBtn, colorNameInput].forEach(el => {
                 el.disabled = disabled;
-                if (disabled) {
-                    el.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    el.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
+                el.classList.toggle('opacity-50', disabled);
+                el.classList.toggle('cursor-not-allowed', disabled);
             });
         }
 
-        // Teken of wis pixel
+        // Teken, wis of kies kleur
         function modifyPixel(x, y) {
             if (!currentProject) return;
-            const pixelIndex = (Math.floor(y) * 100 + Math.floor(x)) * 4;
-            const frameData = frames[currentFrame].data;
-            if (mode === 'drawing') {
-                const color = hexToRgb(colorPicker.value);
-                frameData[pixelIndex] = color.r;
-                frameData[pixelIndex + 1] = color.g;
-                frameData[pixelIndex + 2] = color.b;
-                frameData[pixelIndex + 3] = 255;
-            } else {
-                frameData[pixelIndex] = 0;
-                frameData[pixelIndex + 1] = 0;
-                frameData[pixelIndex + 2] = 0;
-                frameData[pixelIndex + 3] = 0;
+            const xFloor = Math.floor(x);
+            const yFloor = Math.floor(y);
+            if (xFloor < 0 || xFloor >= canvasWidth || yFloor < 0 || yFloor >= canvasHeight) return;
+
+            if (mode === 'picking') {
+                const pixel = mainCtx.getImageData(xFloor, yFloor, 1, 1).data;
+                if (pixel[3] !== 0) {
+                    colorPicker.value = rgbToHex(pixel[0], pixel[1], pixel[2]);
+                }
+                return;
             }
-            mainCtx.putImageData(frames[currentFrame], 0, 0);
-            drawGrid();
-            saveCurrentProject();
+
+            const pixels = [{ x: xFloor, y: yFloor }];
+            const mirrorMode = mirrorModeSelect.value;
+            if (mirrorMode === 'horizontal' || mirrorMode === 'both') {
+                pixels.push({ x: canvasWidth - xFloor - 1, y: yFloor });
+            }
+            if (mirrorMode === 'vertical' || mirrorMode === 'both') {
+                pixels.push({ x: xFloor, y: canvasHeight - yFloor - 1 });
+            }
+            if (mirrorMode === 'both') {
+                pixels.push({ x: canvasWidth - xFloor - 1, y: canvasHeight - yFloor - 1 });
+            }
+
+            const frameData = frames[currentFrame].data;
+            pixels.forEach(({ x, y }) => {
+                if (x >= 0 && x < canvasWidth && y >= 0 && y < canvasHeight) {
+                    const index = (y * canvasWidth + x) * 4;
+                    if (mode === 'drawing') {
+                        const { r, g, b } = hexToRgb(colorPicker.value);
+                        frameData[index] = r;
+                        frameData[index + 1] = g;
+                        frameData[index + 2] = b;
+                        frameData[index + 3] = 255;
+                    } else if (mode === 'erasing') {
+                        frameData[index] = frameData[index + 1] = frameData[index + 2] = frameData[index + 3] = 0;
+                    }
+                }
+            });
+            updateCanvas();
+        }
+
+        // Converteer RGB naar hex
+        function rgbToHex(r, g, b) {
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).padStart(6, '0')}`;
         }
 
         // Converteer hex naar RGB
@@ -185,12 +356,53 @@
             return { r, g, b };
         }
 
+        // Kleurenbeheer
+        function updateColorList() {
+            colorList.innerHTML = '';
+            if (currentProject && projects[currentProject].colors) {
+                projects[currentProject].colors.forEach((color, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'color-card';
+                    card.style.backgroundColor = color.hex;
+                    card.innerHTML = `<span>${color.name}</span><button>X</button>`;
+                    card.addEventListener('click', (e) => {
+                        if (e.target.tagName !== 'BUTTON') {
+                            colorPicker.value = color.hex;
+                        }
+                    });
+                    card.querySelector('button').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        projects[currentProject].colors.splice(index, 1);
+                        saveCurrentProject();
+                        updateColorList();
+                    });
+                    colorList.appendChild(card);
+                });
+            }
+        }
+
+        saveColorBtn.addEventListener('click', () => {
+            if (!currentProject) return;
+            const name = colorNameInput.value.trim().replace(/[^a-zA-Z0-9-_ ]/g, '');
+            const hex = colorPicker.value;
+            if (name && !projects[currentProject].colors?.some(c => c.hex === hex)) {
+                projects[currentProject].colors = projects[currentProject].colors || [];
+                projects[currentProject].colors.push({ name, hex });
+                saveCurrentProject();
+                updateColorList();
+                colorNameInput.value = '';
+            }
+        });
+
         // Projectbeheer
         function saveCurrentProject() {
             if (currentProject) {
                 projects[currentProject] = {
                     frames: frames.map(frame => Array.from(frame.data)),
-                    currentFrame
+                    currentFrame,
+                    width: canvasWidth,
+                    height: canvasHeight,
+                    colors: projects[currentProject]?.colors || []
                 };
                 localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
             }
@@ -198,64 +410,140 @@
 
         function loadProject(name) {
             currentProject = name;
-            const projectData = projects[name];
-            frames = projectData.frames.map(data => {
-                const imgData = mainCtx.createImageData(100, 150);
+            const project = projects[name];
+            canvasWidth = project.width;
+            canvasHeight = project.height;
+            mainCanvas.width = canvasWidth;
+            mainCanvas.height = canvasHeight;
+            overlayCanvas.width = canvasWidth;
+            overlayCanvas.height = canvasHeight;
+            canvasWrapper.style.width = `${canvasWidth * 6}px`;
+            canvasWrapper.style.height = `${canvasHeight * 6}px`;
+            mainCanvas.style.width = `${canvasWidth * 6}px`;
+            mainCanvas.style.height = `${canvasHeight * 6}px`;
+            overlayCanvas.style.width = `${canvasWidth * 6}px`;
+            overlayCanvas.style.height = `${canvasHeight * 6}px`;
+            frames = project.frames.map(data => {
+                const imgData = mainCtx.createImageData(canvasWidth, canvasHeight);
                 imgData.data.set(new Uint8ClampedArray(data));
                 return imgData;
             });
-            currentFrame = projectData.currentFrame || 0;
-            if (currentFrame >= frames.length) currentFrame = frames.length - 1;
+            currentFrame = Math.min(project.currentFrame || 0, frames.length - 1);
             updateCanvas();
             updateProjectList();
         }
 
         function updateProjectList() {
             projectList.innerHTML = '';
-            if (Object.keys(projects).length === 0) {
+            if (!Object.keys(projects).length) {
                 noProjects.style.display = 'block';
-            } else {
-                noProjects.style.display = 'none';
-                Object.keys(projects).forEach(name => {
-                    const projectDiv = document.createElement('div');
-                    projectDiv.className = `flex justify-between items-center p-2 rounded-md cursor-pointer project-item ${currentProject === name ? 'selected' : ''}`;
-                    projectDiv.innerHTML = `
-                        <span class="text-gray-800">${name}</span>
-                        <button class="text-red-600 hover:text-red-800 text-sm focus:outline-none">Verwijder</button>
-                    `;
-                    projectDiv.querySelector('button').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        delete projects[name];
-                        localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
-                        if (currentProject === name) {
-                            currentProject = null;
-                            frames = [mainCtx.createImageData(100, 150)];
-                            currentFrame = 0;
-                            updateCanvas();
-                        }
-                        updateProjectList();
-                    });
-                    projectDiv.addEventListener('click', () => {
-                        if (currentProject !== name) {
-                            loadProject(name);
-                        }
-                    });
-                    projectList.appendChild(projectDiv);
-                });
+                return;
             }
+            noProjects.style.display = 'none';
+            Object.keys(projects).forEach(name => {
+                const div = document.createElement('div');
+                div.className = `flex justify-between items-center p-2 rounded-md cursor-pointer project-item ${currentProject === name ? 'selected' : ''}`;
+                div.innerHTML = `<span>${name}</span><button class="text-red-600 hover:text-red-800 text-sm">Verwijder</button>`;
+                div.querySelector('button').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    delete projects[name];
+                    localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+                    if (currentProject === name) {
+                        currentProject = null;
+                        frames = [];
+                        currentFrame = 0;
+                        canvasWidth = canvasHeight = 100;
+                        mainCanvas.width = overlayCanvas.width = canvasWidth;
+                        mainCanvas.height = overlayCanvas.height = canvasHeight;
+                        canvasWrapper.style.width = canvasWrapper.style.height = `${canvasWidth * 6}px`;
+                        mainCanvas.style.width = mainCanvas.style.height = `${canvasWidth * 6}px`;
+                        overlayCanvas.style.width = overlayCanvas.style.height = `${canvasWidth * 6}px`;
+                        updateCanvas();
+                    }
+                    updateProjectList();
+                });
+                div.addEventListener('click', () => {
+                    if (currentProject !== name) loadProject(name);
+                });
+                projectList.appendChild(div);
+            });
         }
+
+        // Afbeelding uploaden
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.onload = () => {
+                canvasWidth = img.width;
+                canvasHeight = img.height;
+                mainCanvas.width = overlayCanvas.width = canvasWidth;
+                mainCanvas.height = overlayCanvas.height = canvasHeight;
+                canvasWrapper.style.width = canvasWrapper.style.height = `${canvasWidth * 6}px`;
+                mainCanvas.style.width = mainCanvas.style.height = `${canvasWidth * 6}px`;
+                overlayCanvas.style.width = overlayCanvas.style.height = `${canvasWidth * 6}px`;
+                mainCtx.drawImage(img, 0, 0);
+                frames = [mainCtx.getImageData(0, 0, canvasWidth, canvasHeight)];
+                currentFrame = 0;
+                if (currentProject) saveCurrentProject();
+                updateCanvas();
+                e.target.value = '';
+            };
+            img.src = URL.createObjectURL(file);
+        });
+
+        // Project exporteren/importeren
+        exportProjectBtn.addEventListener('click', () => {
+            if (!currentProject) return;
+            const projectData = {
+                name: currentProject,
+                frames: frames.map(frame => Array.from(frame.data)),
+                currentFrame,
+                width: canvasWidth,
+                height: canvasHeight,
+                colors: projects[currentProject].colors || []
+            };
+            exportStringTextarea.value = LZString.compressToBase64(JSON.stringify(projectData));
+        });
+
+        importProjectBtn.addEventListener('click', () => {
+            const str = importStringInput.value.trim();
+            if (!str) return;
+            try {
+                const projectData = JSON.parse(LZString.decompressFromBase64(str));
+                let name = projectData.name.replace(/[^a-zA-Z0-9-_]/g, '') || 'ImportedProject';
+                let baseName = name;
+                let counter = 1;
+                while (projects[name]) name = `${baseName}_${counter++}`;
+                projects[name] = {
+                    frames: projectData.frames,
+                    currentFrame: projectData.currentFrame || 0,
+                    width: projectData.width,
+                    height: projectData.height,
+                    colors: projectData.colors || []
+                };
+                localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+                loadProject(name);
+                importStringInput.value = '';
+                updateProjectList();
+            } catch (e) {
+                alert('Ongeldige projectstring');
+            }
+        });
 
         createProjectBtn.addEventListener('click', () => {
             const name = newProjectName.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
-            if (name && !projects[name]) {
-                projects[name] = {
-                    frames: [Array.from(mainCtx.createImageData(100, 150).data)],
-                    currentFrame: 0
-                };
-                loadProject(name);
-                newProjectName.value = '';
-                updateProjectList();
-            }
+            if (!name || projects[name]) return;
+            projects[name] = {
+                frames: frames.length ? [Array.from(frames[0].data)] : [Array.from(mainCtx.createImageData(canvasWidth, canvasHeight).data)],
+                currentFrame: 0,
+                width: canvasWidth,
+                height: canvasHeight,
+                colors: []
+            };
+            loadProject(name);
+            newProjectName.value = '';
+            updateProjectList();
         });
 
         // Modus schakelen
@@ -263,46 +551,51 @@
             mode = 'drawing';
             drawModeBtn.classList.add('active');
             eraseModeBtn.classList.remove('active');
+            pickModeBtn.classList.remove('active');
         });
 
         eraseModeBtn.addEventListener('click', () => {
             mode = 'erasing';
             eraseModeBtn.classList.add('active');
             drawModeBtn.classList.remove('active');
+            pickModeBtn.classList.remove('active');
+        });
+
+        pickModeBtn.addEventListener('click', () => {
+            mode = 'picking';
+            pickModeBtn.classList.add('active');
+            drawModeBtn.classList.remove('active');
+            eraseModeBtn.classList.remove('active');
         });
 
         // Muis events
         mainCanvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const rect = mainCanvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / 6);
-            const y = Math.floor((e.clientY - rect.top) / 6);
+            const x = (e.clientX - rect.left) / 6;
+            const y = (e.clientY - rect.top) / 6;
             modifyPixel(x, y);
         });
 
         mainCanvas.addEventListener('mousemove', (e) => {
             if (isDrawing) {
                 const rect = mainCanvas.getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) / 6);
-                const y = Math.floor((e.clientY - rect.top) / 6);
+                const x = (e.clientX - rect.left) / 6;
+                const y = (e.clientY - rect.top) / 6;
                 modifyPixel(x, y);
             }
         });
 
-        mainCanvas.addEventListener('mouseup', () => {
-            isDrawing = false;
-        });
-
-        mainCanvas.addEventListener('mouseleave', () => {
-            isDrawing = false;
-        });
+        mainCanvas.addEventListener('mouseup', () => isDrawing = false);
+        mainCanvas.addEventListener('mouseleave', () => isDrawing = false);
 
         // Frame controls
         newFrameBtn.addEventListener('click', () => {
             if (!currentProject) return;
-            frames.push(mainCtx.createImageData(100, 150));
-            currentFrame = frames.length - 1;
-            mainCtx.clearRect(0, 0, 100, 150);
+            const newFrame = mainCtx.createImageData(canvasWidth, canvasHeight);
+            newFrame.data.set(frames[currentFrame].data); // Kopieer huidige frame
+            frames.splice(currentFrame + 1, 0, newFrame); // Voeg toe na huidige frame
+            currentFrame++; // Ga naar de nieuwe frame
             updateCanvas();
         });
 
@@ -323,57 +616,105 @@
         deleteFrameBtn.addEventListener('click', () => {
             if (frames.length > 1) {
                 frames.splice(currentFrame, 1);
-                if (currentFrame >= frames.length) {
-                    currentFrame = frames.length - 1;
-                }
+                if (currentFrame >= frames.length) currentFrame = frames.length - 1;
                 updateCanvas();
             }
         });
 
         deleteAllFramesBtn.addEventListener('click', () => {
-            frames = [mainCtx.createImageData(100, 150)];
+            frames = [mainCtx.createImageData(canvasWidth, canvasHeight)];
             currentFrame = 0;
-            mainCtx.clearRect(0, 0, 100, 150);
             updateCanvas();
         });
 
         overlayToggle.addEventListener('change', updateCanvas);
+        crosshairToggle.addEventListener('change', updateCanvas);
+        mirrorModeSelect.addEventListener('change', updateCanvas);
 
-        // Exporteer video
-        exportVideoBtn.addEventListener('click', async () => {
-            if (!currentProject) return;
-            const stream = mainCanvas.captureStream(30);
-            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        // Video-opname zonder grid/kruislijnen
+        async function recordVideo(callback) {
+            if (!currentProject || !frames.length) return;
+            const videoCanvas = document.createElement('canvas');
+            videoCanvas.width = canvasWidth;
+            videoCanvas.height = canvasHeight;
+            const videoCtx = videoCanvas.getContext('2d', { willReadFrequently: true });
+            const stream = videoCanvas.captureStream(30);
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
             const chunks = [];
 
             recorder.ondataavailable = (e) => chunks.push(e.data);
             recorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'video/webm' });
+                callback(blob);
+                videoCanvas.remove();
+                updateCanvas();
+            };
+
+            recorder.start();
+            const frameDuration = 1000 / 30;
+            let frameIndex = 0;
+
+            function renderFrame(timestamp, lastTime) {
+                if (frameIndex >= frames.length) {
+                    recorder.stop();
+                    return;
+                }
+                if (!lastTime || (timestamp - lastTime) >= frameDuration) {
+                    videoCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+                    videoCtx.putImageData(frames[frameIndex], 0, 0);
+                    frameIndex++;
+                    lastTime = timestamp;
+                }
+                requestAnimationFrame((ts) => renderFrame(ts, lastTime));
+            }
+
+            requestAnimationFrame((ts) => renderFrame(ts, 0));
+        }
+
+        // Speel animatie
+        playAnimationBtn.addEventListener('click', () => {
+            recordVideo((blob) => {
+                const url = URL.createObjectURL(blob);
+                const modal = document.createElement('div');
+                modal.id = 'modal';
+                modal.innerHTML = `
+                    <div id="modalContent">
+                        <button id="modalClose">X</button>
+                        <video controls autoplay loop style="width: ${canvasWidth * 6}px; height: ${canvasHeight * 6}px;"></video>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                const video = modal.querySelector('video');
+                video.src = url;
+                modal.querySelector('#modalClose').addEventListener('click', () => {
+                    modal.remove();
+                    URL.revokeObjectURL(url);
+                });
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                        URL.revokeObjectURL(url);
+                    }
+                });
+            });
+        });
+
+        // Exporteer video
+        exportVideoBtn.addEventListener('click', () => {
+            recordVideo((blob) => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `${currentProject || 'animation'}.webm`;
                 a.click();
                 URL.revokeObjectURL(url);
-            };
-
-            recorder.start();
-            for (let i = 0; i < frames.length; i++) {
-                mainCtx.putImageData(frames[i], 0, 0);
-                drawGrid();
-                await new Promise(resolve => setTimeout(resolve, 1000 / 30));
-            }
-            recorder.stop();
-            updateCanvas();
+            });
         });
 
         // Initiële setup
         updateProjectList();
-        if (Object.keys(projects).length > 0) {
-            loadProject(Object.keys(projects)[0]);
-        } else {
-            updateCanvas();
-        }
+        if (Object.keys(projects).length) loadProject(Object.keys(projects)[0]);
+        else updateCanvas();
     </script>
 </body>
 </html>
