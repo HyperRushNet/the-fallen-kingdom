@@ -63,7 +63,7 @@ const CONFIG = {
   },
   player: {
     width: 50,
-    height: 50,
+    height: 75,
     speed: 5,
     runSpeed: 7,
     dashSpeed: 15,
@@ -91,152 +91,160 @@ const CONFIG = {
 const mapData = {
   "playerStart": {
     "x": 200,
-    "y": 200,
+    "y": 187,
     "w": 50,
-    "h": 50,
-    "zIndex": CONFIG.zIndex.player
+    "h": 75,
+    "zIndex": 1
   },
   "textures": [
-    "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
-    "https://lh5.googleusercontent.com/proxy/iztBv17dD5tx6Jx7L3BnX4HkjxAagEr60XK4z-5_abcjE_KlSsJd2yJ0PNx5jQt_LwVH83C35uqjbJDLgXsn4aU_PhKNo92hSVQbM2fw6XWgeRvJU1_8sMAizAU8NPrh5T9LJ_nWU8GN3UpnUc0jyWgGh4uk",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToA-lx8GWIjx538HunoTtxCajiovpBaDUWHQ&s"
+    "https://media.istockphoto.com/id/947324428/photo/black-slate-or-stone-texture-background.jpg?s=612x612&w=0&k=20&c=VpyD89OmvHNoeJkrq9NVjgSulqcXjVv0PLkc2lT3lAQ="
   ],
   "platforms": [
     {
-      "id": "shGzD078mxYl-EdsgDiUi5aAu",
+      "id": "s6Yv1HPc3eUC-ybFRG0L8hefN",
       "type": "platform",
-      "x": 202,
-      "y": 241,
-      "w": 100,
+      "x": 199,
+      "y": 236,
+      "w": 175,
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": CONFIG.zIndex.platform
+      "zIndex": 1
     },
     {
-      "id": "LE0V4KZ7J3bm-HCsghkQIscgs",
+      "id": "kF7RzTmdQULk-5BneH3VRhETy",
+      "type": "platform",
+      "x": 330,
+      "y": 219,
+      "w": 100,
+      "h": 20,
+      "angle": -20,
+      "textureId": 0,
+      "zIndex": 3
+    },
+    {
+      "id": "zjUxwpHanB7A-60LfpTyALiJX",
+      "type": "platform",
+      "x": 77,
+      "y": 209,
+      "w": 100,
+      "h": 20,
+      "angle": 35,
+      "textureId": 0,
+      "zIndex": 5
+    },
+    {
+      "id": "KuMOMQ36KB9r-qOlLnFVoEe5B",
+      "type": "platform",
+      "x": 60,
+      "y": 47,
+      "w": 100,
+      "h": 20,
+      "angle": -40,
+      "textureId": 0,
+      "zIndex": 6
+    },
+    {
+      "id": "OCSTBqgkGoOY-I7RdNYJZy56q",
       "type": "wall",
-      "x": 242,
-      "y": 5251,
-      "w": 10000,
+      "x": 34,
+      "y": 129,
+      "w": 120,
       "h": 20,
-      "angle": 90,
+      "angle": 83,
       "textureId": 0,
-      "zIndex": CONFIG.zIndex.platform
+      "zIndex": 8
     },
     {
-      "id": "r06Bbtu8Akr5-JZtqSAgBzoHP",
+      "id": "baKIEEgjZfB2-nxJrhcBaoddA",
       "type": "platform",
-      "x": 301,
-      "y": 10241,
+      "x": 423,
+      "y": 194,
+      "w": 100,
+      "h": 20,
+      "angle": -10,
+      "textureId": 0,
+      "zIndex": 10
+    },
+    {
+      "id": "jIXg5C4C0a99-jIGFxh5iorNT",
+      "type": "platform",
+      "x": 520,
+      "y": 186,
       "w": 100,
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": CONFIG.zIndex.platform
+      "zIndex": 11
     },
     {
-      "id": "bDLGk8Qv6KOi-N0b2auRkLsmX",
+      "id": "rzWEh4ROYeQP-I0W5RRFbk6ve",
       "type": "platform",
-      "x": 449,
-      "y": 10071,
+      "x": 549,
+      "y": 73,
       "w": 100,
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": CONFIG.zIndex.platform
+      "zIndex": 12
     },
     {
-      "id": "6oXBg8TwMxIj-v2sdDKmdchti",
-      "type": "wall",
-      "x": 489,
-      "y": 10111,
+      "id": "p4AyGzoIS9Gi-ruTD3jx5k2Qf",
+      "type": "platform",
+      "x": 143,
+      "y": 0,
       "w": 100,
       "h": 20,
-      "angle": 90,
+      "angle": -20,
       "textureId": 0,
-      "zIndex": CONFIG.zIndex.platform
+      "zIndex": 13
+    },
+    {
+      "id": "aFhs25Nh0tJt-zo7Z6wvCZs7u",
+      "type": "platform",
+      "x": 230,
+      "y": 0,
+      "w": 100,
+      "h": 20,
+      "angle": 20,
+      "textureId": 0,
+      "zIndex": 14
+    },
+    {
+      "id": "pbfc3IfjyD9M-5uWEjQCUMNcB",
+      "type": "platform",
+      "x": 320,
+      "y": 8,
+      "w": 100,
+      "h": 20,
+      "angle": -10,
+      "textureId": 0,
+      "zIndex": 15
+    },
+    {
+      "id": "gyeIvUEBtcNQ-aNJU8WR7Wlaw",
+      "type": "platform",
+      "x": 387,
+      "y": 20,
+      "w": 70,
+      "h": 20,
+      "angle": 40,
+      "textureId": 0,
+      "zIndex": 16
+    },
+    {
+      "id": "sxmC6HrUjsvq-JuI7rT6dtDvN",
+      "type": "platform",
+      "x": 457,
+      "y": 57,
+      "w": 100,
+      "h": 20,
+      "angle": 20,
+      "textureId": 0,
+      "zIndex": 17
     }
   ],
-  "decor": [
-    {
-      "id": "ytp3aL2bTvCY-y9h9Ny3sTKBw",
-      "type": "decor",
-      "x": 364,
-      "y": 10156,
-      "w": 225,
-      "h": 150,
-      "angle": 0,
-      "textureId": 1,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "R9cqECpRaTUk-eqwXI0JST0fG",
-      "type": "decor",
-      "x": 294,
-      "y": 127,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "LLaGPlzXCKje-SuWTJ05vq662",
-      "type": "decor",
-      "x": 334,
-      "y": 167,
-      "w": 100,
-      "h": 20,
-      "angle": 90,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "t2KQaKbSnEVA-d9LgM4i9FaRL",
-      "type": "decor",
-      "x": 312,
-      "y": 207,
-      "w": 50,
-      "h": 20,
-      "angle": 45,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "XSH8DomWepcK-oovmfws7VZBq",
-      "type": "decor",
-      "x": 336,
-      "y": 224,
-      "w": 30,
-      "h": 30,
-      "angle": -45,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "Fb7VOMJ12RMz-lwjvI4UKLosa",
-      "type": "decor",
-      "x": 238,
-      "y": 127,
-      "w": 50,
-      "h": 20,
-      "angle": 90,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    },
-    {
-      "id": "6fZJp7OtJ9Rx-XqskYBAsrq94",
-      "type": "decor",
-      "x": 359,
-      "y": 208,
-      "w": 50,
-      "h": 20,
-      "angle": -45,
-      "textureId": 2,
-      "zIndex": CONFIG.zIndex.decor
-    }
-  ]
+  "decor": []
 };
 const swordRightUrl = 'https://hyperrushnet.github.io/v3concept/sword-image-game-no-bg.png';
 const swordLeftUrl = 'https://hyperrushnet.github.io/game/images/sword-left.png';
@@ -368,12 +376,11 @@ function startGame() {
       min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
       max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
-    // Create a virtual body for the sword to include it in the rendering pool
     const swordBody = swordState.active && swordState.visible ? {
       position: { x: swordState.x, y: swordState.y },
       angle: swordState.angle * state.facingDirection,
-      width: CONFIG.sword.width * CONFIG.sword.scale * (CONFIG.player.height / 220),
-      height: CONFIG.sword.height * CONFIG.sword.scale * (CONFIG.player.height / 220),
+      width: CONFIG.sword.width * CONFIG.sword.scale * (mapData.playerStart.h / 220),
+      height: CONFIG.sword.height * CONFIG.sword.scale * (mapData.playerStart.h / 220),
       render: {
         visible: true,
         zIndex: CONFIG.zIndex.sword,
@@ -446,8 +453,10 @@ function startGame() {
           c.rotate(body.angle);
           c.drawImage(
             img,
-            -body.width / 2, -body.height / 2,
-            body.width, body.height
+            -body.width / 2,
+            -body.height / 2,
+            body.width,
+            body.height
           );
           c.restore();
         }
@@ -468,8 +477,8 @@ function startGame() {
   let player = Bodies.rectangle(
     mapData.playerStart.x,
     mapData.playerStart.y,
-    CONFIG.player.width,
-    CONFIG.player.height,
+    mapData.playerStart.w,
+    mapData.playerStart.h,
     {
       restitution: 0,
       friction: 0,
@@ -483,14 +492,13 @@ function startGame() {
       collisionFilter: CONFIG.player.collisionFilter
     }
   );
-  player.width = CONFIG.player.width;
-  player.height = CONFIG.player.height;
+  player.width = mapData.playerStart.w;
+  player.height = mapData.playerStart.h;
   World.add(engine.world, player);
-  // Create permanent ground sensor
   const groundSensor = Bodies.rectangle(
     mapData.playerStart.x,
-    mapData.playerStart.y + CONFIG.player.height/2 + 1,
-    CONFIG.player.width,
+    mapData.playerStart.y + mapData.playerStart.h/2 + 1,
+    mapData.playerStart.w,
     3,
     {
       isSensor: true,
@@ -512,11 +520,11 @@ function startGame() {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0,
-        frictionStatic: p.type === 'wall' ? 0 : 0,
+        friction: 0,
+        frictionStatic: 0,
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
-        collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
+        collisionFilter: { category: 0x0004, mask: 0x0001 },
         render: { zIndex: zIndex },
         id: p.id
       });
@@ -529,8 +537,8 @@ function startGame() {
       body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
         isStatic: true,
         restitution: 0,
-        friction: p.type === 'wall' ? 0 : 0,
-        frictionStatic: p.type === 'wall' ? 0 : 0,
+        friction: 0,
+        frictionStatic: 0,
         render: {
           sprite: texture ? { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } : undefined,
           fillStyle: texture ? undefined : (p.type === 'wall' ? '#444' : '#654321'),
@@ -538,7 +546,7 @@ function startGame() {
         },
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
-        collisionFilter: p.type === 'wall' ? { category: 0x0004, mask: 0x0001 } : { category: 0x0002, mask: 0x0001 },
+        collisionFilter: { category: 0x0004, mask: 0x0001 },
         id: p.id
       });
     }
@@ -834,7 +842,6 @@ function startGame() {
     lastGroundState = groundInfo;
     state.wasInAir = !groundInfo.isOnGround;
     if (state.isDashing && now - state.dashStartTime < CONFIG.player.dashDuration) {
-      // Adjust dash speed based on FPS
       const baseDashSpeed = CONFIG.player.dashSpeed;
       const targetFps = 60;
       const dashSpeed = baseDashSpeed * (targetFps / fps);
@@ -894,29 +901,29 @@ function startGame() {
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
       const mtv = satCollision(player, obstacle);
-      if (mtv) {
+      if (mtv && mtv.overlap > 0.1) { // Ignore very small overlaps to prevent sticking
         const pos = player.position;
         Body.setPosition(player, {
-          x: pos.x + mtv.axis.x * mtv.overlap,
-          y: pos.y + mtv.axis.y * mtv.overlap
+          x: pos.x + mtv.axis.x * mtv.overlap * 1.01, // Slightly over-correct to avoid re-collision
+          y: pos.y + mtv.axis.y * mtv.overlap * 1.01
         });
         const vel = player.velocity;
         const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
-        if (state.isDashing) {
-          if (dot < 0 && Math.abs(mtv.axis.x) > 0.5) {
+        if (dot < 0) { // Only adjust velocity if moving toward the surface
+          const normalVel = { x: dot * mtv.axis.x, y: dot * mtv.axis.y };
+          let newVelX = vel.x - normalVel.x;
+          let newVelY = vel.y - normalVel.y;
+          // If on ground and colliding with a vertical surface, preserve horizontal movement
+          if (groundInfo.isOnGround && Math.abs(mtv.axis.x) > 0.7) {
+            newVelX = vel.x;
+          }
+          // If dashing, end dash only for significant horizontal collisions
+          if (state.isDashing && Math.abs(mtv.axis.x) > 0.7) {
             endDash();
-            Body.setVelocity(player, {
-              x: Math.abs(mtv.axis.x) > 0.7 ? 0 : vel.x,
-              y: Math.abs(mtv.axis.y) > 0.7 ? 0 : vel.y
-            });
+            newVelX = Math.abs(mtv.axis.x) > 0.9 ? 0 : newVelX;
+            newVelY = Math.abs(mtv.axis.y) > 0.9 ? 0 : newVelY;
           }
-        } else {
-          if (dot < 0) {
-            Body.setVelocity(player, {
-              x: vel.x - dot * mtv.axis.x,
-              y: vel.y - dot * mtv.axis.y
-            });
-          }
+          Body.setVelocity(player, { x: newVelX, y: newVelY });
         }
         wallCollision = true;
       }
@@ -931,8 +938,6 @@ function startGame() {
     render.bounds.min.y = camY;
     render.bounds.max.x = camX + canvasWidth;
     render.bounds.max.y = camY + canvasHeight;
-    // Remove or comment out the following line to disable background pan
-    // DOM.background.style.backgroundPosition = `${-camX * CONFIG.camera.bgPanSpeed}px ${-camY * CONFIG.camera.bgPanSpeed}px`;
     const physicsMargin = CONFIG.culling.physicsMargin;
     const physCullBounds = { min: { x: camX - physicsMargin, y: camY - physicsMargin }, max: { x: camX + canvasWidth + physicsMargin, y: camY + canvasHeight + physicsMargin } };
     const bodies = Composite.allBodies(engine.world);
