@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.3.2 - Performance Update</title>
+<title>Game Engine - v2.3.2 - Performance Update with Player Animations</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
@@ -89,10 +88,11 @@ const CONFIG = {
   rotationLimit: 5,
   maxVideoResolution: { width: 1920, height: 1080 }
 };
+
 const mapData = {
   "playerStart": {
     "x": 200,
-    "y": 187,
+    "y": -100,
     "w": 50,
     "h": 75,
     "zIndex": 1
@@ -106,13 +106,13 @@ const mapData = {
     {
       "id": "s6Yv1HPc3eUC-ybFRG0L8hefN",
       "type": "platform",
-      "x": 199,
-      "y": 236,
+      "x": 201,
+      "y": 237,
       "w": 175,
       "h": 20,
       "angle": 0,
       "textureId": 0,
-      "zIndex": 1
+      "zIndex": 8
     },
     {
       "id": "kF7RzTmdQULk-5BneH3VRhETy",
@@ -338,15 +338,25 @@ const mapData = {
     }
   ]
 };
+
 const swordRightUrl = 'https://hyperrushnet.github.io/v3concept/sword-image-game-no-bg.png';
 const swordLeftUrl = 'https://hyperrushnet.github.io/game/images/sword-left.png';
+const playerAnimations = {
+  idle: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm', // Placeholder for idle animation
+  runLeft: 'http://hyperrushnet.github.io/game/webm/file_example_WEBM_480_900KB.webm', // Placeholder for run left
+  runRight: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm', // Placeholder for run right
+  jump: 'http://hyperrushnet.github.io/game/webm/file_example_WEBM_480_900KB.webm', // Placeholder for jump
+  fall: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm' // Placeholder for fall
+};
+
 const textureCache = new Map();
 const videoTextures = new Map();
 let soundtrack;
-const assetsToLoad = [...new Set([...mapData.textures.filter(src => !src.endsWith('.webm')), swordRightUrl, swordLeftUrl])];
+const assetsToLoad = [...new Set([...mapData.textures.filter(src => !src.endsWith('.webm')), swordRightUrl, swordLeftUrl, ...Object.values(playerAnimations)])];
 const videoUrls = mapData.textures.filter(src => src.endsWith('.webm'));
 let totalAssets = assetsToLoad.length + videoUrls.length + 1;
 let loadedAssets = 0;
+
 const DOM = {
   canvas: document.getElementById("gameCanvas"),
   background: document.getElementById('background'),
@@ -362,8 +372,10 @@ const DOM = {
     playerCoords: document.getElementById('playerCoords')
   }
 };
+
 let canvasWidth = window.innerWidth;
 let canvasHeight = window.innerHeight;
+
 function preloadImages() {
   assetsToLoad.forEach(src => {
     const img = new Image();
@@ -394,6 +406,7 @@ function preloadImages() {
   };
   soundtrack.load();
 }
+
 function setupVideoTexture(src, textureId) {
   const video = document.createElement('video');
   video.src = src;
@@ -415,7 +428,29 @@ function setupVideoTexture(src, textureId) {
     updateLoading();
     console.warn(`Video ${src} could not be loaded!`);
   };
+  video.load();
 }
+
+function preloadPlayerAnimations() {
+  Object.entries(playerAnimations).forEach(([key, src]) => {
+    const video = document.createElement('video');
+    video.src = src;
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.loop = true;
+    video.addEventListener('loadedmetadata', () => {
+      videoTextures.set(`player_${key}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false });
+    });
+    video.onerror = () => {
+      videoTextures.set(`player_${key}`, { video: null, w: 0, h: 0, loaded: true, isPlaying: false });
+      console.warn(`Player animation ${key} could not be loaded!`);
+    };
+    video.load();
+  });
+}
+
 function updateLoading() {
   const progress = totalAssets > 0 ? Math.min((loadedAssets / totalAssets) * 100, 100) : 0;
   DOM.loadingBar.style.width = `${progress}%`;
@@ -426,7 +461,9 @@ function updateLoading() {
     }, 500);
   }
 }
+
 let gameStarted = false;
+
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
@@ -520,6 +557,23 @@ function startGame() {
           c.restore();
         }
       }
+      else if (body.label === 'player' && body.playerVideo) {
+        const videoData = videoTextures.get(body.videoTextureId);
+        if (videoData && videoData.loaded && videoData.video) {
+          if (!videoData.isPlaying) {
+            videoData.video.play().catch(e => console.error('Player video playback failed:', e));
+            videoData.isPlaying = true;
+          }
+          drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
+        } else {
+          c.save();
+          c.translate(body.position.x, body.position.y);
+          c.rotate(body.angle);
+          c.fillStyle = '#f00';
+          c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+          c.restore();
+        }
+      }
       else if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
         const videoData = videoTextures.get(body.videoTextureId);
         if (videoData && videoData.loaded && videoData.video) {
@@ -577,11 +631,14 @@ function startGame() {
       frictionAir: 0,
       inertia: Infinity,
       render: {
-        fillStyle: '#f00',
         zIndex: CONFIG.zIndex.player
       },
       label: 'player',
-      collisionFilter: CONFIG.player.collisionFilter
+      collisionFilter: CONFIG.player.collisionFilter,
+      playerVideo: true,
+      videoTextureId: 'player_idle',
+      videoW: mapData.playerStart.w,
+      videoH: mapData.playerStart.h
     }
   );
   player.width = mapData.playerStart.w;
@@ -694,7 +751,8 @@ function startGame() {
     facingDirection: 1,
     lastDirection: { x: 0, y: 0 },
     dashVelocity: { x: 0, y: 0 },
-    wasInAir: false
+    wasInAir: false,
+    currentAnimation: 'idle'
   };
   const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
   let lastSwordTime = 0;
@@ -744,6 +802,8 @@ function startGame() {
     Body.scale(player, scaleX, scaleY);
     player.width = width;
     player.height = height;
+    player.videoW = width;
+    player.videoH = height;
   }
   function getVertices(body) {
     const { position, angle, width, height } = body;
@@ -845,6 +905,40 @@ function startGame() {
     }
     return { isOnGround, onSlope, slopeAngle };
   }
+  function updatePlayerAnimation() {
+    const groundInfo = isPlayerOnGround();
+    const velY = player.velocity.y;
+    let newAnimation = state.currentAnimation;
+    if (!groundInfo.isOnGround) {
+      if (velY < -1) {
+        newAnimation = 'jump';
+      } else if (velY > 1) {
+        newAnimation = 'fall';
+      }
+    } else {
+      if (state.keys.right && !state.keys.left) {
+        newAnimation = 'runRight';
+      } else if (state.keys.left && !state.keys.right) {
+        newAnimation = 'runLeft';
+      } else {
+        newAnimation = 'idle';
+      }
+    }
+    if (newAnimation !== state.currentAnimation) {
+      const prevVideoData = videoTextures.get(`player_${state.currentAnimation}`);
+      if (prevVideoData && prevVideoData.video && prevVideoData.isPlaying) {
+        prevVideoData.video.pause();
+        prevVideoData.isPlaying = false;
+      }
+      state.currentAnimation = newAnimation;
+      player.videoTextureId = `player_${newAnimation}`;
+      const videoData = videoTextures.get(player.videoTextureId);
+      if (videoData && videoData.video && !videoData.isPlaying) {
+        videoData.video.play().catch(e => console.error(`Player ${newAnimation} video playback failed:`, e));
+        videoData.isPlaying = true;
+      }
+    }
+  }
   function updateHUD() {
     const now = Date.now();
     const updateStatus = (element, name, lastTime, cooldown) => {
@@ -904,6 +998,7 @@ function startGame() {
   const hysteresisFrames = 3;
   Events.on(engine, 'beforeUpdate', () => {
     const now = Date.now();
+    updatePlayerAnimation();
     if (state.keys.right && !state.keys.left) {
       state.facingDirection = 1;
       state.lastDirection = { x: 1, y: 0 };
@@ -993,23 +1088,21 @@ function startGame() {
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
       const mtv = satCollision(player, obstacle);
-      if (mtv && mtv.overlap > 0.1) { // Ignore very small overlaps to prevent sticking
+      if (mtv && mtv.overlap > 0.1) {
         const pos = player.position;
         Body.setPosition(player, {
-          x: pos.x + mtv.axis.x * mtv.overlap * 1.01, // Slightly over-correct to avoid re-collision
+          x: pos.x + mtv.axis.x * mtv.overlap * 1.01,
           y: pos.y + mtv.axis.y * mtv.overlap * 1.01
         });
         const vel = player.velocity;
         const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
-        if (dot < 0) { // Only adjust velocity if moving toward the surface
+        if (dot < 0) {
           const normalVel = { x: dot * mtv.axis.x, y: dot * mtv.axis.y };
           let newVelX = vel.x - normalVel.x;
           let newVelY = vel.y - normalVel.y;
-          // If on ground and colliding with a vertical surface, preserve horizontal movement
           if (groundInfo.isOnGround && Math.abs(mtv.axis.x) > 0.7) {
             newVelX = vel.x;
           }
-          // If dashing, end dash only for significant horizontal collisions
           if (state.isDashing && Math.abs(mtv.axis.x) > 0.7) {
             endDash();
             newVelX = Math.abs(mtv.axis.x) > 0.9 ? 0 : newVelX;
@@ -1059,6 +1152,7 @@ mapData.textures.forEach((src, index) => {
     setupVideoTexture(src, index);
   }
 });
+preloadPlayerAnimations();
 document.getElementById('startButton').addEventListener('click', () => {
   DOM.loadingScreen.style.display = 'none';
   startGame();
