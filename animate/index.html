@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Animator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        canvas {
+            image-rendering: pixelated;
+        }
+        #overlayCanvas {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .toggle-btn.active {
+            background-color: #2563eb;
+            color: white;
+        }
+        #projectList {
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .project-item.selected {
+            background-color: #2563eb;
+            color: white;
+        }
+        .project-item:hover:not(.selected) {
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 font-sans">
+    <div class="bg-white rounded-lg shadow-lg p-6 max-w-3xl w-full">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Pixel Animator</h1>
+        <div class="mb-6 border border-gray-200 rounded-md p-4 bg-gray-50">
+            <h2 class="text-lg font-semibold text-gray-700 mb-2">
+                Projectbeheer: <span id="currentProjectName" class="text-blue-600">Geen project geselecteerd</span>
+            </h2>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="newProjectName" placeholder="Projectnaam" maxlength="30" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="createProject" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Project</button>
+            </div>
+            <div id="projectList" class="border border-gray-200 rounded-md p-2 bg-white">
+                <p id="noProjects" class="text-gray-500 text-sm text-center">Geen projecten beschikbaar</p>
+            </div>
+        </div>
+        <div class="relative w-[600px] h-[900px] mx-auto mb-6 border border-gray-300 rounded-md overflow-hidden bg-white">
+            <canvas id="mainCanvas" width="100" height="150" class="absolute top-0 left-0 w-[600px] h-[900px]"></canvas>
+            <canvas id="overlayCanvas" width="100" height="150" class="absolute top-0 left-0 w-[600px] h-[900px]"></canvas>
+        </div>
+        <div class="grid grid-cols-1 gap-4">
+            <div class="flex justify-center items-center gap-3 flex-wrap">
+                <input type="color" id="colorPicker" value="#000000" class="w-10 h-10 rounded-md cursor-pointer border border-gray-300">
+                <button id="drawMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition active">Tekenen</button>
+                <button id="eraseMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Gommen</button>
+                <label class="flex items-center gap-2 text-gray-700">
+                    <input type="checkbox" id="overlayToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
+                    Overlay
+                </label>
+            </div>
+            <div class="flex justify-center gap-2 flex-wrap">
+                <button id="newFrame" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Frame</button>
+                <button id="prevFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Vorige</button>
+                <button id="nextFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Volgende</button>
+                <button id="deleteFrame" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition">Verwijder Frame</button>
+                <button id="deleteAllFrames" class="bg-red-800 text-white px-4 py-2 rounded-md hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 transition">Verwijder Alles</button>
+                <button id="exportVideo" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition">Exporteer Video</button>
+            </div>
+            <div id="frameInfo" class="text-center text-lg font-semibold text-gray-800">Geen project geselecteerd</div>
+        </div>
+    </div>
+
+    <script>
+        const mainCanvas = document.getElementById('mainCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const drawModeBtn = document.getElementById('drawMode');
+        const eraseModeBtn = document.getElementById('eraseMode');
+        const overlayToggle = document.getElementById('overlayToggle');
+        const newFrameBtn = document.getElementById('newFrame');
+        const prevFrameBtn = document.getElementById('prevFrame');
+        const nextFrameBtn = document.getElementById('nextFrame');
+        const deleteFrameBtn = document.getElementById('deleteFrame');
+        const deleteAllFramesBtn = document.getElementById('deleteAllFrames');
+        const exportVideoBtn = document.getElementById('exportVideo');
+        const frameInfo = document.getElementById('frameInfo');
+        const newProjectName = document.getElementById('newProjectName');
+        const createProjectBtn = document.getElementById('createProject');
+        const projectList = document.getElementById('projectList');
+        const noProjects = document.getElementById('noProjects');
+        const currentProjectName = document.getElementById('currentProjectName');
+
+        let projects = JSON.parse(localStorage.getItem('pixelAnimatorProjects')) || {};
+        let currentProject = null;
+        let frames = [];
+        let currentFrame = 0;
+        let isDrawing = false;
+        let mode = 'drawing';
+
+        // Teken grid
+        function drawGrid() {
+            mainCtx.strokeStyle = '#d3d3d3';
+            mainCtx.lineWidth = 0.1;
+            for (let x = 0; x <= 100; x++) {
+                mainCtx.beginPath();
+                mainCtx.moveTo(x, 0);
+                mainCtx.lineTo(x, 150);
+                mainCtx.stroke();
+            }
+            for (let y = 0; y <= 150; y++) {
+                mainCtx.beginPath();
+                mainCtx.moveTo(0, y);
+                mainCtx.lineTo(100, y);
+                mainCtx.stroke();
+            }
+        }
+
+        // Update canvas en overlay
+        function updateCanvas() {
+            if (!currentProject) {
+                mainCtx.clearRect(0, 0, 100, 150);
+                overlayCtx.clearRect(0, 0, 100, 150);
+                frameInfo.textContent = 'Geen project geselecteerd';
+                currentProjectName.textContent = 'Geen project geselecteerd';
+                disableControls(true);
+                return;
+            }
+            disableControls(false);
+            mainCtx.putImageData(frames[currentFrame], 0, 0);
+            drawGrid();
+            if (overlayToggle.checked && currentFrame > 0) {
+                overlayCtx.putImageData(frames[currentFrame - 1], 0, 0);
+            } else {
+                overlayCtx.clearRect(0, 0, 100, 150);
+            }
+            frameInfo.textContent = `Frame ${currentFrame + 1} / ${frames.length}`;
+            currentProjectName.textContent = currentProject;
+            deleteFrameBtn.disabled = frames.length <= 1;
+            deleteAllFramesBtn.disabled = frames.length <= 1;
+            saveCurrentProject();
+        }
+
+        // Schakel controls in/uit
+        function disableControls(disabled) {
+            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, colorPicker, drawModeBtn, eraseModeBtn, overlayToggle].forEach(el => {
+                el.disabled = disabled;
+                if (disabled) {
+                    el.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    el.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        }
+
+        // Teken of wis pixel
+        function modifyPixel(x, y) {
+            if (!currentProject) return;
+            const pixelIndex = (Math.floor(y) * 100 + Math.floor(x)) * 4;
+            const frameData = frames[currentFrame].data;
+            if (mode === 'drawing') {
+                const color = hexToRgb(colorPicker.value);
+                frameData[pixelIndex] = color.r;
+                frameData[pixelIndex + 1] = color.g;
+                frameData[pixelIndex + 2] = color.b;
+                frameData[pixelIndex + 3] = 255;
+            } else {
+                frameData[pixelIndex] = 0;
+                frameData[pixelIndex + 1] = 0;
+                frameData[pixelIndex + 2] = 0;
+                frameData[pixelIndex + 3] = 0;
+            }
+            mainCtx.putImageData(frames[currentFrame], 0, 0);
+            drawGrid();
+            saveCurrentProject();
+        }
+
+        // Converteer hex naar RGB
+        function hexToRgb(hex) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return { r, g, b };
+        }
+
+        // Projectbeheer
+        function saveCurrentProject() {
+            if (currentProject) {
+                projects[currentProject] = {
+                    frames: frames.map(frame => Array.from(frame.data)),
+                    currentFrame
+                };
+                localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+            }
+        }
+
+        function loadProject(name) {
+            currentProject = name;
+            const projectData = projects[name];
+            frames = projectData.frames.map(data => {
+                const imgData = mainCtx.createImageData(100, 150);
+                imgData.data.set(new Uint8ClampedArray(data));
+                return imgData;
+            });
+            currentFrame = projectData.currentFrame || 0;
+            if (currentFrame >= frames.length) currentFrame = frames.length - 1;
+            updateCanvas();
+            updateProjectList();
+        }
+
+        function updateProjectList() {
+            projectList.innerHTML = '';
+            if (Object.keys(projects).length === 0) {
+                noProjects.style.display = 'block';
+            } else {
+                noProjects.style.display = 'none';
+                Object.keys(projects).forEach(name => {
+                    const projectDiv = document.createElement('div');
+                    projectDiv.className = `flex justify-between items-center p-2 rounded-md cursor-pointer project-item ${currentProject === name ? 'selected' : ''}`;
+                    projectDiv.innerHTML = `
+                        <span class="text-gray-800">${name}</span>
+                        <button class="text-red-600 hover:text-red-800 text-sm focus:outline-none">Verwijder</button>
+                    `;
+                    projectDiv.querySelector('button').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        delete projects[name];
+                        localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+                        if (currentProject === name) {
+                            currentProject = null;
+                            frames = [mainCtx.createImageData(100, 150)];
+                            currentFrame = 0;
+                            updateCanvas();
+                        }
+                        updateProjectList();
+                    });
+                    projectDiv.addEventListener('click', () => {
+                        if (currentProject !== name) {
+                            loadProject(name);
+                        }
+                    });
+                    projectList.appendChild(projectDiv);
+                });
+            }
+        }
+
+        createProjectBtn.addEventListener('click', () => {
+            const name = newProjectName.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
+            if (name && !projects[name]) {
+                projects[name] = {
+                    frames: [Array.from(mainCtx.createImageData(100, 150).data)],
+                    currentFrame: 0
+                };
+                loadProject(name);
+                newProjectName.value = '';
+                updateProjectList();
+            }
+        });
+
+        // Modus schakelen
+        drawModeBtn.addEventListener('click', () => {
+            mode = 'drawing';
+            drawModeBtn.classList.add('active');
+            eraseModeBtn.classList.remove('active');
+        });
+
+        eraseModeBtn.addEventListener('click', () => {
+            mode = 'erasing';
+            eraseModeBtn.classList.add('active');
+            drawModeBtn.classList.remove('active');
+        });
+
+        // Muis events
+        mainCanvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const rect = mainCanvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / 6);
+            const y = Math.floor((e.clientY - rect.top) / 6);
+            modifyPixel(x, y);
+        });
+
+        mainCanvas.addEventListener('mousemove', (e) => {
+            if (isDrawing) {
+                const rect = mainCanvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / 6);
+                const y = Math.floor((e.clientY - rect.top) / 6);
+                modifyPixel(x, y);
+            }
+        });
+
+        mainCanvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        mainCanvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        // Frame controls
+        newFrameBtn.addEventListener('click', () => {
+            if (!currentProject) return;
+            frames.push(mainCtx.createImageData(100, 150));
+            currentFrame = frames.length - 1;
+            mainCtx.clearRect(0, 0, 100, 150);
+            updateCanvas();
+        });
+
+        prevFrameBtn.addEventListener('click', () => {
+            if (currentFrame > 0) {
+                currentFrame--;
+                updateCanvas();
+            }
+        });
+
+        nextFrameBtn.addEventListener('click', () => {
+            if (currentFrame < frames.length - 1) {
+                currentFrame++;
+                updateCanvas();
+            }
+        });
+
+        deleteFrameBtn.addEventListener('click', () => {
+            if (frames.length > 1) {
+                frames.splice(currentFrame, 1);
+                if (currentFrame >= frames.length) {
+                    currentFrame = frames.length - 1;
+                }
+                updateCanvas();
+            }
+        });
+
+        deleteAllFramesBtn.addEventListener('click', () => {
+            frames = [mainCtx.createImageData(100, 150)];
+            currentFrame = 0;
+            mainCtx.clearRect(0, 0, 100, 150);
+            updateCanvas();
+        });
+
+        overlayToggle.addEventListener('change', updateCanvas);
+
+        // Exporteer video
+        exportVideoBtn.addEventListener('click', async () => {
+            if (!currentProject) return;
+            const stream = mainCanvas.captureStream(30);
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            const chunks = [];
+
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentProject || 'animation'}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            recorder.start();
+            for (let i = 0; i < frames.length; i++) {
+                mainCtx.putImageData(frames[i], 0, 0);
+                drawGrid();
+                await new Promise(resolve => setTimeout(resolve, 1000 / 30));
+            }
+            recorder.stop();
+            updateCanvas();
+        });
+
+        // Initiële setup
+        updateProjectList();
+        if (Object.keys(projects).length > 0) {
+            loadProject(Object.keys(projects)[0]);
+        } else {
+            updateCanvas();
+        }
+    </script>
+</body>
+</html>
