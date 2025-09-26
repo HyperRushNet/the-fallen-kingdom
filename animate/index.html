@@ -115,6 +115,13 @@
             font-size: 16px;
             cursor: pointer;
         }
+        #previewCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            opacity: 0.3;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 font-sans">
@@ -143,6 +150,7 @@
         <div id="canvasWrapper" class="relative mx-auto mb-6 border border-gray-300 rounded-md overflow-hidden bg-white">
             <canvas id="mainCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
             <canvas id="overlayCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
+            <canvas id="previewCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
         </div>
         <div class="grid grid-cols-1 gap-4">
             <div class="flex justify-center items-center gap-3 flex-wrap">
@@ -164,6 +172,12 @@
                     <input type="checkbox" id="crosshairToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
                     Kruislijnen
                 </label>
+                <select id="brushSize" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="1">1x1</option>
+                    <option value="3">3x3</option>
+                    <option value="5">5x5</option>
+                    <option value="7">7x7</option>
+                </select>
             </div>
             <div class="flex justify-center gap-2 flex-wrap">
                 <input type="text" id="colorName" placeholder="Kleurnaam" maxlength="20" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -186,9 +200,11 @@
     <script>
         const mainCanvas = document.getElementById('mainCanvas');
         const overlayCanvas = document.getElementById('overlayCanvas');
+        const previewCanvas = document.getElementById('previewCanvas');
         const canvasWrapper = document.getElementById('canvasWrapper');
         const mainCtx = mainCanvas.getContext('2d', { willReadFrequently: true });
         const overlayCtx = overlayCanvas.getContext('2d');
+        const previewCtx = previewCanvas.getContext('2d');
         const colorPicker = document.getElementById('colorPicker');
         const drawModeBtn = document.getElementById('drawMode');
         const eraseModeBtn = document.getElementById('eraseMode');
@@ -196,6 +212,7 @@
         const mirrorModeSelect = document.getElementById('mirrorMode');
         const overlayToggle = document.getElementById('overlayToggle');
         const crosshairToggle = document.getElementById('crosshairToggle');
+        const brushSizeSelect = document.getElementById('brushSize');
         const newFrameBtn = document.getElementById('newFrame');
         const prevFrameBtn = document.getElementById('prevFrame');
         const nextFrameBtn = document.getElementById('nextFrame');
@@ -227,6 +244,7 @@
         let mode = 'drawing';
         let canvasWidth = 100;
         let canvasHeight = 100;
+        let brushSize = 1;
 
         // Teken grid en kruislijnen
         function drawGuides() {
@@ -259,10 +277,11 @@
         }
 
         // Update canvas en overlay
-        function updateCanvas() {
+        function updateCanvas(clearPreview = true) {
             if (!currentProject) {
                 mainCtx.clearRect(0, 0, canvasWidth, canvasHeight);
                 overlayCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+                previewCtx.clearRect(0, 0, canvasWidth, canvasHeight);
                 frameInfo.textContent = 'Geen project geselecteerd';
                 currentProjectName.textContent = 'Geen project geselecteerd';
                 canvasInfo.textContent = '';
@@ -279,6 +298,9 @@
             if (overlayToggle.checked && currentFrame > 0) {
                 overlayCtx.putImageData(frames[currentFrame - 1], 0, 0);
             }
+            if (clearPreview) {
+                previewCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            }
             frameInfo.textContent = `Frame ${currentFrame + 1} / ${frames.length}`;
             currentProjectName.textContent = currentProject;
             canvasInfo.textContent = `Canvas: ${canvasWidth}x${canvasHeight} pixels`;
@@ -291,56 +313,105 @@
 
         // Schakel controls in/uit
         function disableControls(disabled) {
-            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, playAnimationBtn, exportProjectBtn, importProjectBtn, colorPicker, drawModeBtn, eraseModeBtn, pickModeBtn, overlayToggle, mirrorModeSelect, crosshairToggle, saveColorBtn, colorNameInput].forEach(el => {
+            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, playAnimationBtn, exportProjectBtn, importProjectBtn, colorPicker, drawModeBtn, eraseModeBtn, pickModeBtn, overlayToggle, mirrorModeSelect, crosshairToggle, saveColorBtn, colorNameInput, brushSizeSelect].forEach(el => {
                 el.disabled = disabled;
                 el.classList.toggle('opacity-50', disabled);
                 el.classList.toggle('cursor-not-allowed', disabled);
             });
         }
 
+        // Haal pixels voor brush
+        function getBrushPixels(centerX, centerY) {
+            const half = Math.floor(brushSize / 2);
+            const pixels = [];
+            for (let dx = -half; dx <= half; dx++) {
+                for (let dy = -half; dy <= half; dy++) {
+                    const x = centerX + dx;
+                    const y = centerY + dy;
+                    if (x >= 0 && x < canvasWidth && y >= 0 && y < canvasHeight) {
+                        pixels.push({ x, y });
+                    }
+                }
+            }
+            return pixels;
+        }
+
+        // Pas mirror toe op lijst van pixels
+        function applyMirror(pixels) {
+            const mirrorMode = mirrorModeSelect.value;
+            const mirroredPixels = [...pixels];
+            pixels.forEach(({ x, y }) => {
+                if (mirrorMode === 'horizontal' || mirrorMode === 'both') {
+                    const mx = canvasWidth - x - 1;
+                    if (mx !== x || mirrorMode === 'both') mirroredPixels.push({ x: mx, y });
+                }
+                if (mirrorMode === 'vertical' || mirrorMode === 'both') {
+                    const my = canvasHeight - y - 1;
+                    if (my !== y || mirrorMode === 'both') mirroredPixels.push({ x, y: my });
+                }
+                if (mirrorMode === 'both') {
+                    const mx = canvasWidth - x - 1;
+                    const my = canvasHeight - y - 1;
+                    if (mx !== x || my !== y) mirroredPixels.push({ x: mx, y: my });
+                }
+            });
+            // Verwijder duplicaten
+            return [...new Set(mirroredPixels.map(p => `${p.x},${p.y}`))].map(str => {
+                const [x, y] = str.split(',').map(Number);
+                return { x, y };
+            });
+        }
+
+        // Teken preview
+        function drawPreview(x, y) {
+            if (!currentProject || mode === 'picking') return;
+            previewCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            const centerX = Math.floor(x);
+            const centerY = Math.floor(y);
+            if (centerX < 0 || centerX >= canvasWidth || centerY < 0 || centerY >= canvasHeight) return;
+
+            let brushPixels = getBrushPixels(centerX, centerY);
+            brushPixels = applyMirror(brushPixels);
+
+            const color = mode === 'erasing' ? '#FFFFFF' : colorPicker.value;
+            previewCtx.fillStyle = color;
+            brushPixels.forEach(({ x, y }) => {
+                previewCtx.fillRect(x, y, 1, 1);
+            });
+        }
+
         // Teken, wis of kies kleur
-        function modifyPixel(x, y) {
+        function modifyPixels(centerX, centerY) {
             if (!currentProject) return;
-            const xFloor = Math.floor(x);
-            const yFloor = Math.floor(y);
-            if (xFloor < 0 || xFloor >= canvasWidth || yFloor < 0 || yFloor >= canvasHeight) return;
+            const centerXFloor = Math.floor(centerX);
+            const centerYFloor = Math.floor(centerY);
+            if (centerXFloor < 0 || centerXFloor >= canvasWidth || centerYFloor < 0 || centerYFloor >= canvasHeight) return;
 
             if (mode === 'picking') {
-                const pixel = mainCtx.getImageData(xFloor, yFloor, 1, 1).data;
+                const pixel = mainCtx.getImageData(centerXFloor, centerYFloor, 1, 1).data;
                 if (pixel[3] !== 0) {
                     colorPicker.value = rgbToHex(pixel[0], pixel[1], pixel[2]);
                 }
                 return;
             }
 
-            const pixels = [{ x: xFloor, y: yFloor }];
-            const mirrorMode = mirrorModeSelect.value;
-            if (mirrorMode === 'horizontal' || mirrorMode === 'both') {
-                pixels.push({ x: canvasWidth - xFloor - 1, y: yFloor });
-            }
-            if (mirrorMode === 'vertical' || mirrorMode === 'both') {
-                pixels.push({ x: xFloor, y: canvasHeight - yFloor - 1 });
-            }
-            if (mirrorMode === 'both') {
-                pixels.push({ x: canvasWidth - xFloor - 1, y: canvasHeight - yFloor - 1 });
-            }
+            let brushPixels = getBrushPixels(centerXFloor, centerYFloor);
+            brushPixels = applyMirror(brushPixels);
 
             const frameData = frames[currentFrame].data;
-            pixels.forEach(({ x, y }) => {
-                if (x >= 0 && x < canvasWidth && y >= 0 && y < canvasHeight) {
-                    const index = (y * canvasWidth + x) * 4;
-                    if (mode === 'drawing') {
-                        const { r, g, b } = hexToRgb(colorPicker.value);
-                        frameData[index] = r;
-                        frameData[index + 1] = g;
-                        frameData[index + 2] = b;
-                        frameData[index + 3] = 255;
-                    } else if (mode === 'erasing') {
-                        frameData[index] = frameData[index + 1] = frameData[index + 2] = frameData[index + 3] = 0;
-                    }
+            brushPixels.forEach(({ x, y }) => {
+                const index = (y * canvasWidth + x) * 4;
+                if (mode === 'drawing') {
+                    const { r, g, b } = hexToRgb(colorPicker.value);
+                    frameData[index] = r;
+                    frameData[index + 1] = g;
+                    frameData[index + 2] = b;
+                    frameData[index + 3] = 255;
+                } else if (mode === 'erasing') {
+                    frameData[index] = frameData[index + 1] = frameData[index + 2] = frameData[index + 3] = 0;
                 }
             });
-            updateCanvas();
+            updateCanvas(false); // Houd preview niet wissen bij tekenen
         }
 
         // Converteer RGB naar hex
@@ -413,16 +484,16 @@
             const project = projects[name];
             canvasWidth = project.width;
             canvasHeight = project.height;
-            mainCanvas.width = canvasWidth;
-            mainCanvas.height = canvasHeight;
-            overlayCanvas.width = canvasWidth;
-            overlayCanvas.height = canvasHeight;
+            mainCanvas.width = overlayCanvas.width = previewCanvas.width = canvasWidth;
+            mainCanvas.height = overlayCanvas.height = previewCanvas.height = canvasHeight;
             canvasWrapper.style.width = `${canvasWidth * 6}px`;
             canvasWrapper.style.height = `${canvasHeight * 6}px`;
             mainCanvas.style.width = `${canvasWidth * 6}px`;
             mainCanvas.style.height = `${canvasHeight * 6}px`;
             overlayCanvas.style.width = `${canvasWidth * 6}px`;
             overlayCanvas.style.height = `${canvasHeight * 6}px`;
+            previewCanvas.style.width = `${canvasWidth * 6}px`;
+            previewCanvas.style.height = `${canvasHeight * 6}px`;
             frames = project.frames.map(data => {
                 const imgData = mainCtx.createImageData(canvasWidth, canvasHeight);
                 imgData.data.set(new Uint8ClampedArray(data));
@@ -453,11 +524,12 @@
                         frames = [];
                         currentFrame = 0;
                         canvasWidth = canvasHeight = 100;
-                        mainCanvas.width = overlayCanvas.width = canvasWidth;
-                        mainCanvas.height = overlayCanvas.height = canvasHeight;
+                        mainCanvas.width = overlayCanvas.width = previewCanvas.width = canvasWidth;
+                        mainCanvas.height = overlayCanvas.height = previewCanvas.height = canvasHeight;
                         canvasWrapper.style.width = canvasWrapper.style.height = `${canvasWidth * 6}px`;
                         mainCanvas.style.width = mainCanvas.style.height = `${canvasWidth * 6}px`;
                         overlayCanvas.style.width = overlayCanvas.style.height = `${canvasWidth * 6}px`;
+                        previewCanvas.style.width = previewCanvas.style.height = `${canvasWidth * 6}px`;
                         updateCanvas();
                     }
                     updateProjectList();
@@ -477,11 +549,12 @@
             img.onload = () => {
                 canvasWidth = img.width;
                 canvasHeight = img.height;
-                mainCanvas.width = overlayCanvas.width = canvasWidth;
-                mainCanvas.height = overlayCanvas.height = canvasHeight;
+                mainCanvas.width = overlayCanvas.width = previewCanvas.width = canvasWidth;
+                mainCanvas.height = overlayCanvas.height = previewCanvas.height = canvasHeight;
                 canvasWrapper.style.width = canvasWrapper.style.height = `${canvasWidth * 6}px`;
                 mainCanvas.style.width = mainCanvas.style.height = `${canvasWidth * 6}px`;
                 overlayCanvas.style.width = overlayCanvas.style.height = `${canvasWidth * 6}px`;
+                previewCanvas.style.width = previewCanvas.style.height = `${canvasWidth * 6}px`;
                 mainCtx.drawImage(img, 0, 0);
                 frames = [mainCtx.getImageData(0, 0, canvasWidth, canvasHeight)];
                 currentFrame = 0;
@@ -568,26 +641,39 @@
             eraseModeBtn.classList.remove('active');
         });
 
+        brushSizeSelect.addEventListener('change', () => {
+            brushSize = parseInt(brushSizeSelect.value);
+        });
+
         // Muis events
         mainCanvas.addEventListener('mousedown', (e) => {
             isDrawing = true;
             const rect = mainCanvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) / 6;
             const y = (e.clientY - rect.top) / 6;
-            modifyPixel(x, y);
+            modifyPixels(x, y);
         });
 
         mainCanvas.addEventListener('mousemove', (e) => {
+            const rect = mainCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / 6;
+            const y = (e.clientY - rect.top) / 6;
             if (isDrawing) {
-                const rect = mainCanvas.getBoundingClientRect();
-                const x = (e.clientX - rect.left) / 6;
-                const y = (e.clientY - rect.top) / 6;
-                modifyPixel(x, y);
+                modifyPixels(x, y);
+            } else {
+                drawPreview(x, y);
             }
         });
 
-        mainCanvas.addEventListener('mouseup', () => isDrawing = false);
-        mainCanvas.addEventListener('mouseleave', () => isDrawing = false);
+        mainCanvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            updateCanvas(); // Wis preview na tekenen
+        });
+
+        mainCanvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+            previewCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        });
 
         // Frame controls
         newFrameBtn.addEventListener('click', () => {
