@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.3.2 - Performance Update with Player Animations</title>
+<title>Game Engine - v2.3.3 - The Fallen Kingdom</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
@@ -40,9 +40,10 @@
 <div id="hud">
   <div class="ability" id="dash">Dash (Shift): Ready</div>
   <div class="ability" id="airhop">Air Hop (Space): Ready</div>
-  <div class="ability" id="sword">Sword (C): Ready</div>
+  <div class="ability" id="block">Block (C): Ready</div>
   <div class="ability" id="slopeInfo">Slope: None (0°)</div>
   <div class="ability" id="playerCoords">Coords: (0, 0)</div>
+  <div class="ability" id="health">Health: 100</div>
 </div>
 <div id="fpsMeter">FPS: 0</div>
 <canvas id="gameCanvas"></canvas>
@@ -70,31 +71,21 @@ const CONFIG = {
     jumpVelocity: -15,
     airHopVelocity: -12,
     dashDuration: 200,
-    dashCooldown: 0,
+    dashCooldown: 500,
     hopCooldown: 1000,
     collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 }
-  },
-  sword: {
-    swingDuration: 200,
-    swingArc: Math.PI/2,
-    offsetX: 35,
-    offsetY: 0,
-    width: 540,
-    height: 220,
-    scale: 0.4
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0 },
   culling: { physicsMargin: 200, renderMargin: 100 },
   rotationLimit: 5,
   maxVideoResolution: { width: 1920, height: 1080 }
 };
-
 const mapData = {
   "playerStart": {
     "x": 200,
-    "y": -100,
-    "w": 50,
-    "h": 75,
+    "y": 150,
+    "w": 30,
+    "h": 69,
     "zIndex": 1
   },
   "textures": [
@@ -245,6 +236,17 @@ const mapData = {
       "angle": 20,
       "textureId": 0,
       "zIndex": 17
+    },
+    {
+      "id": "HKeOm0N7aiEh-n5yQ6gW2UD2q",
+      "type": "platform",
+      "x": 968,
+      "y": 271,
+      "w": 1000,
+      "h": 20,
+      "angle": 0,
+      "textureId": 0,
+      "zIndex": 25
     }
   ],
   "decor": [
@@ -338,25 +340,30 @@ const mapData = {
     }
   ]
 };
-
-const swordRightUrl = 'https://hyperrushnet.github.io/v3concept/sword-image-game-no-bg.png';
-const swordLeftUrl = 'https://hyperrushnet.github.io/game/images/sword-left.png';
 const playerAnimations = {
-  idle: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm', // Placeholder for idle animation
-  runLeft: 'http://hyperrushnet.github.io/game/webm/file_example_WEBM_480_900KB.webm', // Placeholder for run left
-  runRight: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm', // Placeholder for run right
-  jump: 'http://hyperrushnet.github.io/game/webm/file_example_WEBM_480_900KB.webm', // Placeholder for jump
-  fall: 'https://hyperrushnet.github.io/game/webm/big-buck-bunny_trailer-.webm' // Placeholder for fall
+  idle: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  runLeft: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  runRight: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  jump: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  fall: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackUp: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackDown: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackLeft: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackRight: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm'
 };
-
+const swordAnimations = {
+  attackUp: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackDown: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackLeft: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm',
+  attackRight: 'https://hyperrushnet.github.io/game/player/animations/walkv2.webm'
+};
 const textureCache = new Map();
 const videoTextures = new Map();
 let soundtrack;
-const assetsToLoad = [...new Set([...mapData.textures.filter(src => !src.endsWith('.webm')), swordRightUrl, swordLeftUrl, ...Object.values(playerAnimations)])];
+const assetsToLoad = [...new Set([...mapData.textures.filter(src => !src.endsWith('.webm')), ...Object.values(playerAnimations), ...Object.values(swordAnimations)])];
 const videoUrls = mapData.textures.filter(src => src.endsWith('.webm'));
-let totalAssets = assetsToLoad.length + videoUrls.length + 1;
+let totalAssets = assetsToLoad.length + videoUrls.length + Object.keys(playerAnimations).length + Object.keys(swordAnimations).length + 1;
 let loadedAssets = 0;
-
 const DOM = {
   canvas: document.getElementById("gameCanvas"),
   background: document.getElementById('background'),
@@ -367,15 +374,14 @@ const DOM = {
   hud: {
     dash: document.getElementById('dash'),
     airhop: document.getElementById('airhop'),
-    sword: document.getElementById('sword'),
+    block: document.getElementById('block'),
     slopeInfo: document.getElementById('slopeInfo'),
-    playerCoords: document.getElementById('playerCoords')
+    playerCoords: document.getElementById('playerCoords'),
+    health: document.getElementById('health')
   }
 };
-
 let canvasWidth = window.innerWidth;
 let canvasHeight = window.innerHeight;
-
 function preloadImages() {
   assetsToLoad.forEach(src => {
     const img = new Image();
@@ -384,10 +390,12 @@ function preloadImages() {
     img.onload = () => {
       textureCache.set(src, { w: img.width, h: img.height, img });
       loadedAssets++;
+      console.log(`Loaded image: ${src}, ${loadedAssets}/${totalAssets}`);
       updateLoading();
     };
     img.onerror = () => {
       loadedAssets++;
+      console.warn(`Failed to load image: ${src}, ${loadedAssets}/${totalAssets}`);
       updateLoading();
     };
   });
@@ -397,16 +405,16 @@ function preloadImages() {
   soundtrack.preload = "auto";
   soundtrack.addEventListener('canplaythrough', () => {
     loadedAssets++;
+    console.log(`Loaded soundtrack, ${loadedAssets}/${totalAssets}`);
     updateLoading();
   });
   soundtrack.onerror = () => {
     loadedAssets++;
+    console.warn(`Failed to load soundtrack, ${loadedAssets}/${totalAssets}`);
     updateLoading();
-    console.warn('Soundtrack could not be loaded!');
   };
   soundtrack.load();
 }
-
 function setupVideoTexture(src, textureId) {
   const video = document.createElement('video');
   video.src = src;
@@ -414,23 +422,23 @@ function setupVideoTexture(src, textureId) {
   video.muted = true;
   video.playsInline = true;
   video.preload = "auto";
-  video.loop = true;
+  video.loop = false; // Sword videos should not loop
   video.width = Math.min(video.videoWidth || CONFIG.maxVideoResolution.width, CONFIG.maxVideoResolution.width);
   video.height = Math.min(video.videoHeight || CONFIG.maxVideoResolution.height, CONFIG.maxVideoResolution.height);
   video.addEventListener('loadedmetadata', () => {
-    videoTextures.set(textureId, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false });
+    videoTextures.set(textureId, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, duration: video.duration * 1000 });
     loadedAssets++;
+    console.log(`Loaded video: ${src}, ${loadedAssets}/${totalAssets}`);
     updateLoading();
   });
   video.onerror = () => {
-    videoTextures.set(textureId, { video: null, w: 0, h: 0, loaded: true, isPlaying: false });
+    videoTextures.set(textureId, { video: null, w: 0, h: 0, loaded: true, isPlaying: false, duration: 200 });
     loadedAssets++;
+    console.warn(`Failed to load video: ${src}, ${loadedAssets}/${totalAssets}`);
     updateLoading();
-    console.warn(`Video ${src} could not be loaded!`);
   };
   video.load();
 }
-
 function preloadPlayerAnimations() {
   Object.entries(playerAnimations).forEach(([key, src]) => {
     const video = document.createElement('video');
@@ -442,28 +450,65 @@ function preloadPlayerAnimations() {
     video.loop = true;
     video.addEventListener('loadedmetadata', () => {
       videoTextures.set(`player_${key}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false });
+      loadedAssets++;
+      console.log(`Loaded player animation: ${key}, ${loadedAssets}/${totalAssets}`);
+      updateLoading();
     });
     video.onerror = () => {
       videoTextures.set(`player_${key}`, { video: null, w: 0, h: 0, loaded: true, isPlaying: false });
-      console.warn(`Player animation ${key} could not be loaded!`);
+      loadedAssets++;
+      console.warn(`Failed to load player animation: ${key}, ${loadedAssets}/${totalAssets}`);
+      updateLoading();
     };
     video.load();
   });
 }
-
+function preloadSwordAnimations() {
+  Object.entries(swordAnimations).forEach(([key, src]) => {
+    const video = document.createElement('video');
+    video.src = src;
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.loop = false; // Sword animations play once
+    video.addEventListener('loadedmetadata', () => {
+      videoTextures.set(`sword_${key}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, duration: video.duration * 1000 });
+      loadedAssets++;
+      console.log(`Loaded sword animation: ${key}, ${loadedAssets}/${totalAssets}`);
+      updateLoading();
+    });
+    video.onerror = () => {
+      videoTextures.set(`sword_${key}`, { video: null, w: 0, h: 0, loaded: true, isPlaying: false, duration: 200 });
+      loadedAssets++;
+      console.warn(`Failed to load sword animation: ${key}, ${loadedAssets}/${totalAssets}`);
+      updateLoading();
+    };
+    video.load();
+  });
+}
 function updateLoading() {
   const progress = totalAssets > 0 ? Math.min((loadedAssets / totalAssets) * 100, 100) : 0;
   DOM.loadingBar.style.width = `${progress}%`;
   DOM.loadingText.textContent = `Loading... ${Math.round(progress)}%`;
+  console.log(`Loading progress: ${Math.round(progress)}%, ${loadedAssets}/${totalAssets}`);
   if (loadedAssets >= totalAssets) {
+    console.log('All assets loaded!');
     setTimeout(() => {
       DOM.startButton.style.display = 'block';
     }, 500);
   }
+  setTimeout(() => {
+    if (loadedAssets < totalAssets) {
+      console.warn(`Forcing load completion: ${loadedAssets}/${totalAssets}`);
+      loadedAssets = totalAssets;
+      DOM.loadingBar.style.width = '100%';
+      DOM.loadingText.textContent = 'Loading... 100%';
+      DOM.startButton.style.display = 'block';
+    }
+  }, 10000);
 }
-
 let gameStarted = false;
-
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
@@ -483,14 +528,7 @@ function startGame() {
       background: 'transparent'
     }
   });
-  const swordState = {
-    active: false,
-    x: -1000,
-    y: -1000,
-    angle: 0,
-    visible: false,
-    startTime: 0
-  };
+  const blockHitboxes = [];
   function drawBodyVideo(ctx, source, x, y, w, h, angle) {
     ctx.save();
     ctx.translate(x, y);
@@ -505,32 +543,7 @@ function startGame() {
       min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
       max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
-    const swordBody = swordState.active && swordState.visible ? {
-      position: { x: swordState.x, y: swordState.y },
-      angle: swordState.angle * state.facingDirection,
-      width: CONFIG.sword.width * CONFIG.sword.scale * (mapData.playerStart.h / 220),
-      height: CONFIG.sword.height * CONFIG.sword.scale * (mapData.playerStart.h / 220),
-      render: {
-        visible: true,
-        zIndex: CONFIG.zIndex.sword,
-        sprite: {
-          texture: state.facingDirection === 1 ? swordRightUrl : swordLeftUrl
-        }
-      },
-      bounds: {
-        min: {
-          x: swordState.x - CONFIG.sword.width * CONFIG.sword.scale / 2,
-          y: swordState.y - CONFIG.sword.height * CONFIG.sword.scale / 2
-        },
-        max: {
-          x: swordState.x + CONFIG.sword.width * CONFIG.sword.scale / 2,
-          y: swordState.y + CONFIG.sword.height * CONFIG.sword.scale / 2
-        }
-      },
-      label: 'sword'
-    } : null;
-    const renderBodies = swordBody ? [...bodies, swordBody] : bodies;
-    const sortedBodies = renderBodies.slice().sort((a, b) => {
+    const sortedBodies = bodies.slice().sort((a, b) => {
       const aZ = a.render.zIndex || CONFIG.zIndex.platform || 0;
       const bZ = b.render.zIndex || CONFIG.zIndex.platform || 0;
       return aZ - bZ;
@@ -541,60 +554,72 @@ function startGame() {
       const b = body.bounds;
       const inView = b.max.x > cullBounds.min.x && b.min.x < cullBounds.max.x && b.max.y > cullBounds.min.y && b.min.y < cullBounds.max.y;
       if (!inView) continue;
-      if (body.label === 'sword') {
-        const img = textureCache.get(body.render.sprite.texture)?.img;
-        if (img && img.complete) {
-          c.save();
-          c.translate(body.position.x, body.position.y);
-          c.rotate(body.angle);
-          c.drawImage(
-            img,
-            -body.width / 2,
-            -body.height / 2,
-            body.width,
-            body.height
-          );
-          c.restore();
-        }
-      }
-      else if (body.label === 'player' && body.playerVideo) {
+      if (body.label === 'player' && body.playerVideo) {
         const videoData = videoTextures.get(body.videoTextureId);
         if (videoData && videoData.loaded && videoData.video) {
           if (!videoData.isPlaying) {
             videoData.video.play().catch(e => console.error('Player video playback failed:', e));
             videoData.isPlaying = true;
           }
+          c.save();
+          c.globalAlpha = 1;
           drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
+          c.restore();
         } else {
           c.save();
+          c.globalAlpha = 1;
           c.translate(body.position.x, body.position.y);
           c.rotate(body.angle);
           c.fillStyle = '#f00';
           c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
           c.restore();
         }
-      }
-      else if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
+      } else if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
         const videoData = videoTextures.get(body.videoTextureId);
         if (videoData && videoData.loaded && videoData.video) {
           if (!videoData.isPlaying) {
             videoData.video.play().catch(e => console.error('Video playback failed:', e));
             videoData.isPlaying = true;
           }
+          c.save();
+          c.globalAlpha = 1;
           drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
+          c.restore();
         } else {
           c.save();
+          c.globalAlpha = 1;
           c.translate(body.position.x, body.position.y);
           c.rotate(body.angle);
           c.fillStyle = '#888';
           c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
           c.restore();
         }
-      }
-      else if (body.render.sprite && body.render.sprite.texture) {
+      } else if (body.label === 'block_hitbox' && body.swordVideo) {
+        const videoData = videoTextures.get(body.videoTextureId);
+        if (videoData && videoData.loaded && videoData.video) {
+          if (!videoData.isPlaying) {
+            videoData.video.currentTime = 0; // Reset to start
+            videoData.video.play().catch(e => console.error('Sword video playback failed:', e));
+            videoData.isPlaying = true;
+          }
+          c.save();
+          c.globalAlpha = 1;
+          drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
+          c.restore();
+        } else {
+          c.save();
+          c.globalAlpha = 1;
+          c.translate(body.position.x, body.position.y);
+          c.rotate(body.angle);
+          c.fillStyle = '#00ff00';
+          c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+          c.restore();
+        }
+      } else if (body.render.sprite && body.render.sprite.texture) {
         let img = textureCache.get(body.render.sprite.texture)?.img;
         if (img && img.complete) {
           c.save();
+          c.globalAlpha = 1;
           c.translate(body.position.x, body.position.y);
           c.rotate(body.angle);
           c.drawImage(
@@ -606,9 +631,9 @@ function startGame() {
           );
           c.restore();
         }
-      }
-      else if (body.render.fillStyle) {
+      } else if (body.render.fillStyle) {
         c.save();
+        c.globalAlpha = 1;
         c.translate(body.position.x, body.position.y);
         c.rotate(body.angle);
         c.fillStyle = body.render.fillStyle;
@@ -638,7 +663,8 @@ function startGame() {
       playerVideo: true,
       videoTextureId: 'player_idle',
       videoW: mapData.playerStart.w,
-      videoH: mapData.playerStart.h
+      videoH: mapData.playerStart.h,
+      health: 100
     }
   );
   player.width = mapData.playerStart.w;
@@ -674,8 +700,7 @@ function startGame() {
         label: p.type,
         angle: (p.angle || 0) * Math.PI / 180,
         collisionFilter: { category: 0x0004, mask: 0x0001 },
-        render: { zIndex: zIndex },
-        id: p.id
+        render: { zIndex: zIndex }
       });
       body.platformVideo = true;
       body.videoTextureId = p.textureId;
@@ -742,7 +767,7 @@ function startGame() {
     World.add(engine.world, body);
   });
   const state = {
-    keys: { left: false, right: false, up: false, dash: false, hop: false, sword: false, run: false },
+    keys: { left: false, right: false, up: false, down: false, dash: false, hop: false, sword: false, run: false },
     isDashing: false,
     dashStartTime: 0,
     lastDash: 0,
@@ -752,49 +777,114 @@ function startGame() {
     lastDirection: { x: 0, y: 0 },
     dashVelocity: { x: 0, y: 0 },
     wasInAir: false,
-    currentAnimation: 'idle'
+    currentAnimation: 'idle',
+    isAttacking: false,
+    attackDirection: null,
+    attackStartTime: 0
   };
-  const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
-  let lastSwordTime = 0;
-  const swordCooldown = 50;
+  const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
+  let lastBlockTime = 0;
+  const blockCooldown = 50;
   document.addEventListener('keydown', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = true;
-    if (e.code === 'KeyC') startSwordSwing();
+    if (e.code === 'KeyC') placeBlock();
   });
   document.addEventListener('keyup', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = false;
   });
-  function startSwordSwing() {
-    const now = Date.now();
-    if (now - lastSwordTime < swordCooldown) return;
-    lastSwordTime = now;
-    swordState.active = true;
-    swordState.visible = true;
-    swordState.startTime = performance.now();
-    const swingDuration = CONFIG.sword.swingDuration;
-    const startAngle = -Math.PI / 4;
-    const endAngle = Math.PI / 4;
-    function animateSword(timestamp) {
-      if (!swordState.active) return;
-      const elapsed = timestamp - swordState.startTime;
-      const t = Math.min(elapsed / swingDuration, 1);
-      swordState.angle = startAngle + (endAngle - startAngle) * t;
-      const dir = state.facingDirection;
-      const offsetX = CONFIG.sword.offsetX * dir;
-      const offsetY = CONFIG.sword.offsetY;
-      swordState.x = player.position.x + offsetX;
-      swordState.y = player.position.y + offsetY;
-      if (t >= 1) {
-        swordState.active = false;
-        swordState.visible = false;
-        swordState.x = -1000;
-        swordState.y = -1000;
-        swordState.angle = 0;
-      } else {
-        requestAnimationFrame(animateSword);
-      }
+  function createParticles(x, y, count) {
+    for (let i = 0; i < count; i++) {
+      const particle = Bodies.circle(x, y, 3, {
+        isStatic: false,
+        label: 'particle',
+        collisionFilter: { mask: 0x0000 },
+        render: { fillStyle: '#ffff00' },
+      });
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 5 + 2;
+      Body.setVelocity(particle, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
+      World.add(engine.world, particle);
+      setTimeout(() => World.remove(engine.world, particle), 500);
     }
-    requestAnimationFrame(animateSword);
+  }
+  function placeBlock() {
+    const now = Date.now();
+    if (now - lastBlockTime < blockCooldown || state.isAttacking) return;
+    lastBlockTime = now;
+    let direction;
+    if (state.keys.down) {
+      direction = 'down';
+    } else if (state.lastDirection.y < 0) {
+      direction = 'up';
+    } else if (state.lastDirection.x > 0) {
+      direction = 'right';
+    } else if (state.lastDirection.x < 0) {
+      direction = 'left';
+    } else {
+      direction = 'right';
+    }
+    state.isAttacking = true;
+    state.attackDirection = direction;
+    state.attackStartTime = now;
+    const blockSize = 50;
+    let offsetX = 0, offsetY = 0;
+    switch (direction) {
+      case 'right':
+        offsetX = player.width / 2 + blockSize / 2;
+        break;
+      case 'left':
+        offsetX = -player.width / 2 - blockSize / 2;
+        break;
+      case 'up':
+        offsetY = -player.height / 2 - blockSize / 2;
+        break;
+      case 'down':
+        offsetY = player.height / 2 + blockSize / 2;
+        break;
+    }
+    const videoTextureId = `sword_attack${direction.charAt(0).toUpperCase() + direction.slice(1)}`;
+    const videoData = videoTextures.get(videoTextureId) || { w: blockSize, h: blockSize, duration: 200 };
+    const block = Bodies.rectangle(
+      player.position.x + offsetX,
+      player.position.y + offsetY,
+      blockSize,
+      blockSize,
+      {
+        isSensor: true,
+        isStatic: true,
+        label: 'block_hitbox',
+        render: {
+          zIndex: CONFIG.zIndex.sword
+        },
+        collisionFilter: { mask: 0x0000 },
+        swordVideo: true,
+        videoTextureId: videoTextureId,
+        videoW: blockSize,
+        videoH: blockSize,
+        creationTime: performance.now(),
+        duration: videoData.duration || 200,
+        offsetX: offsetX,
+        offsetY: offsetY
+    });
+    block.width = blockSize;
+    block.height = blockSize;
+    blockHitboxes.push(block);
+    World.add(engine.world, block);
+    setTimeout(() => {
+      block.render.visible = false;
+      World.remove(engine.world, block);
+      const index = blockHitboxes.indexOf(block);
+      if (index !== -1) blockHitboxes.splice(index, 1);
+      state.isAttacking = false;
+      state.attackDirection = null;
+      const videoData = videoTextures.get(block.videoTextureId);
+      if (videoData && videoData.video && videoData.isPlaying) {
+        videoData.video.pause();
+        videoData.video.currentTime = 0;
+        videoData.isPlaying = false;
+      }
+    }, block.duration);
+    createParticles(player.position.x + offsetX, player.position.y + offsetY, 5);
   }
   function resizePlayer(width, height) {
     const scaleX = width / player.width;
@@ -806,6 +896,10 @@ function startGame() {
     player.videoH = height;
   }
   function getVertices(body) {
+    if (!body.position || !body.width || !body.height) {
+      console.warn(`Invalid body in getVertices: ${body.label}`, body);
+      return [];
+    }
     const { position, angle, width, height } = body;
     const hw = width / 2, hh = height / 2;
     const cos = Math.cos(angle), sin = Math.sin(angle);
@@ -832,6 +926,7 @@ function startGame() {
   }
   function getAxes(body) {
     const vertices = getVertices(body);
+    if (vertices.length === 0) return [];
     const axes = [];
     for (let i = 0; i < vertices.length; i++) {
       const p1 = vertices[i];
@@ -839,12 +934,21 @@ function startGame() {
       const edge = { x: p2.x - p1.x, y: p2.y - p1.y };
       const normal = { x: -edge.y, y: edge.x };
       const len = Math.sqrt(normal.x * normal.x + normal.y * normal.y);
+      if (len === 0) continue; // Skip zero-length axes
       axes.push({ x: normal.x / len, y: normal.y / len });
     }
     return axes;
   }
   function satCollision(bodyA, bodyB) {
+    if (!bodyA || !bodyB || !bodyA.position || !bodyB.position || !bodyA.width || !bodyB.width || !bodyA.height || !bodyB.height) {
+      console.warn(`Invalid bodies in satCollision: bodyA=${bodyA?.label}, bodyB=${bodyB?.label}`);
+      return null;
+    }
     const axes = [...getAxes(bodyA), ...getAxes(bodyB)];
+    if (axes.length === 0) {
+      console.warn(`No valid axes for collision: bodyA=${bodyA.label}, bodyB=${bodyB.label}`);
+      return null;
+    }
     let mtv = null, overlap = Infinity;
     for (const axis of axes) {
       const projA = projectVertices(getVertices(bodyA), axis);
@@ -857,6 +961,10 @@ function startGame() {
         overlap = o;
         mtv = { axis, overlap };
       }
+    }
+    if (!mtv) {
+      console.warn(`No MTV computed: bodyA=${bodyA.label}, bodyB=${bodyB.label}`);
+      return null;
     }
     const aCenter = bodyA.position;
     const bCenter = bodyB.position;
@@ -908,20 +1016,25 @@ function startGame() {
   function updatePlayerAnimation() {
     const groundInfo = isPlayerOnGround();
     const velY = player.velocity.y;
+    const now = Date.now();
     let newAnimation = state.currentAnimation;
-    if (!groundInfo.isOnGround) {
-      if (velY < -1) {
-        newAnimation = 'jump';
-      } else if (velY > 1) {
-        newAnimation = 'fall';
-      }
+    if (state.isAttacking && now - state.attackStartTime < (videoTextures.get(`sword_attack${state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1)}`)?.duration || 200)) {
+      newAnimation = `attack${state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1)}`;
     } else {
-      if (state.keys.right && !state.keys.left) {
-        newAnimation = 'runRight';
-      } else if (state.keys.left && !state.keys.right) {
-        newAnimation = 'runLeft';
+      if (!groundInfo.isOnGround) {
+        if (velY < -1) {
+          newAnimation = 'jump';
+        } else if (velY > 1) {
+          newAnimation = 'fall';
+        }
       } else {
-        newAnimation = 'idle';
+        if (state.keys.right && !state.keys.left) {
+          newAnimation = 'runRight';
+        } else if (state.keys.left && !state.keys.right) {
+          newAnimation = 'runLeft';
+        } else {
+          newAnimation = 'idle';
+        }
       }
     }
     if (newAnimation !== state.currentAnimation) {
@@ -948,12 +1061,13 @@ function startGame() {
     };
     updateStatus(DOM.hud.dash, 'Dash (Shift)', state.lastDash, CONFIG.player.dashCooldown);
     updateStatus(DOM.hud.airhop, 'Air Hop (Space)', state.lastHop, CONFIG.player.hopCooldown);
-    DOM.hud.sword.className = 'ability ready';
-    DOM.hud.sword.textContent = `Sword (C): ${Date.now() - lastSwordTime >= swordCooldown ? 'Ready' : 'Cooldown'}`;
+    DOM.hud.block.className = 'ability ready';
+    DOM.hud.block.textContent = `Block (C): ${Date.now() - lastBlockTime >= blockCooldown ? 'Ready' : 'Cooldown'}`;
     const { onSlope, slopeAngle } = isPlayerOnGround();
     DOM.hud.slopeInfo.textContent = onSlope ? `Slope: Active (${slopeAngle}°)` : `Slope: None (0°)`;
     DOM.hud.slopeInfo.className = `ability ${onSlope ? 'ready' : ''}`;
     DOM.hud.playerCoords.textContent = `Coords: (${Math.round(player.position.x)}, ${Math.round(player.position.y)})`;
+    DOM.hud.health.textContent = `Health: ${player.health}`;
   }
   window.addEventListener('resize', () => {
     canvasWidth = window.innerWidth;
@@ -1024,8 +1138,8 @@ function startGame() {
     if (justLanded && groundInfo.onSlope) {
       lerpSpeed = 0.3;
     }
-    const newAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
-    Body.setAngle(player, newAngle);
+    const newPlayerAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
+    Body.setAngle(player, newPlayerAngle);
     lastGroundState = groundInfo;
     state.wasInAir = !groundInfo.isOnGround;
     if (state.isDashing && now - state.dashStartTime < CONFIG.player.dashDuration) {
@@ -1087,6 +1201,10 @@ function startGame() {
     let wallCollision = false;
     const obstacles = [...walls, ...platforms];
     obstacles.forEach(obstacle => {
+      if (!obstacle.position || !obstacle.width || !obstacle.height) {
+        console.warn(`Skipping invalid obstacle: ${obstacle.label}`, obstacle);
+        return;
+      }
       const mtv = satCollision(player, obstacle);
       if (mtv && mtv.overlap > 0.1) {
         const pos = player.position;
@@ -1144,6 +1262,20 @@ function startGame() {
       }
     });
   });
+  Events.on(engine, 'afterUpdate', () => {
+    blockHitboxes.forEach(block => {
+      const playerAngle = player.angle;
+      const cos = Math.cos(playerAngle);
+      const sin = Math.sin(playerAngle);
+      const rotatedOffsetX = block.offsetX * cos - block.offsetY * sin;
+      const rotatedOffsetY = block.offsetX * sin + block.offsetY * cos;
+      Body.setPosition(block, {
+        x: player.position.x + rotatedOffsetX,
+        y: player.position.y + rotatedOffsetY
+      });
+      Body.setAngle(block, playerAngle);
+    });
+  });
   setInterval(updateHUD, 100);
 }
 preloadImages();
@@ -1153,7 +1285,8 @@ mapData.textures.forEach((src, index) => {
   }
 });
 preloadPlayerAnimations();
-document.getElementById('startButton').addEventListener('click', () => {
+preloadSwordAnimations();
+DOM.startButton.addEventListener('click', () => {
   DOM.loadingScreen.style.display = 'none';
   startGame();
 });
