@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.3.3 - The Fallen Kingdom</title>
+<title>Game Engine - v2.3.4 - The Fallen Kingdom</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
@@ -54,7 +54,7 @@ const CONFIG = {
   maxGravityAcceleration: 15,
   zIndex: {
     background: 0,
-    sword: 5,
+    sword: 10, // Higher than player for visibility
     decor: 2,
     platform: 3,
     player: 4,
@@ -74,6 +74,11 @@ const CONFIG = {
     dashCooldown: 500,
     hopCooldown: 1000,
     collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 }
+  },
+  sword: {
+    width: 50, // Configurable sword width
+    height: 75, // Configurable sword base height
+    offsetYUp: 1 // Multiplier for additional upward stretch (1 means add sword height once)
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0 },
   culling: { physicsMargin: 200, renderMargin: 100 },
@@ -826,29 +831,32 @@ function startGame() {
     state.isAttacking = true;
     state.attackDirection = direction;
     state.attackStartTime = now;
-    const blockSize = 50;
+    let blockWidth = CONFIG.sword.width;
+    let blockHeight = CONFIG.sword.height;
     let offsetX = 0, offsetY = 0;
-    switch (direction) {
-      case 'right':
-        offsetX = player.width / 2 + blockSize / 2;
-        break;
-      case 'left':
-        offsetX = -player.width / 2 - blockSize / 2;
-        break;
-      case 'up':
-        offsetY = -player.height / 2 - blockSize / 2;
-        break;
-      case 'down':
-        offsetY = player.height / 2 + blockSize / 2;
-        break;
+    const extend = CONFIG.sword.offsetYUp; // Reuse for consistency
+    if (direction === 'up' || direction === 'down') {
+      blockHeight = player.height + CONFIG.sword.height * extend;
+      if (direction === 'up') {
+        offsetY = -player.height / 2;
+      } else {
+        offsetY = player.height / 2;
+      }
+    } else {
+      blockWidth = player.width + CONFIG.sword.width * extend;
+      if (direction === 'right') {
+        offsetX = player.width / 2;
+      } else {
+        offsetX = -player.width / 2;
+      }
     }
     const videoTextureId = `sword_attack${direction.charAt(0).toUpperCase() + direction.slice(1)}`;
-    const videoData = videoTextures.get(videoTextureId) || { w: blockSize, h: blockSize, duration: 200 };
+    const videoData = videoTextures.get(videoTextureId) || { w: blockWidth, h: blockHeight, duration: 200 };
     const block = Bodies.rectangle(
       player.position.x + offsetX,
       player.position.y + offsetY,
-      blockSize,
-      blockSize,
+      blockWidth,
+      blockHeight,
       {
         isSensor: true,
         isStatic: true,
@@ -859,15 +867,15 @@ function startGame() {
         collisionFilter: { mask: 0x0000 },
         swordVideo: true,
         videoTextureId: videoTextureId,
-        videoW: blockSize,
-        videoH: blockSize,
+        videoW: blockWidth,
+        videoH: blockHeight,
         creationTime: performance.now(),
         duration: videoData.duration || 200,
         offsetX: offsetX,
         offsetY: offsetY
     });
-    block.width = blockSize;
-    block.height = blockSize;
+    block.width = blockWidth;
+    block.height = blockHeight;
     blockHitboxes.push(block);
     World.add(engine.world, block);
     setTimeout(() => {
