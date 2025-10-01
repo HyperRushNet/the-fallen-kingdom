@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Engine - v2.3.4 - The Fallen Kingdom</title>
+<title>Game Engine - v2.3.5 - The Fallen Kingdom - Parallax effect</title>
 <style>
   body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
   #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
@@ -54,13 +54,16 @@ const CONFIG = {
   maxGravityAcceleration: 15,
   zIndex: {
     background: 0,
-    sword: 10, // Higher than player for visibility
+    sword: 10,
     decor: 2,
     platform: 3,
     player: 4,
     hud: 100,
     fpsMeter: 101,
     loadingScreen: 1000
+  },
+  parallax: {
+    decor: 0.5
   },
   player: {
     width: 50,
@@ -76,9 +79,9 @@ const CONFIG = {
     collisionFilter: { category: 0x0001, mask: 0x0002 | 0x0004 }
   },
   sword: {
-    width: 50, // Configurable sword width
-    height: 75, // Configurable sword base height
-    offsetYUp: 1 // Multiplier for additional upward stretch (1 means add sword height once)
+    width: 50,
+    height: 75,
+    offsetYUp: 1
   },
   camera: { smoothFactor: 0.2, bgPanSpeed: 0 },
   culling: { physicsMargin: 200, renderMargin: 100 },
@@ -264,7 +267,8 @@ const mapData = {
       "h": 60,
       "angle": 20,
       "textureId": 1,
-      "zIndex": 18
+      "zIndex": 18,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "zKKSk3fVJ2tn-mGkBlxccK7Nk",
@@ -275,7 +279,8 @@ const mapData = {
       "h": 60,
       "angle": -20,
       "textureId": 1,
-      "zIndex": 19
+      "zIndex": 19,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "fFtAXxjPS6uG-vnlhk1Xj6Jpx",
@@ -286,7 +291,8 @@ const mapData = {
       "h": 60,
       "angle": -40,
       "textureId": 1,
-      "zIndex": 20
+      "zIndex": 20,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "15YKaT3kbMqg-Ruqxg8WitFAS",
@@ -297,7 +303,8 @@ const mapData = {
       "h": 60,
       "angle": -10,
       "textureId": 1,
-      "zIndex": 21
+      "zIndex": 21,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "Cn3zQ4hjJu1O-3mEa8yohh0c3",
@@ -308,7 +315,8 @@ const mapData = {
       "h": 60,
       "angle": 40,
       "textureId": 1,
-      "zIndex": 22
+      "zIndex": 22,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "hUqElZ2qVGKm-yQscx6pvTWbA",
@@ -319,7 +327,8 @@ const mapData = {
       "h": 60,
       "angle": 20,
       "textureId": 1,
-      "zIndex": 23
+      "zIndex": 23,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "9HGxfKBVomKg-ZijM1o6O93gp",
@@ -330,7 +339,8 @@ const mapData = {
       "h": 60,
       "angle": 0,
       "textureId": 1,
-      "zIndex": 24
+      "zIndex": 24,
+      "parallaxSpeed": 0.5
     },
     {
       "id": "5nWBxxnEzyHF-RLdhIlAGnj4B",
@@ -341,7 +351,8 @@ const mapData = {
       "h": 259,
       "angle": 0,
       "textureId": 2,
-      "zIndex": 0
+      "zIndex": 0,
+      "parallaxSpeed": 0.6
     }
   ]
 };
@@ -427,10 +438,10 @@ function setupVideoTexture(src, textureId) {
   video.muted = true;
   video.playsInline = true;
   video.preload = "auto";
-  video.loop = false; // Sword videos should not loop
-  video.width = Math.min(video.videoWidth || CONFIG.maxVideoResolution.width, CONFIG.maxVideoResolution.width);
-  video.height = Math.min(video.videoHeight || CONFIG.maxVideoResolution.height, CONFIG.maxVideoResolution.height);
+  video.loop = false;
   video.addEventListener('loadedmetadata', () => {
+    video.width = Math.min(video.videoWidth || CONFIG.maxVideoResolution.width, CONFIG.maxVideoResolution.width);
+    video.height = Math.min(video.videoHeight || CONFIG.maxVideoResolution.height, CONFIG.maxVideoResolution.height);
     videoTextures.set(textureId, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, duration: video.duration * 1000 });
     loadedAssets++;
     console.log(`Loaded video: ${src}, ${loadedAssets}/${totalAssets}`);
@@ -476,7 +487,7 @@ function preloadSwordAnimations() {
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
-    video.loop = false; // Sword animations play once
+    video.loop = false;
     video.addEventListener('loadedmetadata', () => {
       videoTextures.set(`sword_${key}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, duration: video.duration * 1000 });
       loadedAssets++;
@@ -514,11 +525,13 @@ function updateLoading() {
   }, 10000);
 }
 let gameStarted = false;
+let debugMode = false;
+let basePhysCullBounds = { min: { x: 0, y: 0 }, max: { x: 0, y: 0 } };
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
   soundtrack.play().catch(e => console.error('Audio playback failed:', e));
-  const { Engine, Render, Runner, Bodies, World, Body, Events, Composite, Query } = Matter;
+  const { Engine, Render, Runner, Bodies, World, Body, Events, Composite, Query, Vector, Bounds } = Matter;
   DOM.canvas.width = canvasWidth;
   DOM.canvas.height = canvasHeight;
   const engine = Engine.create();
@@ -534,7 +547,10 @@ function startGame() {
     }
   });
   const blockHitboxes = [];
+  const decorBodies = [];
+  let initialCamPos = { x: mapData.playerStart.x, y: mapData.playerStart.y };
   function drawBodyVideo(ctx, source, x, y, w, h, angle) {
+    if (!source) return;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
@@ -544,107 +560,133 @@ function startGame() {
   }
   Render.bodies = function (render, bodies, context) {
     const c = context;
-    const cullBounds = {
-      min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
-      max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
+    const baseCullBounds = {
+        min: { x: render.bounds.min.x - CONFIG.culling.renderMargin, y: render.bounds.min.y - CONFIG.culling.renderMargin },
+        max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
     };
+    if (debugMode) {
+      c.strokeStyle = 'yellow';
+      c.lineWidth = 1;
+      c.setLineDash([5, 5]);
+      c.strokeRect(basePhysCullBounds.min.x, basePhysCullBounds.min.y, basePhysCullBounds.max.x - basePhysCullBounds.min.x, basePhysCullBounds.max.y - basePhysCullBounds.min.y);
+      c.setLineDash([]);
+      c.strokeStyle = 'red';
+      c.lineWidth = 2;
+      c.strokeRect(baseCullBounds.min.x, baseCullBounds.min.y, baseCullBounds.max.x - baseCullBounds.min.x, baseCullBounds.max.y - baseCullBounds.min.y);
+    }
     const sortedBodies = bodies.slice().sort((a, b) => {
-      const aZ = a.render.zIndex || CONFIG.zIndex.platform || 0;
-      const bZ = b.render.zIndex || CONFIG.zIndex.platform || 0;
-      return aZ - bZ;
+        const aZ = a.render ? (a.render.zIndex || CONFIG.zIndex.platform || 0) : 0;
+        const bZ = b.render ? (b.render.zIndex || CONFIG.zIndex.platform || 0) : 0;
+        return aZ - bZ;
     });
     for (let i = 0; i < sortedBodies.length; i++) {
-      const body = sortedBodies[i];
-      if (!body.render || !body.render.visible) continue;
-      const b = body.bounds;
-      const inView = b.max.x > cullBounds.min.x && b.min.x < cullBounds.max.x && b.max.y > cullBounds.min.y && b.min.y < cullBounds.max.y;
-      if (!inView) continue;
-      if (body.label === 'player' && body.playerVideo) {
-        const videoData = videoTextures.get(body.videoTextureId);
-        if (videoData && videoData.loaded && videoData.video) {
-          if (!videoData.isPlaying) {
-            videoData.video.play().catch(e => console.error('Player video playback failed:', e));
-            videoData.isPlaying = true;
-          }
-          c.save();
-          c.globalAlpha = 1;
-          drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
-          c.restore();
-        } else {
-          c.save();
-          c.globalAlpha = 1;
-          c.translate(body.position.x, body.position.y);
-          c.rotate(body.angle);
-          c.fillStyle = '#f00';
-          c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-          c.restore();
+        const body = sortedBodies[i];
+        if (!body || !body.render || !body.render.visible) continue;
+        const b = body.bounds;
+        if (!b) continue;
+        const cullBounds = baseCullBounds;
+        const inView = b.max.x > cullBounds.min.x && b.min.x < cullBounds.max.x && b.max.y > cullBounds.min.y && b.min.y < cullBounds.max.y;
+        if (debugMode) {
+          c.strokeStyle = inView ? 'green' : 'orange';
+          c.lineWidth = 1;
+          c.strokeRect(b.min.x, b.min.y, b.max.x - b.min.x, b.max.y - b.min.y);
         }
-      } else if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
-        const videoData = videoTextures.get(body.videoTextureId);
-        if (videoData && videoData.loaded && videoData.video) {
-          if (!videoData.isPlaying) {
-            videoData.video.play().catch(e => console.error('Video playback failed:', e));
-            videoData.isPlaying = true;
-          }
-          c.save();
-          c.globalAlpha = 1;
-          drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
-          c.restore();
-        } else {
-          c.save();
-          c.globalAlpha = 1;
-          c.translate(body.position.x, body.position.y);
-          c.rotate(body.angle);
-          c.fillStyle = '#888';
-          c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-          c.restore();
+        if (!inView) continue;
+        if (!body.position || (!body.circleRadius && (!body.width || !body.height))) {
+            continue;
         }
-      } else if (body.label === 'block_hitbox' && body.swordVideo) {
-        const videoData = videoTextures.get(body.videoTextureId);
-        if (videoData && videoData.loaded && videoData.video) {
-          if (!videoData.isPlaying) {
-            videoData.video.currentTime = 0; // Reset to start
-            videoData.video.play().catch(e => console.error('Sword video playback failed:', e));
-            videoData.isPlaying = true;
-          }
-          c.save();
-          c.globalAlpha = 1;
-          drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW, body.videoH, body.angle);
-          c.restore();
-        } else {
-          c.save();
-          c.globalAlpha = 1;
-          c.translate(body.position.x, body.position.y);
-          c.rotate(body.angle);
-          c.fillStyle = '#00ff00';
-          c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-          c.restore();
+        if (body.label === 'player' && body.playerVideo) {
+            const videoData = videoTextures.get(body.videoTextureId);
+            if (videoData && videoData.loaded && videoData.video) {
+                if (!videoData.isPlaying) {
+                    videoData.video.play().catch(e => console.error('Player video playback failed:', e));
+                    videoData.isPlaying = true;
+                }
+                c.save();
+                c.globalAlpha = 1;
+                drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
+                c.restore();
+            } else {
+                c.save();
+                c.globalAlpha = 1;
+                c.translate(body.position.x, body.position.y);
+                c.rotate(body.angle);
+                c.fillStyle = '#f00';
+                c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+                c.restore();
+            }
+        } else if ((body.label === "platform" && body.platformVideo) || (body.label === "decor" && body.decorVideo)) {
+            const videoData = videoTextures.get(body.videoTextureId);
+            if (videoData && videoData.loaded && videoData.video) {
+                if (!videoData.isPlaying) {
+                    videoData.video.play().catch(e => console.error('Video playback failed:', e));
+                    videoData.isPlaying = true;
+                }
+                c.save();
+                c.globalAlpha = 1;
+                drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
+                c.restore();
+            } else {
+                c.save();
+                c.globalAlpha = 1;
+                c.translate(body.position.x, body.position.y);
+                c.rotate(body.angle);
+                c.fillStyle = '#888';
+                c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+                c.restore();
+            }
+        } else if (body.label === 'block_hitbox' && body.swordVideo) {
+            const videoData = videoTextures.get(body.videoTextureId);
+            if (videoData && videoData.loaded && videoData.video) {
+                if (!videoData.isPlaying) {
+                    videoData.video.currentTime = 0;
+                    videoData.video.play().catch(e => console.error('Sword video playback failed:', e));
+                    videoData.isPlaying = true;
+                }
+                c.save();
+                c.globalAlpha = 1;
+                drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
+                c.restore();
+            } else {
+                c.save();
+                c.globalAlpha = 1;
+                c.translate(body.position.x, body.position.y);
+                c.rotate(body.angle);
+                c.fillStyle = '#00ff00';
+                c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+                c.restore();
+            }
+        } else if (body.render.sprite && body.render.sprite.texture) {
+            let img = textureCache.get(body.render.sprite.texture)?.img;
+            if (img && img.complete) {
+                c.save();
+                c.globalAlpha = 1;
+                c.translate(body.position.x, body.position.y);
+                c.rotate(body.angle);
+                c.drawImage(
+                    img,
+                    -body.width / 2,
+                    -body.height / 2,
+                    body.width,
+                    body.height
+                );
+                c.restore();
+            }
+        } else if (body.render.fillStyle) {
+            c.save();
+            c.globalAlpha = 1;
+            c.translate(body.position.x, body.position.y);
+            c.rotate(body.angle);
+            c.fillStyle = body.render.fillStyle;
+            if (body.circleRadius) {
+                c.beginPath();
+                c.arc(0, 0, body.circleRadius, 0, Math.PI * 2);
+                c.fill();
+            } else {
+                c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+            }
+            c.restore();
         }
-      } else if (body.render.sprite && body.render.sprite.texture) {
-        let img = textureCache.get(body.render.sprite.texture)?.img;
-        if (img && img.complete) {
-          c.save();
-          c.globalAlpha = 1;
-          c.translate(body.position.x, body.position.y);
-          c.rotate(body.angle);
-          c.drawImage(
-            img,
-            -body.width / 2,
-            -body.height / 2,
-            body.width,
-            body.height
-          );
-          c.restore();
-        }
-      } else if (body.render.fillStyle) {
-        c.save();
-        c.globalAlpha = 1;
-        c.translate(body.position.x, body.position.y);
-        c.rotate(body.angle);
-        c.fillStyle = body.render.fillStyle;
-        c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-        c.restore();
-      }
     }
   }
   Render.run(render);
@@ -682,11 +724,13 @@ function startGame() {
     3,
     {
       isSensor: true,
-      isStatic: true,
+      isStatic: false,
       collisionFilter: CONFIG.player.collisionFilter,
-      render: { fillStyle: 'transparent' }
+      render: { visible: false, fillStyle: 'transparent' }
     }
   );
+  groundSensor.width = mapData.playerStart.w;
+  groundSensor.height = 3;
   World.add(engine.world, groundSensor);
   let camPos = { x: mapData.playerStart.x, y: mapData.playerStart.y };
   let camTarget = { x: camPos.x, y: camPos.y };
@@ -741,7 +785,7 @@ function startGame() {
     const zIndex = d.zIndex || CONFIG.zIndex.decor;
     if (texture.endsWith('.webm')) {
       body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
-        isStatic: true,
+        isStatic: false,
         isSensor: true,
         label: 'decor',
         angle: (d.angle || 0) * Math.PI / 180,
@@ -755,7 +799,7 @@ function startGame() {
     } else {
       const imgSize = textureCache.get(texture) || { w: d.w, h: d.h };
       body = Bodies.rectangle(d.x, d.y, d.w, d.h, {
-        isStatic: true,
+        isStatic: false,
         isSensor: true,
         render: {
           sprite: texture ? { texture, xScale: d.w / imgSize.w, yScale: d.h / imgSize.h } : undefined,
@@ -769,6 +813,13 @@ function startGame() {
     }
     body.width = d.w;
     body.height = d.h;
+    body.originalPos = { x: d.x, y: d.y };
+    body.parallaxSpeed = d.parallaxSpeed !== undefined ? d.parallaxSpeed : CONFIG.parallax.decor;
+    if (body.parallaxSpeed === 0) {
+      Body.setStatic(body, true);
+    } else {
+      decorBodies.push(body);
+    }
     World.add(engine.world, body);
   });
   const state = {
@@ -785,13 +836,18 @@ function startGame() {
     currentAnimation: 'idle',
     isAttacking: false,
     attackDirection: null,
-    attackStartTime: 0
+    attackStartTime: 0,
+    dashHopInitiated: false
   };
   const keyMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', ShiftLeft: 'dash', ShiftRight: 'dash', Space: 'hop', KeyC: 'sword', KeyR: 'run' };
   let lastBlockTime = 0;
   const blockCooldown = 50;
   document.addEventListener('keydown', e => {
     if (keyMap[e.code]) state.keys[keyMap[e.code]] = true;
+    if (e.code === 'KeyD') {
+      debugMode = !debugMode;
+      console.log('Debug mode:', debugMode ? 'ON' : 'OFF');
+    }
     if (e.code === 'KeyC') placeBlock();
   });
   document.addEventListener('keyup', e => {
@@ -833,33 +889,33 @@ function startGame() {
     state.attackStartTime = now;
     let blockWidth = CONFIG.sword.width;
     let blockHeight = CONFIG.sword.height;
-    let offsetX = 0, offsetY = 0;
-    const extend = CONFIG.sword.offsetYUp; // Reuse for consistency
+    let blockOffsetX = 0, blockOffsetY = 0;
+    const extend = CONFIG.sword.offsetYUp;
     if (direction === 'up' || direction === 'down') {
       blockHeight = player.height + CONFIG.sword.height * extend;
       if (direction === 'up') {
-        offsetY = -player.height / 2;
+        blockOffsetY = -player.height / 2;
       } else {
-        offsetY = player.height / 2;
+        blockOffsetY = player.height / 2;
       }
     } else {
       blockWidth = player.width + CONFIG.sword.width * extend;
       if (direction === 'right') {
-        offsetX = player.width / 2;
+        blockOffsetX = player.width / 2;
       } else {
-        offsetX = -player.width / 2;
+        blockOffsetX = -player.width / 2;
       }
     }
     const videoTextureId = `sword_attack${direction.charAt(0).toUpperCase() + direction.slice(1)}`;
     const videoData = videoTextures.get(videoTextureId) || { w: blockWidth, h: blockHeight, duration: 200 };
     const block = Bodies.rectangle(
-      player.position.x + offsetX,
-      player.position.y + offsetY,
+      player.position.x + blockOffsetX,
+      player.position.y + blockOffsetY,
       blockWidth,
       blockHeight,
       {
         isSensor: true,
-        isStatic: true,
+        isStatic: false,
         label: 'block_hitbox',
         render: {
           zIndex: CONFIG.zIndex.sword
@@ -871,28 +927,30 @@ function startGame() {
         videoH: blockHeight,
         creationTime: performance.now(),
         duration: videoData.duration || 200,
-        offsetX: offsetX,
-        offsetY: offsetY
+        offsetX: blockOffsetX,
+        offsetY: blockOffsetY
     });
     block.width = blockWidth;
     block.height = blockHeight;
     blockHitboxes.push(block);
     World.add(engine.world, block);
     setTimeout(() => {
-      block.render.visible = false;
-      World.remove(engine.world, block);
-      const index = blockHitboxes.indexOf(block);
-      if (index !== -1) blockHitboxes.splice(index, 1);
+      if (block) {
+        block.render.visible = false;
+        World.remove(engine.world, block);
+        const index = blockHitboxes.indexOf(block);
+        if (index !== -1) blockHitboxes.splice(index, 1);
+      }
       state.isAttacking = false;
       state.attackDirection = null;
-      const videoData = videoTextures.get(block.videoTextureId);
+      const videoData = videoTextures.get(videoTextureId);
       if (videoData && videoData.video && videoData.isPlaying) {
         videoData.video.pause();
         videoData.video.currentTime = 0;
         videoData.isPlaying = false;
       }
     }, block.duration);
-    createParticles(player.position.x + offsetX, player.position.y + offsetY, 5);
+    createParticles(player.position.x + blockOffsetX, player.position.y + blockOffsetY, 5);
   }
   function resizePlayer(width, height) {
     const scaleX = width / player.width;
@@ -904,24 +962,38 @@ function startGame() {
     player.videoH = height;
   }
   function getVertices(body) {
-    if (!body.position || !body.width || !body.height) {
-      console.warn(`Invalid body in getVertices: ${body.label}`, body);
+    if (!body || !body.position || (!body.circleRadius && (!body.width || !body.height))) {
       return [];
     }
-    const { position, angle, width, height } = body;
-    const hw = width / 2, hh = height / 2;
+    const { position, angle } = body;
     const cos = Math.cos(angle), sin = Math.sin(angle);
-    const vertices = [
-      { x: -hw, y: -hh },
-      { x: hw, y: -hh },
-      { x: hw, y: hh },
-      { x: -hw, y: hh }
-    ];
-    return vertices.map(v => {
-      const vx = v.x * cos - v.y * sin + position.x;
-      const vy = v.x * sin + v.y * cos + position.y;
-      return { x: vx, y: vy };
-    });
+    if (body.circleRadius) {
+      const sides = 16;
+      const vertices = [];
+      for (let i = 0; i < sides; i++) {
+        const theta = (i / sides) * Math.PI * 2;
+        const vx = body.circleRadius * Math.cos(theta);
+        const vy = body.circleRadius * Math.sin(theta);
+        vertices.push({
+          x: vx * cos - vy * sin + position.x,
+          y: vx * sin + vy * cos + position.y
+        });
+      }
+      return vertices;
+    } else {
+      const hw = body.width / 2, hh = body.height / 2;
+      const vertices = [
+        { x: -hw, y: -hh },
+        { x: hw, y: -hh },
+        { x: hw, y: hh },
+        { x: -hw, y: hh }
+      ];
+      return vertices.map(v => {
+        const vx = v.x * cos - v.y * sin + position.x;
+        const vy = v.x * sin + v.y * cos + position.y;
+        return { x: vx, y: vy };
+      });
+    }
   }
   function projectVertices(vertices, axis) {
     let min = Infinity, max = -Infinity;
@@ -942,19 +1014,17 @@ function startGame() {
       const edge = { x: p2.x - p1.x, y: p2.y - p1.y };
       const normal = { x: -edge.y, y: edge.x };
       const len = Math.sqrt(normal.x * normal.x + normal.y * normal.y);
-      if (len === 0) continue; // Skip zero-length axes
+      if (len === 0) continue;
       axes.push({ x: normal.x / len, y: normal.y / len });
     }
     return axes;
   }
   function satCollision(bodyA, bodyB) {
-    if (!bodyA || !bodyB || !bodyA.position || !bodyB.position || !bodyA.width || !bodyB.width || !bodyA.height || !bodyB.height) {
-      console.warn(`Invalid bodies in satCollision: bodyA=${bodyA?.label}, bodyB=${bodyB?.label}`);
+    if (!bodyA || !bodyB || !bodyA.position || !bodyB.position) {
       return null;
     }
     const axes = [...getAxes(bodyA), ...getAxes(bodyB)];
     if (axes.length === 0) {
-      console.warn(`No valid axes for collision: bodyA=${bodyA.label}, bodyB=${bodyB.label}`);
       return null;
     }
     let mtv = null, overlap = Infinity;
@@ -970,8 +1040,7 @@ function startGame() {
         mtv = { axis, overlap };
       }
     }
-    if (!mtv) {
-      console.warn(`No MTV computed: bodyA=${bodyA.label}, bodyB=${bodyB.label}`);
+    if (!mtv || isNaN(mtv.overlap) || isNaN(mtv.axis.x) || isNaN(mtv.axis.y)) {
       return null;
     }
     const aCenter = bodyA.position;
@@ -985,26 +1054,35 @@ function startGame() {
     return mtv;
   }
   function isPlayerOnGround() {
+    if (!player || !groundSensor) return { isOnGround: false, onSlope: false, slopeAngle: 0 };
     const sensorHeight = 3;
     const sensorOffsetY = player.height / 2 + 1;
     const angle = player.angle;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const offsetX = -sensorOffsetY * sin;
-    const offsetY = sensorOffsetY * cos;
+    const sensorOffsetX = -sensorOffsetY * sin;
+    const sensorOffsetYVal = sensorOffsetY * cos;
     Body.setPosition(groundSensor, {
-      x: player.position.x + offsetX,
-      y: player.position.y + offsetY
+      x: player.position.x + sensorOffsetX,
+      y: player.position.y + sensorOffsetYVal
     });
     Body.setAngle(groundSensor, angle);
-    const collisions = Query.collides(groundSensor, Composite.allBodies(engine.world));
+    Body.setVelocity(groundSensor, { x: 0, y: 0 });
+    Body.setAngularVelocity(groundSensor, 0);
+    const collidableBodies = [...platforms, ...walls].filter(b => b && b.position);
+    const collisions = Query.collides(groundSensor, collidableBodies);
     let isOnGround = false, onSlope = false, slopeAngle = 0;
     let deepestCollision = null;
     let maxDepth = 0;
     for (const collision of collisions) {
-      const otherBody = collision.bodyA.label === 'platform' ? collision.bodyA : (collision.bodyB.label === 'platform' ? collision.bodyB : null);
+      let otherBody = null;
+      if (collision.bodyA && (collision.bodyA.label === 'platform' || collision.bodyA.label === 'wall')) {
+        otherBody = collision.bodyA;
+      } else if (collision.bodyB && (collision.bodyB.label === 'platform' || collision.bodyB.label === 'wall')) {
+        otherBody = collision.bodyB;
+      }
       if (otherBody) {
-        const depth = collision.depth;
+        const depth = collision.depth || 0;
         if (depth > maxDepth) {
           maxDepth = depth;
           deepestCollision = otherBody;
@@ -1023,7 +1101,7 @@ function startGame() {
   }
   function updatePlayerAnimation() {
     const groundInfo = isPlayerOnGround();
-    const velY = player.velocity.y;
+    const velY = player ? player.velocity.y : 0;
     const now = Date.now();
     let newAnimation = state.currentAnimation;
     if (state.isAttacking && now - state.attackStartTime < (videoTextures.get(`sword_attack${state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1)}`)?.duration || 200)) {
@@ -1052,8 +1130,10 @@ function startGame() {
         prevVideoData.isPlaying = false;
       }
       state.currentAnimation = newAnimation;
-      player.videoTextureId = `player_${newAnimation}`;
-      const videoData = videoTextures.get(player.videoTextureId);
+      if (player) {
+        player.videoTextureId = `player_${newAnimation}`;
+      }
+      const videoData = videoTextures.get(player ? player.videoTextureId : `player_${newAnimation}`);
       if (videoData && videoData.video && !videoData.isPlaying) {
         videoData.video.play().catch(e => console.error(`Player ${newAnimation} video playback failed:`, e));
         videoData.isPlaying = true;
@@ -1061,6 +1141,7 @@ function startGame() {
     }
   }
   function updateHUD() {
+    if (!player) return;
     const now = Date.now();
     const updateStatus = (element, name, lastTime, cooldown) => {
       const isReady = now - lastTime >= cooldown;
@@ -1109,16 +1190,34 @@ function startGame() {
       state.isDashing = false;
       state.lastDash = Date.now();
       const postDashSpeed = CONFIG.player.speed;
-      const magnitude = Math.sqrt(state.dashVelocity.x ** 2 + state.dashVelocity.y ** 2);
-      const scaledX = magnitude > 0 ? state.dashVelocity.x * (postDashSpeed / magnitude) : 0;
-      const scaledY = magnitude > 0 ? state.dashVelocity.y * (postDashSpeed / magnitude) : 0;
-      Body.setVelocity(player, { x: scaledX, y: scaledY });
+      if (state.dashHopInitiated) {
+        const dashDirection = state.dashVelocity.x > 0 ? 1 : -1;
+        Body.setVelocity(player, { x: dashDirection * postDashSpeed, y: player.velocity.y });
+      } else {
+        const magnitude = Math.sqrt(state.dashVelocity.x ** 2 + state.dashVelocity.y ** 2);
+        const scaledX = magnitude > 0 ? state.dashVelocity.x * (postDashSpeed / magnitude) : 0;
+        const scaledY = magnitude > 0 ? state.dashVelocity.y * (postDashSpeed / magnitude) : 0;
+        Body.setVelocity(player, { x: scaledX, y: scaledY });
+      }
+      player.force = { x: 0, y: 0 };
+      state.dashHopInitiated = false;
     }
   }
   let lastGroundState = { isOnGround: false, onSlope: false, slopeAngle: 0 };
   let slopeFrameCount = 0;
   const hysteresisFrames = 3;
+  let previousPlayerState = {
+    position: { x: mapData.playerStart.x, y: mapData.playerStart.y },
+    velocity: { x: 0, y: 0 },
+    angle: 0
+  };
   Events.on(engine, 'beforeUpdate', () => {
+    if (!player) return;
+    previousPlayerState = {
+      position: { ...player.position },
+      velocity: { ...player.velocity },
+      angle: player.angle
+    };
     const now = Date.now();
     updatePlayerAnimation();
     if (state.keys.right && !state.keys.left) {
@@ -1140,7 +1239,7 @@ function startGame() {
     }
     groundInfo.onSlope = slopeFrameCount >= hysteresisFrames;
     if (!groundInfo.onSlope) groundInfo.slopeAngle = 0;
-    let targetAngle = state.isDashing ? 0 : groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
+    let targetAngle = groundInfo.onSlope ? groundInfo.slopeAngle * Math.PI / 180 : 0;
     targetAngle = Math.max(-maxTilt * 10, Math.min(targetAngle, maxTilt * 10));
     let lerpSpeed = 0.1;
     if (justLanded && groundInfo.onSlope) {
@@ -1148,26 +1247,48 @@ function startGame() {
     }
     const newPlayerAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
     Body.setAngle(player, newPlayerAngle);
+    // Update ground sensor position after player angle update
+    const sensorOffsetYVal = player.height / 2 + 1;
+    const angle = player.angle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const groundSensorOffsetX = -sensorOffsetYVal * sin;
+    const groundSensorOffsetY = sensorOffsetYVal * cos;
+    Body.setPosition(groundSensor, {
+      x: player.position.x + groundSensorOffsetX,
+      y: player.position.y + groundSensorOffsetY
+    });
+    Body.setAngle(groundSensor, angle);
+    Body.setVelocity(groundSensor, { x: 0, y: 0 });
+    Body.setAngularVelocity(groundSensor, 0);
     lastGroundState = groundInfo;
     state.wasInAir = !groundInfo.isOnGround;
     if (state.isDashing && now - state.dashStartTime < CONFIG.player.dashDuration) {
-      const baseDashSpeed = CONFIG.player.dashSpeed;
-      const targetFps = 60;
-      const dashSpeed = baseDashSpeed * (targetFps / fps);
-      let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
-      let dashY = 0;
-      state.dashVelocity = { x: dashX, y: dashY };
-      Body.setVelocity(player, state.dashVelocity);
-      player.force.y = -engine.world.gravity.y * player.mass * engine.world.gravity.scale;
+      if (state.dashHopInitiated) {
+        Body.setVelocity(player, { x: state.dashVelocity.x, y: player.velocity.y });
+        player.force = { x: 0, y: 0 };
+      } else {
+        const g = engine.world.gravity;
+        player.force.y = - (g.y * g.scale * player.mass);
+        player.force.x = 0;
+      }
+    } else if (state.isDashing) {
+      endDash();
     }
     if (state.keys.dash && !state.isDashing && now - state.lastDash >= CONFIG.player.dashCooldown) {
-      const dashSpeed = CONFIG.player.dashSpeed;
-      let dashX = dashSpeed * (state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection);
-      let dashY = 0;
-      state.dashVelocity = { x: dashX, y: dashY };
+      const dir = state.keys.right ? 1 : state.keys.left ? -1 : state.facingDirection;
+      let dashVx = dir * CONFIG.player.dashSpeed;
+      let dashVy = 0;
+      if (groundInfo.isOnGround && groundInfo.onSlope) {
+        const theta = groundInfo.slopeAngle * Math.PI / 180;
+        dashVx = dir * CONFIG.player.dashSpeed * Math.cos(theta);
+        dashVy = dir * CONFIG.player.dashSpeed * Math.sin(theta);
+      }
+      state.dashVelocity = { x: dashVx, y: dashVy };
       Body.setVelocity(player, state.dashVelocity);
       state.isDashing = true;
       state.dashStartTime = now;
+      state.dashHopInitiated = false;
       player.frictionAir = 0;
       setTimeout(endDash, CONFIG.player.dashDuration);
     }
@@ -1194,7 +1315,7 @@ function startGame() {
       Body.setVelocity(player, { x: player.velocity.x, y: hopVelocity });
       state.lastHop = now;
       if (state.isDashing) {
-        state.dashVelocity.y = hopVelocity;
+        state.dashHopInitiated = true;
       }
     }
     if (state.keys.up && groundInfo.isOnGround) {
@@ -1207,10 +1328,9 @@ function startGame() {
       }
     }
     let wallCollision = false;
-    const obstacles = [...walls, ...platforms];
+    const obstacles = [...walls, ...platforms].filter(b => b && b.position);
     obstacles.forEach(obstacle => {
-      if (!obstacle.position || !obstacle.width || !obstacle.height) {
-        console.warn(`Skipping invalid obstacle: ${obstacle.label}`, obstacle);
+      if (!obstacle.position || (!obstacle.circleRadius && (!obstacle.width || !obstacle.height))) {
         return;
       }
       const mtv = satCollision(player, obstacle);
@@ -1243,18 +1363,34 @@ function startGame() {
     camTarget.y = player.position.y;
     camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
     camPos.y += (camTarget.y - camPos.y) * CONFIG.camera.smoothFactor;
+    // Parallax for decor
+    decorBodies.forEach(body => {
+      if (!body) return;
+      const speed = body.parallaxSpeed;
+      const parallaxOffsetX = (camPos.x - initialCamPos.x) * speed;
+      const parallaxOffsetY = (camPos.y - initialCamPos.y) * speed;
+      const newPos = {x: body.originalPos.x + parallaxOffsetX, y: body.originalPos.y + parallaxOffsetY};
+      const delta = Vector.sub(newPos, body.position);
+      if (Math.abs(delta.x) > 0.001 || Math.abs(delta.y) > 0.001) {
+        Body.translate(body, delta);
+      }
+      Body.setVelocity(body, { x: 0, y: 0 });
+      Body.setAngularVelocity(body, 0);
+    });
     const camX = camPos.x - canvasWidth / 2;
     const camY = camPos.y - canvasHeight / 2;
     render.bounds.min.x = camX;
     render.bounds.min.y = camY;
     render.bounds.max.x = camX + canvasWidth;
     render.bounds.max.y = camY + canvasHeight;
-    const physicsMargin = CONFIG.culling.physicsMargin;
-    const physCullBounds = { min: { x: camX - physicsMargin, y: camY - physicsMargin }, max: { x: camX + canvasWidth + physicsMargin, y: camY + canvasHeight + physicsMargin } };
-    const bodies = Composite.allBodies(engine.world);
+    const basePhysMargin = CONFIG.culling.physicsMargin;
+    basePhysCullBounds = { min: { x: camX - basePhysMargin, y: camY - basePhysMargin }, max: { x: camX + canvasWidth + basePhysMargin, y: camY + canvasHeight + basePhysMargin } };
+    const bodies = Composite.allBodies(engine.world).filter(b => b && b.position);
     bodies.forEach(body => {
       if (body.label === 'player') return;
       const b = body.bounds;
+      if (!b) return;
+      const physCullBounds = basePhysCullBounds;
       const inPhysView = b.max.x > physCullBounds.min.x && b.min.x < physCullBounds.max.x && b.max.y > physCullBounds.min.y && b.min.y < physCullBounds.max.y;
       if (inPhysView) {
         if (body.label === 'platform' || body.label === 'slope') body.collisionFilter.mask = 0x0001;
@@ -1269,9 +1405,16 @@ function startGame() {
         }
       }
     });
+    if (isNaN(player.position.x) || isNaN(player.position.y) || isNaN(player.velocity.x) || isNaN(player.velocity.y) || isNaN(player.angle)) {
+      console.error('NaN detected in player state. Rolling back.');
+      Body.setPosition(player, previousPlayerState.position);
+      Body.setVelocity(player, previousPlayerState.velocity);
+      Body.setAngle(player, previousPlayerState.angle);
+    }
   });
   Events.on(engine, 'afterUpdate', () => {
     blockHitboxes.forEach(block => {
+      if (!block || !player) return;
       const playerAngle = player.angle;
       const cos = Math.cos(playerAngle);
       const sin = Math.sin(playerAngle);
@@ -1282,6 +1425,8 @@ function startGame() {
         y: player.position.y + rotatedOffsetY
       });
       Body.setAngle(block, playerAngle);
+      Body.setVelocity(block, { x: 0, y: 0 });
+      Body.setAngularVelocity(block, 0);
     });
   });
   setInterval(updateHUD, 100);
