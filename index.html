@@ -4,46 +4,39 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Game Engine - v2.3.5 - The Fallen Kingdom - Parallax effect</title>
-<style>
-  body { margin: 0; overflow: hidden; font-family: sans-serif; color: white; }
-  #background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background-color: black }
-  canvas { display: block; background: transparent; position: relative; z-index: 10; }
-  #hud { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 16px; z-index: 100; }
-  .ability { margin-bottom: 5px; }
-  .ready { color: #0f0; }
-  .cooldown { color: #f00; }
-  #loadingScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-  #loadingBarContainer { width: 300px; height: 20px; background: #333; border: 1px solid #666; border-radius: 10px; overflow: hidden; }
-  #loadingBar { width: 0; height: 100%; background: #305CDE; transition: width 0.1s ease; }
-  #loadingText { color: white; margin-top: 10px; font-size: 18px; }
-  #startButton {
-    margin-top: 20px;
-    padding: 10px 20px;
-    background: #305CDE;
-    color: white;
-    border: none;
-    border-radius: 50px;
-    font-size: 18px;
-    cursor: pointer;
-    display: none;
-  }
-  #fpsMeter { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 5px 10px; border-radius: 5px; font-family: monospace; z-index: 101; }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=MedievalSharp&display=swap" rel="stylesheet">
+<style>body{margin:0;overflow:hidden;font-family:'MedievalSharp',cursive;color:#e6d7b7;background:#000;}#background{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;background-color:black;opacity:0.8;}canvas{display:block;background:transparent;position:relative;z-index:10;}#hud{position:fixed;top:10px;left:10px;background:rgba(20,15,10,0.8);padding:10px;border-radius:8px;border:1px solid #d4af37;font-size:12px;z-index:100;min-width:150px;}.ability{margin-bottom:8px;display:flex;align-items:center;gap:5px;}.ability-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:white;background:#2a2a2a;border:1px solid #d4af37;}.ready{color:#90ee90;}.cooldown{color:#ff6b6b;}.slope-info{background:rgba(0,0,0,0.3);padding:3px 6px;border-radius:3px;margin-top:5px;font-size:11px;}.coords{font-family:'Courier New',monospace;background:rgba(0,0,0,0.4);padding:3px;border-radius:3px;margin-top:5px;font-size:11px;}.health-container{margin-top:5px;display:flex;align-items:center;gap:5px;font-size:11px;}.health-bar{flex:1;height:6px;background:rgba(0,0,0,0.5);border-radius:3px;overflow:hidden;border:1px solid #d4af37;}.health-fill{height:100%;background:linear-gradient(90deg,#ff0000,#00ff00);transition:width 0.3s ease;border-radius:2px;}#loadingScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:1000;}#loadingBarContainer{width:400px;height:20px;background:#333;border:1px solid #d4af37;border-radius:10px;overflow:hidden;}#loadingBar{width:0;height:100%;background:#d4af37;transition:width 0.3s ease;border-radius:8px;}#loadingText{color:#e6d7b7;margin-top:10px;font-size:16px;text-shadow:0 0 5px #d4af37;font-family:'Cinzel',serif;}.title{font-size:40px;color:#d4af37;margin-bottom:10px;text-shadow:1px 1px 2px rgba(0,0,0,0.8);font-family:'Cinzel',serif;}#startButton{margin-top:15px;padding:10px 20px;background:#d4af37;color:#1a0f0a;border:none;border-radius:25px;font-size:16px;cursor:pointer;display:none;font-family:'Cinzel',serif;font-weight:600;transition:background 0.3s ease;}#startButton:hover{background:#ffd700;}#fpsMeter{position:fixed;top:10px;right:10px;background:rgba(20,15,10,0.8);color:#90ee90;padding:5px 10px;border-radius:5px;font-family:'Courier New',monospace;z-index:101;border:1px solid #90ee90;font-size:12px;}</style>
 </head>
 <body>
 <div id="loadingScreen">
+  <div class="title">The Fallen Kingdom</div>
   <div id="loadingBarContainer"><div id="loadingBar"></div></div>
   <div id="loadingText">Loading... 0%</div>
   <button id="startButton">Start Game</button>
 </div>
 <div id="background"></div>
 <div id="hud">
-  <div class="ability" id="dash">Dash (Shift): Ready</div>
-  <div class="ability" id="airhop">Air Hop (Space): Ready</div>
-  <div class="ability" id="block">Block (C): Ready</div>
-  <div class="ability" id="slopeInfo">Slope: None (0°)</div>
-  <div class="ability" id="playerCoords">Coords: (0, 0)</div>
-  <div class="ability" id="health">Health: 100</div>
+  <div class="ability" id="dash">
+    <div class="ability-icon">⚡</div>
+    <span>Dash (Shift): Ready</span>
+  </div>
+  <div class="ability" id="airhop">
+    <div class="ability-icon">🦅</div>
+    <span>Air Hop (Space): Ready</span>
+  </div>
+  <div class="ability" id="block">
+    <div class="ability-icon">⚔️</div>
+    <span>Sword (C): Ready</span>
+  </div>
+  <div class="slope-info" id="slopeInfo">Slope: None (0°)</div>
+  <div class="coords" id="playerCoords">Coords: (0, 0)</div>
+  <div class="health-container">
+    <span>Health:</span>
+    <div class="health-bar">
+      <div class="health-fill" id="healthFill" style="width: 100%;"></div>
+    </div>
+    <span id="healthText">100</span>
+  </div>
 </div>
 <div id="fpsMeter">FPS: 0</div>
 <canvas id="gameCanvas"></canvas>
@@ -393,7 +386,8 @@ const DOM = {
     block: document.getElementById('block'),
     slopeInfo: document.getElementById('slopeInfo'),
     playerCoords: document.getElementById('playerCoords'),
-    health: document.getElementById('health')
+    health: document.getElementById('healthText'),
+    healthFill: document.getElementById('healthFill')
   }
 };
 let canvasWidth = window.innerWidth;
@@ -1146,17 +1140,19 @@ function startGame() {
     const updateStatus = (element, name, lastTime, cooldown) => {
       const isReady = now - lastTime >= cooldown;
       element.className = `ability ${isReady ? 'ready' : 'cooldown'}`;
-      element.textContent = `${name}: ${isReady ? 'Ready' : 'Cooldown'}`;
+      element.querySelector('span').textContent = `${name}: ${isReady ? 'Ready' : 'Cooldown'}`;
     };
     updateStatus(DOM.hud.dash, 'Dash (Shift)', state.lastDash, CONFIG.player.dashCooldown);
     updateStatus(DOM.hud.airhop, 'Air Hop (Space)', state.lastHop, CONFIG.player.hopCooldown);
     DOM.hud.block.className = 'ability ready';
-    DOM.hud.block.textContent = `Block (C): ${Date.now() - lastBlockTime >= blockCooldown ? 'Ready' : 'Cooldown'}`;
+    DOM.hud.block.querySelector('span').textContent = `Sword (C): ${Date.now() - lastBlockTime >= blockCooldown ? 'Ready' : 'Cooldown'}`;
     const { onSlope, slopeAngle } = isPlayerOnGround();
     DOM.hud.slopeInfo.textContent = onSlope ? `Slope: Active (${slopeAngle}°)` : `Slope: None (0°)`;
-    DOM.hud.slopeInfo.className = `ability ${onSlope ? 'ready' : ''}`;
+    DOM.hud.slopeInfo.className = onSlope ? 'slope-info ready' : 'slope-info';
     DOM.hud.playerCoords.textContent = `Coords: (${Math.round(player.position.x)}, ${Math.round(player.position.y)})`;
-    DOM.hud.health.textContent = `Health: ${player.health}`;
+    const healthPercent = (player.health / 100) * 100;
+    DOM.hud.health.textContent = Math.round(player.health);
+    DOM.hud.healthFill.style.width = `${healthPercent}%`;
   }
   window.addEventListener('resize', () => {
     canvasWidth = window.innerWidth;
