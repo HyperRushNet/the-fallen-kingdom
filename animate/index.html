@@ -50,9 +50,13 @@
             padding: 5px;
             cursor: pointer;
             position: relative;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .color-card:hover {
             border-color: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .color-card span {
             font-size: 12px;
@@ -76,6 +80,10 @@
             font-size: 12px;
             line-height: 1;
             padding: 0;
+            transition: background 0.2s;
+        }
+        .color-card button:hover {
+            background: #b91c1c;
         }
         #exportString {
             width: 100%;
@@ -93,15 +101,17 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            backdrop-filter: blur(4px);
         }
         #modalContent {
             background: white;
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 20px;
             position: relative;
             max-width: 90%;
             max-height: 90%;
             overflow: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
         #modalClose {
             position: absolute;
@@ -117,6 +127,11 @@
             justify-content: center;
             font-size: 16px;
             cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        #modalClose:hover {
+            background: #b91c1c;
         }
         #previewCanvas {
             position: absolute;
@@ -125,80 +140,106 @@
             pointer-events: none;
             opacity: 0.3;
         }
+        .brush-input {
+            width: 60px;
+            text-align: center;
+        }
+        .canvas-wrapper {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 2px solid #e5e7eb;
+            transition: border-color 0.2s;
+        }
+        .canvas-wrapper:hover {
+            border-color: #2563eb;
+        }
+        .btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 font-sans">
-    <div class="bg-white rounded-lg shadow-lg p-6 max-w-3xl w-full">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Pixel Animator</h1>
-        <div class="mb-6 border border-gray-200 rounded-md p-4 bg-gray-50">
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">
-                Projectbeheer: <span id="currentProjectName" class="text-blue-600">Geen project geselecteerd</span>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen flex flex-col items-center p-4 font-sans">
+    <div class="bg-white rounded-xl shadow-xl p-8 max-w-4xl w-full">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Pixel Animator</h1>
+        <div class="mb-8 border border-gray-200 rounded-lg p-6 bg-gradient-to-r from-gray-50 to-gray-100">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">
+                Projectbeheer: <span id="currentProjectName" class="text-blue-600 font-medium">Geen project geselecteerd</span>
             </h2>
-            <div class="flex gap-2 mb-3">
-                <input type="text" id="newProjectName" placeholder="Projectnaam" maxlength="30" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <input type="file" id="imageUpload" accept="image/*" class="border border-gray-300 rounded-md px-3 py-2 text-gray-700">
-                <input type="file" id="videoUpload" accept="video/webm" class="border border-gray-300 rounded-md px-3 py-2 text-gray-700">
-                <button id="createProject" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Project</button>
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <input type="text" id="newProjectName" placeholder="Projectnaam" maxlength="30" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <input type="file" id="imageUpload" accept="image/*" class="border border-gray-300 rounded-lg px-4 py-3 text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <input type="file" id="videoUpload" accept="video/webm" class="border border-gray-300 rounded-lg px-4 py-3 text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                <button id="createProject" class="btn bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">Nieuw Project</button>
             </div>
-            <div class="flex gap-2 mb-3">
-                <button id="exportProject" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition">Exporteer Project</button>
-                <input type="text" id="importString" placeholder="Plak projectstring" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button id="importProject" class="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition">Importeer Project</button>
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <button id="exportProject" class="btn bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition">Exporteer Project</button>
+                <input type="text" id="importString" placeholder="Plak projectstring" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <button id="importProject" class="btn bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition">Importeer Project</button>
             </div>
-            <textarea id="exportString" readonly class="border border-gray-300 rounded-md px-3 py-2 text-gray-700 mb-3" placeholder="Projectstring verschijnt hier na export"></textarea>
-            <div id="canvasInfo" class="text-sm text-gray-600 mb-2"></div>
-            <div id="projectList" class="border border-gray-200 rounded-md p-2 bg-white">
+            <textarea id="exportString" readonly class="border border-gray-300 rounded-lg px-4 py-3 text-gray-700 mb-4 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Projectstring verschijnt hier na export"></textarea>
+            <div id="canvasInfo" class="text-sm text-gray-600 mb-3 font-medium"></div>
+            <div id="projectList" class="border border-gray-200 rounded-lg p-3 bg-white max-h-32 overflow-y-auto">
                 <p id="noProjects" class="text-gray-500 text-sm text-center">Geen projecten beschikbaar</p>
             </div>
         </div>
-        <div id="canvasWrapper" class="relative mx-auto mb-6 border border-gray-300 rounded-md overflow-hidden bg-white">
+        <div id="canvasWrapper" class="canvas-wrapper relative mx-auto mb-8 border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
             <canvas id="mainCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
             <canvas id="overlayCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
             <canvas id="previewCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
             <canvas id="guidesCanvas" width="100" height="100" class="absolute top-0 left-0"></canvas>
         </div>
-        <div class="grid grid-cols-1 gap-4">
-            <div class="flex justify-center items-center gap-3 flex-wrap">
-                <input type="color" id="colorPicker" value="#000000" class="w-10 h-10 rounded-md cursor-pointer border border-gray-300">
-                <button id="drawMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition active">Tekenen</button>
-                <button id="eraseMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Gommen</button>
-                <button id="pickMode" class="toggle-btn bg-gray-200 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Kleurkiezer</button>
-                <select id="mirrorMode" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="none">Geen spiegeling</option>
-                    <option value="horizontal">Horizontaal (X-as)</option>
-                    <option value="vertical">Verticaal (Y-as)</option>
-                    <option value="both">Beide (X+Y-as)</option>
-                </select>
-                <label class="flex items-center gap-2 text-gray-700">
-                    <input type="checkbox" id="overlayToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
-                    Overlay
-                </label>
-                <label class="flex items-center gap-2 text-gray-700">
-                    <input type="checkbox" id="crosshairToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
-                    Kruislijnen
-                </label>
-                <select id="brushSize" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="1">1x1</option>
-                    <option value="3">3x3</option>
-                    <option value="5">5x5</option>
-                    <option value="7">7x7</option>
-                </select>
+        <div class="grid grid-cols-1 gap-6">
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4 flex-wrap bg-white p-4 rounded-lg shadow-md">
+                <div class="flex items-center gap-3">
+                    <input type="color" id="colorPicker" value="#000000" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span class="text-sm font-medium text-gray-700">Kleur:</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="drawMode" class="toggle-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition active">Tekenen</button>
+                    <button id="eraseMode" class="toggle-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Gommen</button>
+                    <button id="pickMode" class="toggle-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Kleurkiezer</button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="mirrorMode" class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="none">Geen spiegeling</option>
+                        <option value="horizontal">Horizontaal (X-as)</option>
+                        <option value="vertical">Verticaal (Y-as)</option>
+                        <option value="both">Beide (X+Y-as)</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="overlayToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
+                        <span class="text-sm">Overlay</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="crosshairToggle" checked class="h-5 w-5 rounded focus:ring-blue-500">
+                        <span class="text-sm">Kruislijnen</span>
+                    </label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium text-gray-700">Brush:</span>
+                    <input type="number" id="brushSize" min="1" max="50" value="1" class="brush-input border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center w-16">
+                </div>
             </div>
-            <div class="flex justify-center gap-2 flex-wrap">
-                <input type="text" id="colorName" placeholder="Kleurnaam" maxlength="20" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button id="saveColor" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">Kleur Opslaan</button>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-3 flex-wrap bg-white p-4 rounded-lg shadow-md">
+                <input type="text" id="colorName" placeholder="Kleurnaam" maxlength="20" class="border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <button id="saveColor" class="btn bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">Kleur Opslaan</button>
             </div>
-            <div id="colorList" class="border border-gray-200 rounded-md p-2 bg-white"></div>
-            <div class="flex justify-center gap-2 flex-wrap">
-                <button id="playAnimation" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">Speel Animatie</button>
-                <button id="newFrame" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Frame</button>
-                <button id="prevFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Vorige</button>
-                <button id="nextFrame" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition">Volgende</button>
-                <button id="deleteFrame" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition">Verwijder Frame</button>
-                <button id="deleteAllFrames" class="bg-red-800 text-white px-4 py-2 rounded-md hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 transition">Verwijder Alles</button>
-                <button id="exportVideo" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition">Exporteer Video</button>
+            <div id="colorList" class="border border-gray-200 rounded-lg p-4 bg-white grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-3 flex-wrap bg-white p-4 rounded-lg shadow-md">
+                <button id="playAnimation" class="btn bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition">▶ Speel Animatie</button>
+                <button id="newFrame" class="btn bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">+ Nieuw Frame</button>
+                <button id="prevFrame" class="btn bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition">◀ Vorige</button>
+                <button id="nextFrame" class="btn bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition">Volgende ▶</button>
+                <button id="deleteFrame" class="btn bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition">🗑 Verwijder Frame</button>
+                <button id="deleteAllFrames" class="btn bg-red-800 text-white px-6 py-3 rounded-lg hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition">🗑 Alles Verwijderen</button>
+                <button id="exportVideo" class="btn bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">💾 Exporteer Video</button>
             </div>
-            <div id="frameInfo" class="text-center text-lg font-semibold text-gray-800">Geen project geselecteerd</div>
+            <div id="frameInfo" class="text-center text-xl font-bold text-gray-800 bg-white p-4 rounded-lg shadow-md">Geen project geselecteerd</div>
         </div>
     </div>
 
@@ -223,7 +264,7 @@
         const mirrorModeSelect = document.getElementById('mirrorMode');
         const overlayToggle = document.getElementById('overlayToggle');
         const crosshairToggle = document.getElementById('crosshairToggle');
-        const brushSizeSelect = document.getElementById('brushSize');
+        const brushSizeInput = document.getElementById('brushSize');
         const newFrameBtn = document.getElementById('newFrame');
         const prevFrameBtn = document.getElementById('prevFrame');
         const nextFrameBtn = document.getElementById('nextFrame');
@@ -407,7 +448,7 @@
 
         // Schakel controls in/uit
         function disableControls(disabled) {
-            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, playAnimationBtn, exportProjectBtn, importProjectBtn, colorPicker, drawModeBtn, eraseModeBtn, pickModeBtn, overlayToggle, mirrorModeSelect, crosshairToggle, saveColorBtn, colorNameInput, brushSizeSelect].forEach(el => {
+            [newFrameBtn, prevFrameBtn, nextFrameBtn, deleteFrameBtn, deleteAllFramesBtn, exportVideoBtn, playAnimationBtn, exportProjectBtn, importProjectBtn, colorPicker, drawModeBtn, eraseModeBtn, pickModeBtn, overlayToggle, mirrorModeSelect, crosshairToggle, saveColorBtn, colorNameInput, brushSizeInput].forEach(el => {
                 el.disabled = disabled;
                 el.classList.toggle('opacity-50', disabled);
                 el.classList.toggle('cursor-not-allowed', disabled);
@@ -596,8 +637,8 @@
             noProjects.style.display = 'none';
             Object.keys(projects).sort().forEach(name => {
                 const div = document.createElement('div');
-                div.className = `flex justify-between items-center p-2 rounded-md cursor-pointer project-item ${currentProject === name ? 'selected' : ''}`;
-                div.innerHTML = `<span>${name}</span><button class="text-red-600 hover:text-red-800 text-sm">Verwijder</button>`;
+                div.className = `flex justify-between items-center p-3 rounded-lg cursor-pointer project-item ${currentProject === name ? 'selected' : ''} transition-colors`;
+                div.innerHTML = `<span class="font-medium">${name}</span><button class="text-red-600 hover:text-red-800 text-sm font-medium">Verwijder</button>`;
                 div.querySelector('button').addEventListener('click', async (e) => {
                     e.stopPropagation();
                     if (confirm(`Weet je zeker dat je project "${name}" wilt verwijderen?`)) {
@@ -839,8 +880,8 @@
             });
         });
 
-        brushSizeSelect.addEventListener('change', () => {
-            brushSize = parseInt(brushSizeSelect.value);
+        brushSizeInput.addEventListener('input', () => {
+            brushSize = Math.max(1, parseInt(brushSizeInput.value) || 1);
         });
 
         colorPicker.addEventListener('change', () => {
