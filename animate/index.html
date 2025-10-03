@@ -134,6 +134,7 @@
             <div class="flex gap-2 mb-3">
                 <input type="text" id="newProjectName" placeholder="Projectnaam" maxlength="30" class="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="file" id="imageUpload" accept="image/*" class="border border-gray-300 rounded-md px-3 py-2 text-gray-700">
+                <input type="file" id="videoUpload" accept="video/webm" class="border border-gray-300 rounded-md px-3 py-2 text-gray-700">
                 <button id="createProject" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">Nieuw Project</button>
             </div>
             <div class="flex gap-2 mb-3">
@@ -223,6 +224,7 @@
         const frameInfo = document.getElementById('frameInfo');
         const newProjectName = document.getElementById('newProjectName');
         const imageUpload = document.getElementById('imageUpload');
+        const videoUpload = document.getElementById('videoUpload');
         const createProjectBtn = document.getElementById('createProject');
         const exportProjectBtn = document.getElementById('exportProject');
         const importStringInput = document.getElementById('importString');
@@ -236,7 +238,7 @@
         const saveColorBtn = document.getElementById('saveColor');
         const colorList = document.getElementById('colorList');
 
-        let projects = JSON.parse(localStorage.getItem('pixelAnimatorProjects')) || {};
+        let projects = {};
         let currentProject = null;
         let frames = [];
         let currentFrame = 0;
@@ -245,6 +247,84 @@
         let canvasWidth = 100;
         let canvasHeight = 100;
         let brushSize = 1;
+
+        let db;
+        const dbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open('pixelAnimatorDB', 1);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                db = request.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains('projects')) {
+                    db.createObjectStore('projects', { keyPath: 'name' });
+                }
+            };
+        });
+
+        async function loadProjects() {
+            const db = await dbPromise;
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['projects'], 'readonly');
+                const store = transaction.objectStore('projects');
+                const request = store.getAll();
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const projectsObj = {};
+                    request.result.forEach((p) => {
+                        projectsObj[p.name] = {
+                            frames: p.frames,
+                            currentFrame: p.currentFrame,
+                            width: p.width,
+                            height: p.height,
+                            colors: p.colors || []
+                        };
+                    });
+                    resolve(projectsObj);
+                };
+            });
+        }
+
+        async function saveProject(projectName, data) {
+            const db = await dbPromise;
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['projects'], 'readwrite');
+                const store = transaction.objectStore('projects');
+                const fullData = {
+                    name: projectName,
+                    ...data
+                };
+                const request = store.put(fullData);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        }
+
+        async function deleteProject(projectName) {
+            const db = await dbPromise;
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['projects'], 'readwrite');
+                const store = transaction.objectStore('projects');
+                const request = store.delete(projectName);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        }
+
+        async function saveCurrentProject() {
+            if (!currentProject) return;
+            const data = {
+                frames: frames.map(frame => Array.from(frame.data)),
+                currentFrame,
+                width: canvasWidth,
+                height: canvasHeight,
+                colors: projects[currentProject]?.colors || []
+            };
+            projects[currentProject] = data;
+            saveProject(currentProject, data).catch(console.error);
+        }
 
         // Teken grid en kruislijnen
         function drawGuides() {
@@ -466,19 +546,6 @@
         });
 
         // Projectbeheer
-        function saveCurrentProject() {
-            if (currentProject) {
-                projects[currentProject] = {
-                    frames: frames.map(frame => Array.from(frame.data)),
-                    currentFrame,
-                    width: canvasWidth,
-                    height: canvasHeight,
-                    colors: projects[currentProject]?.colors || []
-                };
-                localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
-            }
-        }
-
         function loadProject(name) {
             currentProject = name;
             const project = projects[name];
@@ -515,10 +582,10 @@
                 const div = document.createElement('div');
                 div.className = `flex justify-between items-center p-2 rounded-md cursor-pointer project-item ${currentProject === name ? 'selected' : ''}`;
                 div.innerHTML = `<span>${name}</span><button class="text-red-600 hover:text-red-800 text-sm">Verwijder</button>`;
-                div.querySelector('button').addEventListener('click', (e) => {
+                div.querySelector('button').addEventListener('click', async (e) => {
                     e.stopPropagation();
                     delete projects[name];
-                    localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+                    deleteProject(name).catch(console.error);
                     if (currentProject === name) {
                         currentProject = null;
                         frames = [];
@@ -565,6 +632,90 @@
             img.src = URL.createObjectURL(file);
         });
 
+        // Video uploaden
+        videoUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.includes('webm')) {
+                alert('Alleen WebM bestanden ondersteund.');
+                return;
+            }
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.muted = true;
+            try {
+                await new Promise((resolve, reject) => {
+                    video.onloadedmetadata = resolve;
+                    video.onerror = reject;
+                });
+                const w = video.videoWidth;
+                const h = video.videoHeight;
+                if (w === 0 || h === 0) {
+                    alert('Ongeldige video dimensies.');
+                    return;
+                }
+                canvasWidth = w;
+                canvasHeight = h;
+                mainCanvas.width = overlayCanvas.width = previewCanvas.width = w;
+                mainCanvas.height = overlayCanvas.height = previewCanvas.height = h;
+                canvasWrapper.style.width = `${w * 6}px`;
+                canvasWrapper.style.height = `${h * 6}px`;
+                mainCanvas.style.width = `${w * 6}px`;
+                mainCanvas.style.height = `${h * 6}px`;
+                overlayCanvas.style.width = `${w * 6}px`;
+                overlayCanvas.style.height = `${h * 6}px`;
+                previewCanvas.style.width = `${w * 6}px`;
+                previewCanvas.style.height = `${h * 6}px`;
+                const fps = 30;
+                const totalFrames = Math.floor(video.duration * fps) + 1;
+                video.play();
+                const extractedFrames = [];
+                for (let i = 0; i < totalFrames; i++) {
+                    video.currentTime = i / fps;
+                    await new Promise(resolve => {
+                        video.onseeked = () => {
+                            video.onseeked = null;
+                            resolve();
+                        };
+                    });
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = w;
+                    tempCanvas.height = h;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.imageSmoothingEnabled = false;
+                    tempCtx.drawImage(video, 0, 0);
+                    const imgData = tempCtx.getImageData(0, 0, w, h);
+                    extractedFrames.push(imgData);
+                }
+                video.pause();
+                URL.revokeObjectURL(video.src);
+                frames = extractedFrames;
+                currentFrame = 0;
+                let name = 'WebM Import';
+                let baseName = name;
+                let counter = 1;
+                while (projects[name]) {
+                    name = `${baseName} ${counter++}`;
+                }
+                const data = {
+                    frames: frames.map(f => Array.from(f.data)),
+                    currentFrame: 0,
+                    width: w,
+                    height: h,
+                    colors: []
+                };
+                projects[name] = data;
+                await saveProject(name, data);
+                currentProject = name;
+                updateCanvas();
+                updateProjectList();
+            } catch (error) {
+                console.error('Fout bij video upload:', error);
+                alert('Fout bij het laden van de video.');
+            }
+            e.target.value = '';
+        });
+
         // Project exporteren/importeren
         exportProjectBtn.addEventListener('click', () => {
             if (!currentProject) return;
@@ -579,7 +730,7 @@
             exportStringTextarea.value = LZString.compressToBase64(JSON.stringify(projectData));
         });
 
-        importProjectBtn.addEventListener('click', () => {
+        importProjectBtn.addEventListener('click', async () => {
             const str = importStringInput.value.trim();
             if (!str) return;
             try {
@@ -588,14 +739,15 @@
                 let baseName = name;
                 let counter = 1;
                 while (projects[name]) name = `${baseName}_${counter++}`;
-                projects[name] = {
+                const data = {
                     frames: projectData.frames,
                     currentFrame: projectData.currentFrame || 0,
                     width: projectData.width,
                     height: projectData.height,
                     colors: projectData.colors || []
                 };
-                localStorage.setItem('pixelAnimatorProjects', JSON.stringify(projects));
+                projects[name] = data;
+                await saveProject(name, data);
                 loadProject(name);
                 importStringInput.value = '';
                 updateProjectList();
@@ -604,16 +756,26 @@
             }
         });
 
-        createProjectBtn.addEventListener('click', () => {
+        createProjectBtn.addEventListener('click', async () => {
             const name = newProjectName.value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
             if (!name || projects[name]) return;
-            projects[name] = {
+            const data = {
                 frames: frames.length ? [Array.from(frames[0].data)] : [Array.from(mainCtx.createImageData(canvasWidth, canvasHeight).data)],
                 currentFrame: 0,
                 width: canvasWidth,
                 height: canvasHeight,
                 colors: []
             };
+            projects[name] = data;
+            try {
+                await saveProject(name, data);
+            } catch (e) {
+                console.error(e);
+                delete projects[name];
+                alert('Fout bij opslaan project');
+                updateProjectList();
+                return;
+            }
             loadProject(name);
             newProjectName.value = '';
             updateProjectList();
@@ -798,9 +960,23 @@
         });
 
         // Initiële setup
-        updateProjectList();
-        if (Object.keys(projects).length) loadProject(Object.keys(projects)[0]);
-        else updateCanvas();
+        (async () => {
+            try {
+                await dbPromise;
+                projects = await loadProjects();
+                updateProjectList();
+                if (Object.keys(projects).length) {
+                    loadProject(Object.keys(projects)[0]);
+                } else {
+                    updateCanvas();
+                }
+            } catch (e) {
+                console.error('Failed to load DB', e);
+                projects = {};
+                updateProjectList();
+                updateCanvas();
+            }
+        })();
     </script>
 </body>
 </html>
