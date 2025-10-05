@@ -1,4 +1,67 @@
-<a href="./animate.html">Animate</a>
-<a href="./convert.html">Convert</a>
-<a href="./extract.html">Extract</a>
-<a href="./mapmaker.html">Map Maker</a>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Dev - Navigation</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 50px 20px;
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    background-color: #fff;
+    padding: 10px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    max-width: 400px; /* beperkt de breedte */
+    width: 100%;
+  }
+
+  nav a {
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.25s, color 0.25s;
+  }
+
+  nav a:hover {
+    background-color: #007BFF;
+    color: #fff;
+  }
+
+  /* Mobielvriendelijk: links onder elkaar als ruimte beperkt is */
+  @media (max-width: 360px) {
+    nav {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    nav a {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="./animate.html">Animate</a>
+  <a href="./convert.html">Convert</a>
+  <a href="./extract.html">Extract</a>
+  <a href="./mapmaker.html">Map Maker</a>
+</nav>
+
+</body>
+</html>
