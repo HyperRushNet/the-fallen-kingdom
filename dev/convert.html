@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pxanim → Video Converter</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --card-bg: #141a28;
+    --accent: #5a7fff;
+    --accent-glow: 0 0 20px rgba(90,127,255,0.6);
+    --text: #e2e6f0;
+    --text-dim: #8a91a7;
+    --radius: 16px;
+    --shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "Inter", "Segoe UI", sans-serif;
+    background: radial-gradient(circle at 30% 30%, #111628, #05070c);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    background: linear-gradient(90deg, #6b8cff, #9a7bff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 30px;
+    text-shadow: 0 0 20px rgba(100,140,255,0.5);
+  }
+
+  .card {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    max-width: 420px;
+    width: 100%;
+    animation: fadeIn 0.6s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  input[type="file"], input[type="number"], select {
+    background: #1b2235;
+    border: 1px solid #2a3350;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px;
+    width: 100%;
+    outline: none;
+    transition: border 0.2s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: var(--accent-glow);
+  }
+
+  label {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    align-self: flex-start;
+    margin-left: 2px;
+  }
+
+  button {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: transform 0.15s, box-shadow 0.3s;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--accent-glow);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  video, canvas {
+    margin-top: 20px;
+    border-radius: var(--radius);
+    border: 1px solid #252c45;
+    background: #000;
+    max-width: 100%;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6);
+  }
+
+  #status {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  #downloadLink {
+    display: none;
+    text-decoration: none;
+    margin-top: 20px;
+    background: linear-gradient(90deg, #5a7fff, #8b6fff);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 10px;
+    box-shadow: var(--accent-glow);
+    transition: transform 0.2s;
+  }
+
+  #downloadLink:hover {
+    transform: scale(1.03);
+  }
+
+  .settings {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  @media (max-width: 500px) {
+    .settings {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <h1>pxanim → Video Converter</h1>
+
+  <div class="card">
+    <label for="fileInput">Selecteer .pxanim bestand:</label>
+    <input type="file" id="fileInput" accept=".pxanim">
+
+    <div class="settings">
+      <div>
+        <label for="fpsInput">FPS:</label>
+        <input type="number" id="fpsInput" value="5" min="1" max="60">
+      </div>
+
+      <div>
+        <label for="formatSelect">Formaat:</label>
+        <select id="formatSelect">
+          <option value="webm">WebM (VP9)</option>
+          <option value="mp4">MP4 (H.264)</option>
+        </select>
+      </div>
+    </div>
+
+    <label><input type="checkbox" id="loopCheck" checked> Loop video</label>
+
+    <div id="controls" style="display:none;">
+      <button id="previewBtn">Preview Genereren</button>
+      <button id="stopPreviewBtn" style="display:none;">Stop Preview</button>
+    </div>
+
+    <button id="convertBtn" style="display:none;">Convert naar Video</button>
+    <div id="status"></div>
+  </div>
+
+  <video id="previewVideo" width="320" height="320" style="display:none;"></video>
+  <canvas id="renderCanvas" width="320" height="320" style="display:none;"></canvas>
+  <a id="downloadLink" download="animation.webm">💾 Download Video</a>
+
+  <!-- jouw originele JS ongewijzigd -->
+  <script>
+const fileInput = document.getElementById('fileInput');
+const fpsInput = document.getElementById('fpsInput');
+const loopCheck = document.getElementById('loopCheck');
+const formatSelect = document.getElementById('formatSelect');
+const convertBtn = document.getElementById('convertBtn');
+const previewBtn = document.getElementById('previewBtn');
+const stopPreviewBtn = document.getElementById('stopPreviewBtn');
+const controls = document.getElementById('controls');
+const renderCanvas = document.getElementById('renderCanvas');
+const ctx = renderCanvas.getContext('2d');
+const previewVideo = document.getElementById('previewVideo');
+const downloadLink = document.getElementById('downloadLink');
+const statusDiv = document.getElementById('status');
+
+let frames = [];
+let atlas = [];
+let logicalWidth = 320;
+let logicalHeight = 320;
+let gridW = 40;
+let gridH = 40;
+let pixelW, pixelH;
+let isGeneratingPreview = false;
+
+function hexToRGB(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return { r, g, b };
+}
+
+function decodePxanim(encoded) {
+  const parts = encoded.split('|');
+  const paletteStr = parts[0];
+  atlas = [];
+  const ci = { transparent: 0 };
+  let idx = 0;
+  while (idx < paletteStr.length) {
+    if (paletteStr[idx] === 't') {
+      atlas.push('t');
+      idx++;
+    } else {
+      const hex = '#' + paletteStr.substr(idx, 6);
+      atlas.push(hex);
+      ci[hex] = atlas.length - 1;
+      idx += 6;
+    }
+  }
+  logicalWidth = parseInt(parts[1]);
+  logicalHeight = parseInt(parts[2]);
+  gridW = parseInt(parts[3]);
+  gridH = parseInt(parts[4]);
+  const frameStr = parts[5] || '';
+  const frameRuns = frameStr.split(';');
+  frames = [];
+  for (let f = 0; f < frameRuns.length; f++) {
+    const runStr = frameRuns[f];
+    const frame = new Array(gridW * gridH).fill(0);
+    let pos = 0;
+    if (runStr) {
+      runStr.split(',').forEach(rle => {
+        const [valStr, cntStr] = rle.split(':');
+        const val = parseInt(valStr);
+        const cnt = parseInt(cntStr);
+        for (let j = 0; j < cnt && pos < frame.length; j++) {
+          frame[pos++] = val;
+        }
+      });
+    }
+    frames.push(frame);
+  }
+  pixelW = logicalWidth / gridW;
+  pixelH = logicalHeight / gridH;
+  renderCanvas.width = logicalWidth;
+  renderCanvas.height = logicalHeight;
+  previewVideo.width = logicalWidth;
+  previewVideo.height = logicalHeight;
+  controls.style.display = 'flex';
+  convertBtn.style.display = 'inline-block';
+}
+
+function renderFrame(frameIndex) {
+  const frame = frames[frameIndex];
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+  for (let i = 0; i < frame.length; i++) {
+    const v = frame[i];
+    if (v !== 0) {
+      const col = atlas[v];
+      const { r, g, b } = hexToRGB(col);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      const x = (i % gridW) * pixelW;
+      const y = Math.floor(i / gridW) * pixelH;
+      ctx.fillRect(x, y, pixelW, pixelH);
+    }
+  }
+}
+
+function generatePreview() {
+  if (frames.length === 0 || isGeneratingPreview) return;
+  isGeneratingPreview = true;
+  previewBtn.style.display = 'none';
+  stopPreviewBtn.style.display = 'inline-block';
+  statusDiv.textContent = 'Preview genereren...';
+  const fps = parseInt(fpsInput.value) || 5;
+  const format = 'webm'; // Use webm for preview
+  const mimeType = 'video/webm;codecs=vp9';
+  const interval = 1000 / fps;
+  const totalDuration = frames.length * interval;
+
+  const stream = renderCanvas.captureStream(fps);
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    previewVideo.src = URL.createObjectURL(blob);
+    previewVideo.loop = loopCheck.checked;
+    previewVideo.style.display = 'block';
+    previewVideo.play();
+    renderCanvas.style.display = 'none';
+    isGeneratingPreview = false;
+    statusDiv.textContent = 'Preview klaar!';
+    setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+    previewBtn.style.display = 'inline-block';
+    stopPreviewBtn.style.display = 'none';
+  };
+
+  let startTime = null;
+  let currentFrame = 0;
+
+  function recordLoop(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const frameNum = Math.min(Math.floor(elapsed / interval), frames.length - 1);
+    if (currentFrame !== frameNum) {
+      renderFrame(frameNum);
+      currentFrame = frameNum;
+    }
+    if (elapsed < totalDuration) {
+      requestAnimationFrame(recordLoop);
+    } else {
+      recorder.stop();
+    }
+  }
+
+  recorder.start();
+  requestAnimationFrame(recordLoop);
+}
+
+function stopPreviewGeneration() {
+  statusDiv.textContent = 'Stopping...';
+}
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  statusDiv.textContent = 'Decoderen...';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      decodePxanim(e.target.result);
+      renderFrame(0);
+      renderCanvas.style.display = 'block';
+      statusDiv.textContent = 'Geladen! Genereer Preview om te bekijken.';
+    } catch (err) {
+      alert('Fout bij decoderen: ' + err.message);
+      statusDiv.textContent = '';
+    }
+  };
+  reader.readAsText(file);
+});
+
+previewBtn.onclick = generatePreview;
+stopPreviewBtn.onclick = stopPreviewGeneration;
+
+convertBtn.onclick = () => {
+  if (isGeneratingPreview) {
+    alert('Wacht tot preview klaar is');
+    return;
+  }
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('Selecteer een bestand');
+    return;
+  }
+  statusDiv.textContent = 'Converteren...';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      decodePxanim(e.target.result);
+      convertToVideo();
+    } catch (err) {
+      alert('Fout bij decoderen: ' + err.message);
+      statusDiv.textContent = '';
+    }
+  };
+  reader.readAsText(file);
+};
+
+function convertToVideo() {
+  if (frames.length === 0) {
+    alert('Geen frames gevonden');
+    return;
+  }
+  const fps = parseInt(fpsInput.value) || 5;
+  const format = formatSelect.value;
+  const mimeType = format === 'mp4' ? 'video/mp4;codecs=avc1' : 'video/webm;codecs=vp9';
+  const interval = 1000 / fps;
+  const totalDuration = frames.length * interval;
+
+  const stream = renderCanvas.captureStream(fps);
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
+    const ext = format;
+    downloadLink.href = URL.createObjectURL(blob);
+    downloadLink.download = `animation.${ext}`;
+    downloadLink.style.display = 'block';
+    downloadLink.click();
+    statusDiv.textContent = 'Klaar!';
+    setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+  };
+
+  let startTime = null;
+  let currentFrame = 0;
+
+  function recordLoop(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const frameNum = Math.min(Math.floor(elapsed / interval), frames.length - 1);
+    if (currentFrame !== frameNum) {
+      renderFrame(frameNum);
+      currentFrame = frameNum;
+    }
+    if (elapsed < totalDuration) {
+      requestAnimationFrame(recordLoop);
+    } else {
+      recorder.stop();
+    }
+  }
+
+  recorder.start();
+  requestAnimationFrame(recordLoop);
+}
+  </script>
+</body>
+</html>
