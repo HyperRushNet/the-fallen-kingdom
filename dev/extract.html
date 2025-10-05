@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Frames Viewer</title>
+<style>
+ body {
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at 30% 20%, #111628, #05070c);
+  color: #e2e6f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+h1 {
+  font-size: 1.8rem;
+  background: linear-gradient(90deg, #6b8cff, #9a7bff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 25px;
+  text-shadow: 0 0 20px rgba(100,140,255,0.5);
+}
+
+label {
+  color: #9aa1b5;
+  font-size: 0.9rem;
+  display: block;
+  margin-top: 12px;
+}
+
+input[type="file"], 
+input[type="number"] {
+  background: #1b2235;
+  border: 1px solid #2a3350;
+  color: #e2e6f0;
+  border-radius: 10px;
+  padding: 10px;
+  width: 250px;
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+input:focus {
+  border-color: #5a7fff;
+  box-shadow: 0 0 15px rgba(90,127,255,0.4);
+}
+
+button {
+  padding: 12px 24px;
+  margin-top: 20px;
+  background: linear-gradient(90deg, #5a7fff, #8b6fff);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: transform 0.15s, box-shadow 0.3s;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(90,127,255,0.6);
+}
+
+button:disabled {
+  background: #2a3350;
+  color: #999;
+  cursor: not-allowed;
+}
+
+#framesContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+  max-width: 100%;
+}
+
+.frame-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1b2235;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  transition: transform 0.2s;
+}
+
+.frame-item:hover {
+  transform: scale(1.05);
+}
+
+.frame-canvas {
+  border-radius: 8px;
+  border: 1px solid #2a3350;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.frame-label {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #9aa1b5;
+  font-weight: 500;
+}
+
+#showAllBtn {
+  margin-top: 20px;
+  background: linear-gradient(90deg, #6b8cff, #9a7bff);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.frame-item {
+  animation: fadeIn 0.6s ease;
+}
+</style>
+</head>
+<body>
+
+<h1>Alle Frames van Video</h1>
+
+<label for="videoInput">Selecteer een videobestand:</label>
+<input type="file" id="videoInput" accept="video/*"><br><br>
+
+<label for="fpsInput">Frames per seconde (FPS):</label>
+<input type="number" id="fpsInput" value="30" min="1" max="120"><br><br>
+
+<button id="downloadBtn" disabled>Download als .pxanim</button>
+<button id="showAllBtn" style="display:none;">Toon Alle Frames</button>
+
+<div id="framesContainer"></div>
+
+<script>
+const videoInput = document.getElementById('videoInput');
+const fpsInput = document.getElementById('fpsInput');
+const downloadBtn = document.getElementById('downloadBtn');
+const showAllBtn = document.getElementById('showAllBtn');
+const framesContainer = document.getElementById('framesContainer');
+const video = document.createElement('video'); // verborgen video element
+
+let allFrameData = []; // Array to store ImageData for all frames
+let frameWidth = 0;
+let frameHeight = 0;
+let totalFrames = 0;
+let showingAll = false;
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function displayFrames(frameDataArray, startIndex = 0, limit = 100) {
+  framesContainer.innerHTML = '';
+  const endIndex = Math.min(startIndex + limit, frameDataArray.length);
+  const maxSize = 100;
+  const scale = Math.min(maxSize / frameWidth, maxSize / frameHeight);
+  const displayWidth = Math.round(frameWidth * scale);
+  const displayHeight = Math.round(frameHeight * scale);
+  for (let i = startIndex; i < endIndex; i++) {
+    const frameData = frameDataArray[i];
+    const item = document.createElement('div');
+    item.className = 'frame-item';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'frame-canvas';
+    canvas.width = frameWidth;
+    canvas.height = frameHeight;
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+    const frameCtx = canvas.getContext('2d');
+    frameCtx.putImageData(frameData, 0, 0);
+
+    const label = document.createElement('div');
+    label.className = 'frame-label';
+    label.textContent = `Frame ${i + 1}`;
+
+    item.appendChild(canvas);
+    item.appendChild(label);
+    framesContainer.appendChild(item);
+  }
+}
+
+downloadBtn.addEventListener('click', () => {
+  // Bouw globale palette from allFrameData
+  let colorSet = new Set();
+  for (let f = 0; f < allFrameData.length; f++) {
+    const frameData = allFrameData[f];
+    for (let y = 0; y < frameHeight; y++) {
+      for (let x = 0; x < frameWidth; x++) {
+        const idx = (y * frameWidth + x) * 4;
+        const r = frameData.data[idx];
+        const g = frameData.data[idx + 1];
+        const b = frameData.data[idx + 2];
+        const a = frameData.data[idx + 3];
+        if (a > 0) {
+          const hex = rgbToHex(r, g, b);
+          colorSet.add(hex);
+        }
+      }
+    }
+  }
+
+  const atlas = ['t', ...Array.from(colorSet)];
+  const ci = { transparent: 0 };
+  atlas.forEach((col, i) => {
+    if (col !== 't') ci[col] = i;
+  });
+
+  // Bouw frames
+  let frames = [];
+  for (let f = 0; f < allFrameData.length; f++) {
+    const frameData = allFrameData[f];
+    let frame = new Array(frameWidth * frameHeight).fill(0);
+    for (let y = 0; y < frameHeight; y++) {
+      for (let x = 0; x < frameWidth; x++) {
+        const idx = (y * frameWidth + x) * 4;
+        const r = frameData.data[idx];
+        const g = frameData.data[idx + 1];
+        const b = frameData.data[idx + 2];
+        const a = frameData.data[idx + 3];
+        let val = 0;
+        if (a >= 128) {
+          const hex = rgbToHex(r, g, b);
+          val = ci[hex] || 0;
+        }
+        frame[y * frameWidth + x] = val;
+      }
+    }
+    frames.push(frame);
+  }
+
+  // Encode RLE voor elke frame
+  function encodeRLE(frame) {
+    let run = [], count = 1;
+    for (let i = 1; i <= frame.length; i++) {
+      if (i < frame.length && frame[i] === frame[i - 1]) {
+        count++;
+      } else {
+        run.push(`${frame[i - 1]}:${count}`);
+        count = 1;
+      }
+    }
+    return run.join(',');
+  }
+
+  const frameData = frames.map(frame => encodeRLE(frame)).join(';');
+  const paletteStr = atlas.map(c => c === 't' ? 't' : c.slice(1)).join('');
+  const encoded = `${paletteStr}|${frameWidth}|${frameHeight}|${frameWidth}|${frameHeight}|${frameData}`;
+
+  // Download
+  const blob = new Blob([encoded], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'video.pxanim';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+showAllBtn.addEventListener('click', () => {
+  if (showingAll) {
+    displayFrames(allFrameData, 0, 100);
+    showAllBtn.textContent = 'Toon Alle Frames';
+    showingAll = false;
+  } else {
+    displayFrames(allFrameData, 0, allFrameData.length);
+    showAllBtn.textContent = 'Toon Eerste 100';
+    showingAll = true;
+  }
+});
+
+videoInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  downloadBtn.disabled = true;
+  showAllBtn.style.display = 'none';
+  framesContainer.innerHTML = '';
+
+  // Video instellen
+  video.src = URL.createObjectURL(file);
+  video.preload = "metadata";
+
+  // Wacht tot metadata geladen is
+  await new Promise(resolve => video.addEventListener('loadedmetadata', resolve, { once: true }));
+
+  // FPS en frame-interval berekenen
+  const fps = parseFloat(fpsInput.value) || 30;
+  const frameInterval = 1 / fps; // seconden per frame
+
+  totalFrames = Math.floor(video.duration / frameInterval);
+  frameWidth = video.videoWidth;
+  frameHeight = video.videoHeight;
+
+  allFrameData = new Array(totalFrames);
+
+  let currentFrame = 0;
+
+  async function captureNextFrame() {
+    if (currentFrame >= totalFrames) {
+      downloadBtn.disabled = false;
+      showAllBtn.style.display = 'inline-block';
+      displayFrames(allFrameData, 0, 100);
+      showingAll = false;
+      showAllBtn.textContent = 'Toon Alle Frames';
+      return;
+    }
+
+    video.currentTime = currentFrame * frameInterval;
+
+    // Wacht tot de video klaar is met seeken
+    await new Promise(resolve => video.addEventListener('seeked', resolve, { once: true }));
+
+    // Capture frame to ImageData
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = frameWidth;
+    tempCanvas.height = frameHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(video, 0, 0, frameWidth, frameHeight);
+    allFrameData[currentFrame] = tempCtx.getImageData(0, 0, frameWidth, frameHeight);
+
+    currentFrame++;
+
+    // Volgend frame
+    requestAnimationFrame(captureNextFrame);
+  }
+
+  captureNextFrame();
+});
+</script>
+
+</body>
+</html>
