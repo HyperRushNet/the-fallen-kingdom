@@ -158,6 +158,9 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 #inspector {
@@ -445,6 +448,47 @@ button.delete-btn:hover {
 </div>
 
 <script>
+// IndexedDB setup
+let db;
+const DB_NAME = 'FKMapEditor';
+const DB_VERSION = 1;
+const STORE_NAME = 'maps';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (e) => {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function saveToDB(data) {
+  if (!db) return;
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const store = tx.objectStore(STORE_NAME);
+  await store.put({ id: 'current', data: JSON.stringify(data) });
+}
+
+async function loadFromDB() {
+  if (!db) return null;
+  const tx = db.transaction(STORE_NAME, 'readonly');
+  const store = tx.objectStore(STORE_NAME);
+  return new Promise((resolve) => {
+    const req = store.get('current');
+    req.onsuccess = () => resolve(req.result ? JSON.parse(req.result.data) : null);
+    req.onerror = () => resolve(null);
+  });
+}
+
 // History for undo/redo
 let history = [];
 let historyIndex = -1;
@@ -478,15 +522,23 @@ function updateStatus() {
 }
 
 // Pause on focus in sidebar/hierarchy
-const sidebarElements = document.querySelectorAll('#hierarchy, #inspector input, #inspector select, #inspector button');
+const sidebarElements = document.querySelectorAll('#hierarchy input, #hierarchy select, #hierarchy button, #inspector input, #inspector select, #inspector button');
 sidebarElements.forEach(el => {
   el.addEventListener('focusin', () => { paused = true; updateStatus(); });
   el.addEventListener('focusout', () => { paused = false; updateStatus(); });
 });
 
+// Pause on hover over UI elements
+const uiElements = document.querySelectorAll('#toolbar, #hierarchy, #inspector, #help-toggle, #help-content');
+uiElements.forEach(el => {
+  el.addEventListener('mouseenter', () => { paused = true; updateStatus(); });
+  el.addEventListener('mouseleave', () => { paused = false; updateStatus(); });
+});
+
 // Canvas setup
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
 let canvasWidth = window.innerWidth - 550;
 let canvasHeight = window.innerHeight - 40;
 canvas.width = canvasWidth;
@@ -500,14 +552,14 @@ let lastTouchDist = 0;
 
 // Game state
 let objects = [], selected = null, dragging = false, dragOffsetX = 0, dragOffsetY = 0;
-let player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1};
+let player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1, angle: 0};
 let clipboard = null;
 
 // Media caches
 const imageCache = new Map();
 const videoCache = new Map();
 
-// VideoManager (unchanged)
+// VideoManager
 class VideoManager {
   constructor() {
     this.activeVideos = new Set();
@@ -591,7 +643,7 @@ function selectObject(obj) {
   updateInspector();
 }
 
-// Update Inspector (updated for player)
+// Update Inspector
 function updateInspector() {
   const noSel = document.getElementById("no-selection");
   const props = document.getElementById("properties");
@@ -616,6 +668,10 @@ function updateInspector() {
           <input type="number" id="player-y" value="${Math.round(player.y)}">
         </div>
         <div class="property-row">
+          <label>Rotation</label>
+          <input type="number" id="player-rot" value="${Math.round(player.angle || 0)}">
+        </div>
+        <div class="property-row">
           <label>Width</label>
           <input type="number" id="player-w" value="${Math.round(player.w)}">
         </div>
@@ -629,11 +685,12 @@ function updateInspector() {
         </div>
       </div>
     `;
-    ['player-x', 'player-y', 'player-w', 'player-h', 'player-z'].forEach(id => {
+    ['player-x', 'player-y', 'player-rot', 'player-w', 'player-h', 'player-z'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener("input", () => {
         if (id === 'player-x') player.x = parseInt(el.value) || 0;
         if (id === 'player-y') player.y = parseInt(el.value) || 0;
+        if (id === 'player-rot') player.angle = parseFloat(el.value) || 0;
         if (id === 'player-w') player.w = parseInt(el.value) || 50;
         if (id === 'player-h') player.h = parseInt(el.value) || 50;
         if (id === 'player-z') player.zIndex = parseInt(el.value) || 1;
@@ -690,7 +747,7 @@ function updateInspector() {
       ${selected.type === 'decor' ? `
       <div class="property-row">
         <label>Parallax</label>
-        <input type="number" id="parallax" step="0.1" min="0" max="1" value="${selected.parallaxSpeed || 0.5}">
+        <input type="number" id="parallax" step="0.1" min="0" max="1" value="${selected.parallaxSpeed || 1}">
       </div>
       ` : ''}
     </div>
@@ -722,7 +779,7 @@ function updateInspector() {
       const newType = e.target.value;
       if (newType !== oldType) {
         selected.type = newType;
-        if (newType === 'decor' && selected.parallaxSpeed === undefined) selected.parallaxSpeed = 0.5;
+        if (newType === 'decor' && selected.parallaxSpeed === undefined) selected.parallaxSpeed = 1;
         updateInspector();
         saveState();
       }
@@ -746,7 +803,7 @@ function applyInspectorChanges() {
   selected.h = parseInt(document.getElementById("height").value) || 10;
   selected.zIndex = parseInt(document.getElementById("z-index").value) || 0;
   const parallaxEl = document.getElementById("parallax");
-  if (parallaxEl) selected.parallaxSpeed = parseFloat(parallaxEl.value) || 0.5;
+  if (parallaxEl) selected.parallaxSpeed = parseFloat(parallaxEl.value) || 1;
   selected.texture = document.getElementById("texture-url").value || null;
   if (selected.type !== 'decor') delete selected.parallaxSpeed;
   draw();
@@ -770,12 +827,6 @@ function draw() {
     const h = Math.round(o.h);
     let px = Math.round(o.x);
     let py = Math.round(o.y);
-
-    if (o.type === 'decor' && o.parallaxSpeed !== undefined) {
-      const speed = o.parallaxSpeed;
-      px += camX * (1 - speed);
-      py += camY * (1 - speed);
-    }
 
     ctx.save();
     ctx.translate(px, py);
@@ -810,11 +861,12 @@ function draw() {
       ctx.fillRect(-w / 2, -h / 2, w, h);
     }
 
+    // Selection overlay
     if (o === selected) {
-      ctx.strokeStyle = "cyan";
-      ctx.lineWidth = 3 / scale;
-      ctx.strokeRect(-w / 2, -h / 2, w, h);
+      ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+      ctx.fillRect(-w / 2, -h / 2, w, h);
     }
+
     if (debugMode) {
       ctx.strokeStyle = o.type === "platform" ? "yellow" : o.type === "wall" ? "red" : "purple";
       ctx.lineWidth = 1 / scale;
@@ -832,8 +884,17 @@ function draw() {
 
   ctx.save();
   ctx.translate(px, py);
+  ctx.rotate((player.angle || 0) * Math.PI / 180);
+
   ctx.fillStyle = "lime";
   ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+
+  // Player selection overlay
+  if (selected === 'player') {
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+    ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
+  }
+
   ctx.strokeStyle = "#0ff";
   ctx.lineWidth = 2 / scale;
   ctx.strokeRect(-pw / 2, -ph / 2, pw, ph);
@@ -851,7 +912,7 @@ function draw() {
 }
 
 // Update JSON
-function updateJSON() {
+async function updateJSON() {
   const textures = [];
   objects.forEach(o => { if (o.texture && !textures.includes(o.texture)) textures.push(o.texture); });
   const platforms = objects.filter(o => o.type === "platform" || o.type === "wall").map(o => ({
@@ -875,7 +936,7 @@ function updateJSON() {
     angle: Math.round(o.angle || 0),
     textureId: o.texture ? textures.indexOf(o.texture) : null,
     zIndex: o.zIndex || 0,
-    parallaxSpeed: o.parallaxSpeed || 0.5
+    parallaxSpeed: o.parallaxSpeed || 1
   }));
   const json = {
     playerStart: {
@@ -883,14 +944,15 @@ function updateJSON() {
       y: Math.round(player.y),
       w: Math.round(player.w),
       h: Math.round(player.h),
-      zIndex: player.zIndex
+      zIndex: player.zIndex,
+      angle: player.angle || 0
     },
     textures,
     platforms,
     decor
   };
   document.getElementById("json-out").value = JSON.stringify(json, null, 2);
-  localStorage.setItem("fkmapeditor", JSON.stringify(json));
+  await saveToDB(json);
 }
 
 // Point in rotated rect
@@ -903,7 +965,7 @@ function pointInRotatedRect(px, py, o) {
   return localX >= -o.w / 2 && localX <= o.w / 2 && localY >= -o.h / 2 && localY <= o.h / 2;
 }
 
-// Get event coordinates
+// Get event coordinates (world)
 function getEventCoords(e) {
   const rect = canvas.getBoundingClientRect();
   let clientX, clientY;
@@ -934,25 +996,28 @@ canvas.addEventListener("touchstart", e => {
     lastTouchDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
     return;
   }
-  if (e.shiftKey || e.touches.length > 1) {
+  if (e.touches.length > 1) {
     isPanning = true;
-    panStartX = e.touches ? e.touches[0].clientX : e.clientX;
-    panStartY = e.touches ? e.touches[0].clientY : e.clientY;
+    panStartX = e.touches[0].clientX;
+    panStartY = e.touches[0].clientY;
     return;
   }
   let clicked = null;
-  const sorted = objects.slice().sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
+  const playerCopy = { ...player, id: 'player-temp', type: 'player', isPlayer: true };
+  let all = [...objects, playerCopy];
+  const sorted = all.slice().sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
   for (let o of sorted) {
     if (pointInRotatedRect(x, y, o)) {
-      clicked = o;
+      clicked = o.isPlayer ? 'player' : o;
       break;
     }
   }
   if (clicked) {
-    selected = clicked;
+    selectObject(clicked);
     dragging = true;
-    dragOffsetX = x - selected.x;
-    dragOffsetY = y - selected.y;
+    const sel = clicked === 'player' ? player : clicked;
+    dragOffsetX = x - sel.x;
+    dragOffsetY = y - sel.y;
   } else {
     selected = { x, y, w: 100, h: 20, angle: 0, texture: null, type: "platform", zIndex: getMaxZIndex() + 1, id: generateId() };
     objects.push(selected);
@@ -991,17 +1056,18 @@ canvas.addEventListener("touchmove", e => {
     return;
   }
   if (isPanning) {
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.touches[0].clientX;
+    const clientY = e.touches[0].clientY;
     camX -= (clientX - panStartX) / scale;
     camY -= (clientY - panStartY) / scale;
     panStartX = clientX;
     panStartY = clientY;
     draw();
   } else if (dragging && selected) {
-    selected.x = Math.round(x - dragOffsetX);
-    selected.y = Math.round(y - dragOffsetY);
-    updateInspector();
+    const sel = selected === 'player' ? player : selected;
+    sel.x = Math.round(x - dragOffsetX);
+    sel.y = Math.round(y - dragOffsetY);
+    if (selected !== 'player') updateInspector();
     draw();
   }
 }, { passive: false });
@@ -1011,6 +1077,7 @@ canvas.addEventListener("touchend", e => {
   dragging = false;
   isPanning = false;
   lastTouchDist = 0;
+  if (selected && selected !== 'player') saveState();
 });
 
 // Mouse events (for desktop)
@@ -1026,18 +1093,21 @@ canvas.addEventListener("mousedown", e => {
     return;
   }
   let clicked = null;
-  const sorted = objects.slice().sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
+  const playerCopy = { ...player, id: 'player-temp', type: 'player', isPlayer: true };
+  let all = [...objects, playerCopy];
+  const sorted = all.slice().sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
   for (let o of sorted) {
     if (pointInRotatedRect(x, y, o)) {
-      clicked = o;
+      clicked = o.isPlayer ? 'player' : o;
       break;
     }
   }
   if (clicked) {
-    selected = clicked;
+    selectObject(clicked);
     dragging = true;
-    dragOffsetX = x - selected.x;
-    dragOffsetY = y - selected.y;
+    const sel = clicked === 'player' ? player : clicked;
+    dragOffsetX = x - sel.x;
+    dragOffsetY = y - sel.y;
   } else {
     selected = { x, y, w: 100, h: 20, angle: 0, texture: null, type: "platform", zIndex: getMaxZIndex() + 1, id: generateId() };
     objects.push(selected);
@@ -1063,9 +1133,10 @@ canvas.addEventListener("mousemove", e => {
     panStartY = e.clientY;
     draw();
   } else if (dragging && selected) {
-    selected.x = Math.round(x - dragOffsetX);
-    selected.y = Math.round(y - dragOffsetY);
-    updateInspector();
+    const sel = selected === 'player' ? player : selected;
+    sel.x = Math.round(x - dragOffsetX);
+    sel.y = Math.round(y - dragOffsetY);
+    if (selected !== 'player') updateInspector();
     draw();
   }
 });
@@ -1092,7 +1163,6 @@ canvas.addEventListener("wheel", e => {
 // Keyboard
 window.addEventListener("keydown", e => {
   if (paused) return;
-  if (!selected) return;
   if (e.ctrlKey) {
     if (e.key === "z") {
       if (historyIndex > 0) {
@@ -1127,13 +1197,17 @@ window.addEventListener("keydown", e => {
       return;
     }
     if (e.key === "c") {
-      clipboard = selected === 'player' ? {...player} : {...selected};
+      if (selected === 'player') {
+        clipboard = { ...player, type: 'platform' };
+      } else {
+        clipboard = { ...selected };
+      }
       e.preventDefault();
       return;
     }
     if (e.key === "v" && clipboard) {
-      const newObj = {...clipboard, id: generateId(), x: (clipboard.x || player.x) + 20, y: (clipboard.y || player.y) + 20, zIndex: getMaxZIndex() + 1 };
-      if (newObj.type === 'decor' && newObj.parallaxSpeed === undefined) newObj.parallaxSpeed = 0.5;
+      const newObj = { ...clipboard, id: generateId(), x: (clipboard.x || player.x) + 20, y: (clipboard.y || player.y) + 20, zIndex: getMaxZIndex() + 1 };
+      if (newObj.type === 'decor' && newObj.parallaxSpeed === undefined) newObj.parallaxSpeed = 1;
       objects.push(newObj);
       selectObject(newObj);
       saveState();
@@ -1186,10 +1260,17 @@ document.getElementById("load-json").addEventListener("click", () => {
   if (jsonIn) {
     try {
       const data = JSON.parse(jsonIn);
-      player = { x: data.playerStart.x, y: data.playerStart.y, w: data.playerStart.w, h: data.playerStart.h, zIndex: data.playerStart.zIndex || 1 };
+      player = { 
+        x: data.playerStart.x, 
+        y: data.playerStart.y, 
+        w: data.playerStart.w, 
+        h: data.playerStart.h, 
+        zIndex: data.playerStart.zIndex || 1,
+        angle: data.playerStart.angle || 0
+      };
       objects = [];
       (data.platforms || []).forEach(p => objects.push({ ...p, texture: data.textures[p.textureId] || null }));
-      (data.decor || []).forEach(d => objects.push({ ...d, texture: data.textures[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 0.5 }));
+      (data.decor || []).forEach(d => objects.push({ ...d, texture: data.textures[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
       selected = null;
       history = [];
       historyIndex = -1;
@@ -1224,7 +1305,7 @@ document.getElementById("clear-map").addEventListener("click", () => {
 document.getElementById("reset-map").addEventListener("click", () => {
   if (confirm("Reset to default?")) {
     objects = [];
-    player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1};
+    player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1, angle: 0};
     selected = null;
     history = [];
     historyIndex = -1;
@@ -1266,30 +1347,29 @@ window.addEventListener("resize", () => {
   draw();
 });
 
-// Load from localStorage
-const saved = localStorage.getItem("fkmapeditor");
-if (saved) {
-  try {
-    const data = JSON.parse(saved);
-    player = { x: data.playerStart.x, y: data.playerStart.y, w: data.playerStart.w, h: data.playerStart.h, zIndex: data.playerStart.zIndex || 1 };
+// Init DB and load
+openDB().then(async () => {
+  const saved = await loadFromDB();
+  if (saved) {
+    player = { 
+      x: saved.playerStart.x, 
+      y: saved.playerStart.y, 
+      w: saved.playerStart.w, 
+      h: saved.playerStart.h, 
+      zIndex: saved.playerStart.zIndex || 1,
+      angle: saved.playerStart.angle || 0
+    };
     objects = [];
-    (data.platforms || []).forEach(p => objects.push({ ...p, texture: data.textures?.[p.textureId] || null }));
-    (data.decor || []).forEach(d => objects.push({ ...d, texture: data.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 0.5 }));
-    updateHierarchy();
-    updateInspector();
-    updateJSON();
-    draw();
-  } catch (e) {
-    console.error("Error loading saved data:", e);
+    (saved.platforms || []).forEach(p => objects.push({ ...p, texture: saved.textures?.[p.textureId] || null }));
+    (saved.decor || []).forEach(d => objects.push({ ...d, texture: saved.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
   }
-}
-
-// Initial setup
-updateHierarchy();
-updateInspector();
-updateJSON();
-updateStatus();
-saveState();
+  updateHierarchy();
+  updateInspector();
+  updateJSON();
+  draw();
+  updateStatus();
+  saveState();
+}).catch(console.error);
 </script>
 </body>
 </html>
