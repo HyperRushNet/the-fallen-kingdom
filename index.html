@@ -1,6 +1,7 @@
-<!-- The Fallen Kingdom - v2.3.7 - Fixed wall and slope bugs (friction) -->
+<!-- The Fallen Kingdom - v2.3.9 -->
 <!----------------------------------------->
 <!-- Copyright, HyperRush Network - 2025 -->
+<!-- Do not use this code in any way without the permission of HyperRushNet -->
 <!-- hyperrushnetwork@gmail.com -->
 <!--------------------->
 <!-- Game code START -->
@@ -9,10 +10,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v2.3.7 - The Fallen Kingdom</title>
+<title>v2.4.0 - The Fallen Kingdom</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=MedievalSharp&display=swap" rel="stylesheet">
 <style>
-  body{margin:0;overflow:hidden;font-family:'MedievalSharp',cursive;color:#e6d7b7;background:#000}
+  body{margin:0;overflow:hidden;font-family:'MedievalSharp',cursive;color:#e6d7b7;background:#091f3b}
   #background{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;background-color:black;opacity:0}
   canvas{display:block;background:transparent;position:relative;z-index:10}
   #hud{position:fixed;top:10px;left:10px;background:rgba(20,15,10,0.8);padding:10px;border-radius:8px;border:1px solid #d4af37;font-size:12px;z-index:100;min-width:150px}
@@ -87,6 +88,7 @@
     <span id="healthText">100</span>
   </div>
   <div class="coords" id="objectsInView">Objects in view: 0</div>
+  <div class="coords" id="ramUsage">RAM: 0 MB</div>
 </div>
 <div id="fpsMeter">FPS: 0</div>
 <canvas id="gameCanvas"></canvas>
@@ -111,11 +113,11 @@
     },
     player: {
         width: 50,
-        height: 75,
+        height: 100,
         speed: 5,
         runSpeed: 7,
         dashSpeed: 15,
-        jumpVelocity: -15,
+        jumpVelocity: -12,
         airHopVelocity: -12,
         dashDuration: 200,
         dashCooldown: 500,
@@ -147,72 +149,94 @@
     fixedDelta: 1000 / 60,
     light: {
       enabled: true,
-      radius: 200,
+      radius: 350,
       gradientStops: [
         { offset: 0, color: 'rgba(255, 255, 255, 0.3)' },
         { offset: 0.5, color: 'rgba(0, 0, 0, 0.2)' },
-        { offset: 1, color: 'rgba(0, 0, 0, 0.7)' }
+        { offset: 1, color: 'rgba(0, 0, 0, 0.4)' }
       ],
       blendMode: 'multiply',
-      canvasZIndex: 15
+      canvasZIndex: 15,
+      updateThreshold: 1
     },
-    hudUpdateInterval: 100
+    hudUpdateInterval: 1000,
+    particlePoolSize: 100,
+    nativeAnimationFps: 30
   };
 
   const mapData = {
   "playerStart": {
-    "x": 347,
-    "y": 262,
+    "x": 0,
+    "y": 0,
     "w": 50,
-    "h": 75,
+    "h": 100,
     "zIndex": 1,
     "angle": 0
   },
   "textures": [
-    "https://static.vecteezy.com/system/resources/previews/003/711/473/large_2x/rough-stone-texture-photo.jpg"
+    "https://placehold.co/2500x100",
+    "https://placehold.co/2000x100"
+
   ],
   "platforms": [
     {
-      "id": "Fv1D2fXtvgSh-xH6roNigQlf6",
+      "id": "6nZuizW8hxb6-m0JFncfLJvDx",
       "type": "platform",
-      "x": 345,
-      "y": 312,
-      "w": 100,
-      "h": 20,
+      "x": -15,
+      "y": 101,
+      "w": 2500,
+      "h": 100,
       "angle": 0,
       "textureId": 0,
       "zIndex": 1
+    },
+    {
+      "id": "keMuBhHTqzP2-ElDnZmfDgouW",
+      "type": "platform",
+      "x": -265,
+      "y": -379,
+      "w": 2000,
+      "h": 100,
+      "angle": 0,
+      "textureId": 1,
+      "zIndex": 2
     }
   ],
   "decor": []
 };
 
   const playerAnimations = {
-    idle: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    runLeft: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    runRight: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    jump: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    fall: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackUp: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackDown: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackLeft: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackRight: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm'
+    idle: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 15 },
+    runLeft: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 30 }, 
+    runRight: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 20 },
+    jump: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 12 },
+    fall: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 12 },
+    attackUp: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackDown: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackLeft: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackRight: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 }
   };
 
   const swordAnimations = {
-    attackUp: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackDown: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackLeft: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm',
-    attackRight: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm'
+    attackUp: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackDown: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackLeft: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 },
+    attackRight: { url: 'https://hyperrushnet.github.io/the-fallen-kingdom/assets/animations/player/walk-right.webm', fps: 24 }
   };
 
   const textureCache = new Map();
   const videoTextures = new Map();
   let soundtrack;
   const uniqueImageUrls = [...new Set(mapData.textures.filter(src => !src.endsWith('.webm')))];
-  const uniqueVideoUrls = [...new Set([...Object.values(playerAnimations), ...Object.values(swordAnimations), ...mapData.textures.filter(src => src.endsWith('.webm'))])];
-  let totalAssets = uniqueImageUrls.length + uniqueVideoUrls.length + 1;
+  const uniqueAnimUrls = [...new Set([...Object.values(playerAnimations).map(a => a.url), ...Object.values(swordAnimations).map(a => a.url)])];
+  const uniqueTextureVideoUrls = mapData.textures.filter(src => src.endsWith('.webm'));
+  let totalAssets = uniqueImageUrls.length + uniqueAnimUrls.length + uniqueTextureVideoUrls.length + 1;
   let loadedAssets = 0;
+  const failedAttempts = new Map();
+  const animLoaded = new Set();
+  const textureVideoLoaded = new Set();
+  let soundtrackLoaded = false;
+  let soundtrackAttempts = 0;
 
   const DOM = {
     canvas: document.getElementById("gameCanvas"),
@@ -230,7 +254,8 @@
       playerCoords: document.getElementById('playerCoords'),
       health: document.getElementById('healthText'),
       healthFill: document.getElementById('healthFill'),
-      objectsInView: document.getElementById('objectsInView')
+      objectsInView: document.getElementById('objectsInView'),
+      ramUsage: document.getElementById('ramUsage')
     }
   };
 
@@ -250,6 +275,27 @@
     };
   }
 
+  function drawChecker(ctx, x, y, w, h, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    const size = 20;
+    const cols = Math.ceil(w / size);
+    const rows = Math.ceil(h / size);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const px = col * size - w / 2;
+        const py = row * size - h / 2;
+        const color = ((row + col) % 2 === 0) ? '#000000' : '#ff00ff';
+        ctx.fillStyle = color;
+        const rectW = (col === cols - 1) ? (w % size || size) : size;
+        const rectH = (row === rows - 1) ? (h % size || size) : size;
+        ctx.fillRect(px, py, rectW, rectH);
+      }
+    }
+    ctx.restore();
+  }
+
   function preloadImages() {
     uniqueImageUrls.forEach(src => {
       const img = new Image();
@@ -261,56 +307,195 @@
         updateLoading();
       };
       img.onerror = () => {
-        loadedAssets++;
-        updateLoading();
+        const attempts = (failedAttempts.get(src) || 0) + 1;
+        failedAttempts.set(src, attempts);
+        if (attempts < 2) {
+          console.warn(`Retrying image: ${src}`);
+          setTimeout(() => {
+            img.src = src;
+          }, 1000);
+        } else {
+          console.warn(`Permanent fail image: ${src}`);
+          textureCache.set(src, { w: 0, h: 0, img: null });
+          loadedAssets++;
+          updateLoading();
+        }
       };
     });
   }
 
   function preloadAnimations() {
-    uniqueVideoUrls.forEach((src, index) => {
+    const playerUniqueUrls = [...new Set(Object.values(playerAnimations).map(a => a.url))];
+    const swordUniqueUrls = [...new Set(Object.values(swordAnimations).map(a => a.url))];
+    const allUniqueUrls = [...new Set([...playerUniqueUrls, ...swordUniqueUrls])];
+    if (allUniqueUrls.length === 0) {
+      loadedAssets++;
+      updateLoading();
+      return;
+    }
+    allUniqueUrls.forEach(url => {
+      const video = document.createElement('video');
+      video.src = url;
+      video.crossOrigin = "anonymous";
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.playbackRate = 1.0; 
+      video.addEventListener('loadedmetadata', () => {
+        if (animLoaded.has(url)) return;
+        animLoaded.add(url);
+        const playerKeys = Object.entries(playerAnimations).filter(([k,v]) => v.url === url).map(([k]) => k);
+        const playerNonAttackKeys = playerKeys.filter(k => !k.startsWith('attack'));
+        const playerAttackKeys = playerKeys.filter(k => k.startsWith('attack'));
+        if (playerNonAttackKeys.length > 0) {
+          const loopVideo = video.cloneNode(true);
+          loopVideo.loop = true;
+          const loopData = { 
+            video: loopVideo, 
+            w: video.videoWidth, 
+            h: video.videoHeight, 
+            loaded: true, 
+            isPlaying: false, 
+            lastVisible: false
+          };
+          playerNonAttackKeys.forEach(key => {
+            videoTextures.set(`player_${key}`, loopData);
+          });
+        }
+        if (playerAttackKeys.length > 0) {
+          const attackVideo = video.cloneNode(true);
+          attackVideo.loop = false;
+          const attackData = { 
+            video: attackVideo, 
+            w: video.videoWidth, 
+            h: video.videoHeight, 
+            loaded: true, 
+            isPlaying: false, 
+            lastVisible: false,
+            duration: video.duration * 1000
+          };
+          playerAttackKeys.forEach(key => {
+            videoTextures.set(`player_${key}`, attackData);
+          });
+        }
+        const swordKeys = Object.entries(swordAnimations).filter(([k,v]) => v.url === url).map(([k]) => k);
+        if (swordKeys.length > 0) {
+          const swordVideo = video.cloneNode(true);
+          swordVideo.loop = false;
+          const swordData = { 
+            video: swordVideo, 
+            w: video.videoWidth, 
+            h: video.videoHeight, 
+            loaded: true, 
+            isPlaying: false, 
+            lastVisible: false,
+            duration: video.duration * 1000 
+          };
+          swordKeys.forEach(key => {
+            videoTextures.set(`sword_${key}`, swordData);
+          });
+        }
+        loadedAssets++;
+        updateLoading();
+      });
+      video.addEventListener('error', () => {
+        const attempts = (failedAttempts.get(url) || 0) + 1;
+        failedAttempts.set(url, attempts);
+        if (attempts < 2) {
+          console.warn(`Retrying animation video: ${url}`);
+          setTimeout(() => {
+            video.src = url;
+            video.load();
+          }, 1000);
+        } else {
+          console.warn(`Permanent fail animation: ${url}`);
+          const playerKeys = Object.entries(playerAnimations).filter(([k,v]) => v.url === url).map(([k]) => k);
+          const playerNonAttackKeys = playerKeys.filter(k => !k.startsWith('attack'));
+          const playerAttackKeys = playerKeys.filter(k => k.startsWith('attack'));
+          if (playerNonAttackKeys.length > 0) {
+            const fallback = { 
+              video: null, 
+              w: 50, 
+              h: 100, 
+              loaded: true, 
+              isPlaying: false, 
+              lastVisible: false
+            };
+            playerNonAttackKeys.forEach(key => {
+              videoTextures.set(`player_${key}`, fallback);
+            });
+          }
+          if (playerAttackKeys.length > 0) {
+            const fallbackAttack = { 
+              video: null, 
+              w: 50, 
+              h: 100, 
+              loaded: true, 
+              isPlaying: false, 
+              lastVisible: false,
+              duration: 200
+            };
+            playerAttackKeys.forEach(key => {
+              videoTextures.set(`player_${key}`, fallbackAttack);
+            });
+          }
+          const swordKeys = Object.entries(swordAnimations).filter(([k,v]) => v.url === url).map(([k]) => k);
+          if (swordKeys.length > 0) {
+            const fallbackSword = { 
+              video: null, 
+              w: 50, 
+              h: 75, 
+              loaded: true, 
+              isPlaying: false, 
+              lastVisible: false,
+              duration: 200 
+            };
+            swordKeys.forEach(key => {
+              videoTextures.set(`sword_${key}`, fallbackSword);
+            });
+          }
+          loadedAssets++;
+          updateLoading();
+        }
+      });
+      video.load();
+    });
+  }
+
+  function preloadTextureVideos() {
+    uniqueTextureVideoUrls.forEach(src => {
+      const originalId = mapData.textures.indexOf(src);
       const video = document.createElement('video');
       video.src = src;
       video.crossOrigin = "anonymous";
       video.muted = true;
       video.playsInline = true;
-      video.preload = "auto";
+      video.preload = "metadata";
+      video.loop = true;
+      video.playbackRate = 1.0;
       video.addEventListener('loadedmetadata', () => {
-        const playerVideo = video.cloneNode(true);
-        playerVideo.loop = true;
-        const playerData = { video: playerVideo, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, lastVisible: false };
-        Object.keys(playerAnimations).forEach(key => {
-          videoTextures.set(`player_${key}`, playerData);
-        });
-
-        const swordVideo = video.cloneNode(true);
-        swordVideo.loop = false;
-        const swordData = { video: swordVideo, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, duration: video.duration * 1000, lastVisible: false };
-        Object.keys(swordAnimations).forEach(key => {
-          videoTextures.set(`sword_${key}`, swordData);
-        });
-
-        if (mapData.textures.includes(src)) {
-          videoTextures.set(`texture_${index}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, lastVisible: false });
-        }
+        if (textureVideoLoaded.has(src)) return;
+        textureVideoLoaded.add(src);
+        videoTextures.set(`texture_${originalId}`, { video, w: video.videoWidth, h: video.videoHeight, loaded: true, isPlaying: false, lastVisible: false });
         loadedAssets++;
         updateLoading();
       });
-      video.onerror = () => {
-        const fallbackPlayer = { video: null, w: 0, h: 0, loaded: true, isPlaying: false, lastVisible: false };
-        Object.keys(playerAnimations).forEach(key => {
-          videoTextures.set(`player_${key}`, fallbackPlayer);
-        });
-        const fallbackSword = { video: null, w: 0, h: 0, loaded: true, isPlaying: false, duration: 200, lastVisible: false };
-        Object.keys(swordAnimations).forEach(key => {
-          videoTextures.set(`sword_${key}`, fallbackSword);
-        });
-        if (mapData.textures.includes(src)) {
-          videoTextures.set(`texture_${index}`, { video: null, w: 0, h: 0, loaded: true, isPlaying: false, lastVisible: false });
+      video.addEventListener('error', () => {
+        const attempts = (failedAttempts.get(src) || 0) + 1;
+        failedAttempts.set(src, attempts);
+        if (attempts < 2) {
+          console.warn(`Retrying texture video: ${src}`);
+          setTimeout(() => {
+            video.src = src;
+            video.load();
+          }, 1000);
+        } else {
+          console.warn(`Permanent fail texture video: ${src}`);
+          videoTextures.set(`texture_${originalId}`, { video: null, w: 0, h: 0, loaded: true, isPlaying: false, lastVisible: false });
+          loadedAssets++;
+          updateLoading();
         }
-        loadedAssets++;
-        updateLoading();
-      };
+      });
       video.load();
     });
   }
@@ -324,14 +509,6 @@
         DOM.startButton.style.display = 'block';
       }, 500);
     }
-    setTimeout(() => {
-      if (loadedAssets < totalAssets) {
-        loadedAssets = totalAssets;
-        DOM.loadingBar.style.width = '100%';
-        DOM.loadingText.textContent = 'Loading... 100%';
-        DOM.startButton.style.display = 'block';
-      }
-    }, 10000);
   }
 
   let gameStarted = false;
@@ -344,7 +521,8 @@
   function startGame() {
     if (gameStarted) return;
     gameStarted = true;
-    soundtrack.play().catch(e => {});
+    soundtrack.playbackRate = 1.0;
+    soundtrack.play().catch(e => console.warn('Soundtrack play failed:', e));
 
     const { Engine, Render, Runner, Bodies, World, Body, Events, Composite, Query, Vector, Bounds, Common } = Matter;
 
@@ -352,6 +530,12 @@
     DOM.canvas.height = canvasHeight;
     DOM.lightCanvas.width = canvasWidth;
     DOM.lightCanvas.height = canvasHeight;
+
+    const ctx = DOM.canvas.getContext('2d', { willReadFrequently: false, alpha: true });
+    if (!ctx) {
+      console.error('Failed to get canvas context');
+      return;
+    }
 
     const engine = Engine.create();
     engine.world.gravity.y = CONFIG.gravity;
@@ -366,7 +550,8 @@
         height: canvasHeight,
         wireframes: false,
         background: 'transparent'
-      }
+      },
+      context: ctx
     });
 
     const blockHitboxes = [];
@@ -374,9 +559,35 @@
     let decorObjects = [];
     let staticRenderables = [];
     let staticBodies = [];
+    let particlesPool = [];
+    let activeParticles = [];
+
+    function getParticleFromPool() {
+      if (particlesPool.length > 0) {
+        return particlesPool.pop();
+      }
+      return Bodies.circle(0, 0, 3, {
+        isStatic: false,
+        label: 'particle',
+        collisionFilter: { mask: 0x0000 },
+        render: { fillStyle: '#ffff00' },
+        friction: 0,
+        frictionStatic: 0,
+        frictionAir: 0,
+        poolActive: false
+      });
+    }
+
+    function returnParticleToPool(particle) {
+      if (particle && !particle.poolActive) {
+        World.remove(engine.world, particle);
+        particle.poolActive = false;
+        particlesPool.push(particle);
+      }
+    }
 
     function drawBodyVideo(ctx, source, x, y, w, h, angle) {
-      if (!source) return;
+      if (!source || !source.videoWidth) return;
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
@@ -386,15 +597,20 @@
 
     function updateVideoPlay(videoData, isVisible) {
       if (!videoData || !videoData.video) return;
-      if (isVisible !== videoData.lastVisible) {
-        videoData.lastVisible = isVisible;
-        if (isVisible && !videoData.isPlaying) {
-          videoData.video.play().catch(() => {});
-          videoData.isPlaying = true;
-        } else if (!isVisible && videoData.isPlaying) {
-          videoData.video.pause();
-          videoData.isPlaying = false;
+      try {
+        if (isVisible !== videoData.lastVisible) {
+          videoData.lastVisible = isVisible;
+          if (isVisible && !videoData.isPlaying) {
+            videoData.video.playbackRate = 1.0; 
+            videoData.video.play().catch(e => console.warn('Video play failed:', e));
+            videoData.isPlaying = true;
+          } else if (!isVisible && videoData.isPlaying) {
+            videoData.video.pause();
+            videoData.isPlaying = false;
+          }
         }
+      } catch (e) {
+        console.warn('Video play error:', e);
       }
     }
 
@@ -451,11 +667,11 @@
             dynamicVisible.push({type: 'body', item: body, zIndex: body.render ? (body.render.zIndex || 0) : 0});
             if (body.playerVideo || body.swordVideo) {
               const videoData = videoTextures.get(body.videoTextureId);
-              updateVideoPlay(videoData, true);
+              if (videoData) updateVideoPlay(videoData, true);
             }
           } else if (body.playerVideo || body.swordVideo) {
             const videoData = videoTextures.get(body.videoTextureId);
-            updateVideoPlay(videoData, false);
+            if (videoData) updateVideoPlay(videoData, false);
           }
         }
       }
@@ -470,17 +686,14 @@
         const {type, item} = tempAllVisible[i];
         if (type === 'decor') {
           const decor = item;
-          if (decor.isVideo) {
+          if (decor.isChecker) {
+            drawChecker(c, decor.currentPos.x, decor.currentPos.y, decor.w, decor.h, decor.angle);
+          } else if (decor.isVideo) {
             const videoData = videoTextures.get(decor.videoTextureId);
             if (videoData && videoData.loaded && videoData.video) {
               drawBodyVideo(c, videoData.video, decor.currentPos.x, decor.currentPos.y, decor.videoW || decor.w, decor.videoH || decor.h, decor.angle);
             } else {
-              c.save();
-              c.translate(decor.currentPos.x, decor.currentPos.y);
-              c.rotate(decor.angle);
-              c.fillStyle = '#888';
-              c.fillRect(-decor.w / 2, -decor.h / 2, decor.w, decor.h);
-              c.restore();
+              drawChecker(c, decor.currentPos.x, decor.currentPos.y, decor.w, decor.h, decor.angle);
             }
           } else if (decor.isImage) {
             const textureSrc = mapData.textures[decor.textureId];
@@ -491,6 +704,8 @@
               c.rotate(decor.angle);
               c.drawImage(img, -decor.w / 2, -decor.h / 2, decor.w, decor.h);
               c.restore();
+            } else {
+              drawChecker(c, decor.currentPos.x, decor.currentPos.y, decor.w, decor.h, decor.angle);
             }
           }
         } else {
@@ -501,41 +716,26 @@
             if (videoData && videoData.loaded && videoData.video) {
               drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
             } else {
-              c.save();
-              c.translate(body.position.x, body.position.y);
-              c.rotate(body.angle);
-              c.fillStyle = '#f00';
-              c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-              c.restore();
+              drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
             }
           } else if (body.label === "platform" && body.platformVideo) {
             const videoData = videoTextures.get(body.videoTextureId);
             if (videoData && videoData.loaded && videoData.video) {
               drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
             } else {
-              c.save();
-              c.translate(body.position.x, body.position.y);
-              c.rotate(body.angle);
-              c.fillStyle = '#888';
-              c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-              c.restore();
+              drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
             }
           } else if (body.label === 'block_hitbox' && body.swordVideo) {
             const videoData = videoTextures.get(body.videoTextureId);
             if (videoData && videoData.loaded && videoData.video) {
               if (!videoData.isPlaying) {
                 videoData.video.currentTime = 0;
-                videoData.video.play().catch(() => {});
+                videoData.video.play().catch(e => console.warn('Sword video play failed:', e));
                 videoData.isPlaying = true;
               }
               drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
             } else {
-              c.save();
-              c.translate(body.position.x, body.position.y);
-              c.rotate(body.angle);
-              c.fillStyle = '#00ff00';
-              c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
-              c.restore();
+              drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
             }
           } else if (body.render.sprite && body.render.sprite.texture) {
             const img = textureCache.get(body.render.sprite.texture)?.img;
@@ -545,7 +745,11 @@
               c.rotate(body.angle);
               c.drawImage(img, -body.width / 2, -body.height / 2, body.width, body.height);
               c.restore();
+            } else {
+              drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
             }
+          } else if (body.render.checker) {
+            drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
           } else if (body.render.fillStyle) {
             c.save();
             c.translate(body.position.x, body.position.y);
@@ -560,6 +764,15 @@
             }
             c.restore();
           }
+        }
+      }
+
+      const now = performance.now();
+      for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const particle = activeParticles[i];
+        if (now - particle.creationTime > 500) {
+          returnParticleToPool(particle);
+          activeParticles.splice(i, 1);
         }
       }
     };
@@ -607,35 +820,49 @@
       let body;
       const texture = mapData.textures[p.textureId];
       const zIndex = p.zIndex || CONFIG.zIndex.platform;
-      if (texture.endsWith('.webm')) {
-        body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
-          isStatic: true,
-          restitution: 0,
-          friction: 0,
-          frictionStatic: 0,
-          frictionAir: 0,
-          label: p.type,
-          angle: (p.angle || 0) * Math.PI / 180,
-          collisionFilter: { category: 0x0004, mask: 0x0001 },
-          render: { zIndex: zIndex }
-        });
-        body.platformVideo = true;
-        body.videoTextureId = `texture_${p.textureId}`;
-        body.videoW = p.w;
-        body.videoH = p.h;
+      let renderOpts = { zIndex };
+      if (texture) {
+        if (texture.endsWith('.webm')) {
+          body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
+            isStatic: true,
+            restitution: 0,
+            friction: 0,
+            frictionStatic: 0,
+            frictionAir: 0,
+            label: p.type,
+            angle: (p.angle || 0) * Math.PI / 180,
+            collisionFilter: { category: 0x0004, mask: 0x0001 },
+            render: renderOpts
+          });
+          body.platformVideo = true;
+          body.videoTextureId = `texture_${p.textureId}`;
+          body.videoW = p.w;
+          body.videoH = p.h;
+        } else {
+          const imgSize = textureCache.get(texture) || { w: p.w, h: p.h };
+          renderOpts.sprite = { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h };
+          body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
+            isStatic: true,
+            restitution: 0,
+            friction: 0,
+            frictionStatic: 0,
+            frictionAir: 0,
+            render: renderOpts,
+            label: p.type,
+            angle: (p.angle || 0) * Math.PI / 180,
+            collisionFilter: { category: 0x0004, mask: 0x0001 },
+            id: p.id
+          });
+        }
       } else {
-        const imgSize = textureCache.get(texture) || { w: p.w, h: p.h };
+        renderOpts.checker = true;
         body = Bodies.rectangle(p.x, p.y, p.w, p.h, {
           isStatic: true,
           restitution: 0,
           friction: 0,
           frictionStatic: 0,
           frictionAir: 0,
-          render: {
-            sprite: texture ? { texture, xScale: p.w / imgSize.w, yScale: p.h / imgSize.h } : undefined,
-            fillStyle: texture ? undefined : (p.type === 'wall' ? '#444' : '#654321'),
-            zIndex: zIndex
-          },
+          render: renderOpts,
           label: p.type,
           angle: (p.angle || 0) * Math.PI / 180,
           collisionFilter: { category: 0x0004, mask: 0x0001 },
@@ -651,6 +878,8 @@
       if (p.type === 'wall') walls.push(body);
       if (p.type === 'platform') platforms.push(body);
     });
+
+    staticRenderables.sort((a, b) => a.zIndex - b.zIndex);
 
     const collidableBodies = [...platforms, ...walls];
     const obstacles = collidableBodies;
@@ -671,18 +900,21 @@
       };
       decor.enteredView = false;
       decor.baseCamPos = null;
-      if (texture.endsWith('.webm')) {
-        decor.isVideo = true;
-        decor.videoTextureId = `texture_${d.textureId}`;
-        decor.videoW = d.w;
-        decor.videoH = d.h;
+      if (texture) {
+        if (texture.endsWith('.webm')) {
+          decor.isVideo = true;
+          decor.videoTextureId = `texture_${d.textureId}`;
+          decor.videoW = d.w;
+          decor.videoH = d.h;
+        } else {
+          decor.isImage = true;
+        }
       } else {
-        decor.isImage = true;
+        decor.isChecker = true;
       }
       decorObjects.push(decor);
       staticRenderables.push({type: 'decor', item: decor, zIndex: decor.zIndex || 0});
     });
-    staticRenderables.sort((a, b) => a.zIndex - b.zIndex);
 
     const state = {
       keys: { left: false, right: false, up: false, down: false, dash: false, hop: false, sword: false, run: false },
@@ -728,20 +960,33 @@
 
     function createParticles(x, y, count) {
       for (let i = 0; i < count; i++) {
-        const particle = Bodies.circle(x, y, 3, {
-          isStatic: false,
-          label: 'particle',
-          collisionFilter: { mask: 0x0000 },
-          render: { fillStyle: '#ffff00' },
-          friction: 0,
-          frictionStatic: 0,
-          frictionAir: 0
-        });
+        const particle = getParticleFromPool();
+        Body.setPosition(particle, { x, y });
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 5 + 2;
         Body.setVelocity(particle, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed });
+        particle.creationTime = performance.now();
+        particle.poolActive = true;
         World.add(engine.world, particle);
-        setTimeout(() => World.remove(engine.world, particle), 500);
+        activeParticles.push(particle);
+        if (activeParticles.length > CONFIG.particlePoolSize) {
+          const old = activeParticles.shift();
+          returnParticleToPool(old);
+        }
+      }
+    }
+
+    function setAnimationPlaybackRate(videoData, animName, animType = 'player') {
+      if (!videoData || !videoData.video) return;
+      let anim;
+      if (animType === 'player') {
+        anim = playerAnimations[animName];
+      } else if (animType === 'sword') {
+        anim = swordAnimations[animName];
+      }
+      if (anim && anim.fps) {
+        const rate = anim.fps / CONFIG.nativeAnimationFps;
+        videoData.video.playbackRate = rate;
       }
     }
 
@@ -809,7 +1054,9 @@
       block.height = blockHeight;
       blockHitboxes.push(block);
       World.add(engine.world, block);
-      setTimeout(() => {
+
+      setAnimationPlaybackRate(videoData, attackDir, 'sword');
+      const timeoutId = setTimeout(() => {
         if (block) {
           block.render.visible = false;
           World.remove(engine.world, block);
@@ -824,6 +1071,7 @@
           videoData.video.currentTime = 0;
           videoData.isPlaying = false;
         }
+        clearTimeout(timeoutId);
       }, block.duration);
       createParticles(player.position.x + blockOffsetX, player.position.y + blockOffsetY, 5);
     }
@@ -962,8 +1210,8 @@
     function updatePlayerAnimation(now, groundInfo) {
       const velY = player ? player.velocity.y : 0;
       let newAnimation = state.currentAnimation;
-      if (state.isAttacking && now - state.attackStartTime < (videoTextures.get(`player_attack${state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1)}`)?.duration || 200)) {
-        newAnimation = `attack${state.attackDirection.charAt(0).toUpperCase()+state.attackDirection.slice(1)}`;
+      if (state.isAttacking && now - state.attackStartTime < (videoTextures.get(`player_attack${state.attackDirection ? state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1) : 'Up'}`)?.duration || 200)) {
+        newAnimation = `attack${state.attackDirection ? state.attackDirection.charAt(0).toUpperCase() + state.attackDirection.slice(1) : 'Up'}`;
       } else {
         if (!groundInfo.isOnGround) {
           if (velY < -1) {
@@ -982,19 +1230,31 @@
         }
       }
       if (newAnimation !== state.currentAnimation) {
-        const prevVideoData = videoTextures.get(`player_${state.currentAnimation}`);
-        if (prevVideoData && prevVideoData.video && prevVideoData.isPlaying) {
-          prevVideoData.video.pause();
-          prevVideoData.isPlaying = false;
+        const oldId = `player_${state.currentAnimation}`;
+        const newId = `player_${newAnimation}`;
+        const oldData = videoTextures.get(oldId);
+        const newData = videoTextures.get(newId);
+        const isSameVideo = oldData?.video === newData?.video;
+        const oldIsAttack = state.currentAnimation.startsWith('attack');
+        const newIsAttack = newAnimation.startsWith('attack');
+        if (!isSameVideo || oldIsAttack !== newIsAttack) {
+          if (oldData?.video && oldData.isPlaying) {
+            oldData.video.pause();
+            oldData.isPlaying = false;
+          }
+          if (newData?.video) {
+            newData.video.currentTime = newIsAttack ? 0 : newData.video.currentTime;
+            if (!newData.isPlaying) {
+              newData.video.play().catch(e => console.warn('Player animation play failed:', e));
+              newData.isPlaying = true;
+            }
+          }
         }
+
+        setAnimationPlaybackRate(newData, newAnimation, 'player');
         state.currentAnimation = newAnimation;
         if (player) {
-          player.videoTextureId = `player_${newAnimation}`;
-        }
-        const videoData = videoTextures.get(player ? player.videoTextureId : `player_${newAnimation}`);
-        if (videoData && videoData.video && !videoData.isPlaying) {
-          videoData.video.play().catch(() => {});
-          videoData.isPlaying = true;
+          player.videoTextureId = newId;
         }
       }
     }
@@ -1018,6 +1278,11 @@
       const healthPercent = (player.health / 100) * 100;
       DOM.hud.health.textContent = Math.round(player.health);
       DOM.hud.healthFill.style.width = `${healthPercent}%`;
+      const memory = performance && performance.memory ? performance.memory : null;
+      if (memory) {
+        const used = Math.round(memory.usedJSHeapSize / 1024 / 1024);
+        DOM.hud.ramUsage.textContent = `RAM: ${used} MB`;
+      }
     }
 
     const resizeHandler = debounce(() => {
@@ -1027,8 +1292,12 @@
       DOM.canvas.height = canvasHeight;
       DOM.lightCanvas.width = canvasWidth;
       DOM.lightCanvas.height = canvasHeight;
-      render.options.width = canvasWidth;
-      render.options.height = canvasHeight;
+      if (render) {
+        render.options.width = canvasWidth;
+        render.options.height = canvasHeight;
+        render.bounds.max.x = render.bounds.min.x + canvasWidth;
+        render.bounds.max.y = render.bounds.min.y + canvasHeight;
+      }
     }, 100);
 
     window.addEventListener('resize', resizeHandler);
@@ -1046,12 +1315,12 @@
       const now = performance.now();
       frames++;
       if (now - lastTime >= 1000) {
-        fps = frames;
+        fps = Math.round(frames * 1000 / (now - lastTime));
         frames = 0;
         lastTime = now;
         document.getElementById('fpsMeter').textContent = 'FPS: ' + fps;
       }
-      requestAnimationFrame(updateFPS);
+      if (gameStarted) requestAnimationFrame(updateFPS);
     }
 
     updateFPS();
@@ -1083,6 +1352,8 @@
       velocity: { x: 0, y: 0 },
       angle: 0
     };
+    let cachedCos = 1, cachedSin = 0;
+    let lastPlayerVelMag = 0;
 
     Events.on(engine, 'beforeUpdate', () => {
       if (!player) return;
@@ -1120,12 +1391,14 @@
       }
       const newPlayerAngle = player.angle + (targetAngle - player.angle) * lerpSpeed;
       Body.setAngle(player, newPlayerAngle);
-      const sensorOffsetYVal = player.height / 2 + 1;
       const angle = player.angle;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const groundSensorOffsetX = -sensorOffsetYVal * sin;
-      const groundSensorOffsetY = sensorOffsetYVal * cos;
+      if (Math.abs(angle - Math.atan2(cachedSin, cachedCos)) > 0.01) {
+        cachedCos = Math.cos(angle);
+        cachedSin = Math.sin(angle);
+      }
+      const sensorOffsetYVal = player.height / 2 + 1;
+      const groundSensorOffsetX = -sensorOffsetYVal * cachedSin;
+      const groundSensorOffsetY = sensorOffsetYVal * cachedCos;
       Body.setPosition(groundSensor, { x: player.position.x + groundSensorOffsetX, y: player.position.y + groundSensorOffsetY });
       Body.setAngle(groundSensor, angle);
       Body.setVelocity(groundSensor, { x: 0, y: 0 });
@@ -1197,45 +1470,49 @@
           Body.setVelocity(player, { x: player.velocity.x, y: maxFallSpeed });
         }
       }
+      const playerVelMag = Math.hypot(player.velocity.x, player.velocity.y);
       let wallCollision = false;
-      const playerMargin = 20;
-      const pMin = { x: player.position.x - player.width / 2 - playerMargin, y: player.position.y - player.height / 2 - playerMargin };
-      const pMax = { x: player.position.x + player.width / 2 + playerMargin, y: player.position.y + player.height / 2 + playerMargin };
-      tempNearbyArray.length = 0;
-      for (let i = 0; i < obstacles.length; i++) {
-        const body = obstacles[i];
-        const b = body.bounds;
-        if (!b) continue;
-        if (boundsOverlap(pMin, pMax, b.min, b.max)) {
-          tempNearbyArray.push(body);
-        }
-      }
-      for (let j = 0; j < tempNearbyArray.length; j++) {
-        const obstacle = tempNearbyArray[j];
-        if (!obstacle.position || (!obstacle.circleRadius && (!obstacle.width || !obstacle.height))) continue;
-        const mtv = satCollision(player, obstacle);
-        if (mtv && mtv.overlap > 0.1) {
-          const pos = player.position;
-          Body.setPosition(player, { x: pos.x + mtv.axis.x * mtv.overlap * 1.01, y: pos.y + mtv.axis.y * mtv.overlap * 1.01 });
-          const vel = player.velocity;
-          const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
-          if (dot < 0) {
-            const normalVel = { x: dot * mtv.axis.x, y: dot * mtv.axis.y };
-            let newVelX = vel.x - normalVel.x;
-            let newVelY = vel.y - normalVel.y;
-            if (groundInfo.isOnGround && Math.abs(mtv.axis.x) > 0.7) {
-              newVelX = vel.x;
-            }
-            if (state.isDashing && Math.abs(mtv.axis.x) > 0.7) {
-              endDash();
-              newVelX = Math.abs(mtv.axis.x) > 0.9 ? 0 : newVelX;
-              newVelY = Math.abs(mtv.axis.y) > 0.9 ? 0 : newVelY;
-            }
-            Body.setVelocity(player, { x: newVelX, y: newVelY });
+      if (playerVelMag > 1 || Math.random() < 0.1) {  
+        const playerMargin = 20;
+        const pMin = { x: player.position.x - player.width / 2 - playerMargin, y: player.position.y - player.height / 2 - playerMargin };
+        const pMax = { x: player.position.x + player.width / 2 + playerMargin, y: player.position.y + player.height / 2 + playerMargin };
+        tempNearbyArray.length = 0;
+        for (let i = 0; i < obstacles.length; i++) {
+          const body = obstacles[i];
+          const b = body.bounds;
+          if (!b) continue;
+          if (boundsOverlap(pMin, pMax, b.min, b.max)) {
+            tempNearbyArray.push(body);
           }
-          wallCollision = true;
+        }
+        for (let j = 0; j < tempNearbyArray.length; j++) {
+          const obstacle = tempNearbyArray[j];
+          if (!obstacle.position || (!obstacle.circleRadius && (!obstacle.width || !obstacle.height))) continue;
+          const mtv = satCollision(player, obstacle);
+          if (mtv && mtv.overlap > 0.1) {
+            const pos = player.position;
+            Body.setPosition(player, { x: pos.x + mtv.axis.x * mtv.overlap * 1.01, y: pos.y + mtv.axis.y * mtv.overlap * 1.01 });
+            const vel = player.velocity;
+            const dot = vel.x * mtv.axis.x + vel.y * mtv.axis.y;
+            if (dot < 0) {
+              const normalVel = { x: dot * mtv.axis.x, y: dot * mtv.axis.y };
+              let newVelX = vel.x - normalVel.x;
+              let newVelY = vel.y - normalVel.y;
+              if (groundInfo.isOnGround && Math.abs(mtv.axis.x) > 0.7) {
+                newVelX = vel.x;
+              }
+              if (state.isDashing && Math.abs(mtv.axis.x) > 0.7) {
+                endDash();
+                newVelX = Math.abs(mtv.axis.x) > 0.9 ? 0 : newVelX;
+                newVelY = Math.abs(mtv.axis.y) > 0.9 ? 0 : newVelY;
+              }
+              Body.setVelocity(player, { x: newVelX, y: newVelY });
+            }
+            wallCollision = true;
+          }
         }
       }
+      lastPlayerVelMag = playerVelMag;
       camTarget.x = player.position.x;
       camTarget.y = player.position.y;
       camPos.x += (camTarget.x - camPos.x) * CONFIG.camera.smoothFactor;
@@ -1303,6 +1580,7 @@
         }
       }
       if (isNaN(player.position.x) || isNaN(player.position.y) || isNaN(player.velocity.x) || isNaN(player.velocity.y) || isNaN(player.angle)) {
+        console.warn('Player state NaN - resetting');
         Body.setPosition(player, previousPlayerState.position);
         Body.setVelocity(player, previousPlayerState.velocity);
         Body.setAngle(player, previousPlayerState.angle);
@@ -1314,8 +1592,8 @@
       blockHitboxes.forEach(block => {
         if (!block || !player) return;
         const playerAngle = player.angle;
-        const cos = Math.cos(playerAngle);
-        const sin = Math.sin(playerAngle);
+        const cos = cachedCos;  
+        const sin = cachedSin;
         const rotatedOffsetX = block.offsetX * cos - block.offsetY * sin;
         const rotatedOffsetY = block.offsetX * sin + block.offsetY * cos;
         Body.setPosition(block, { x: player.position.x + rotatedOffsetX, y: player.position.y + rotatedOffsetY });
@@ -1325,9 +1603,20 @@
       });
     });
 
+    let lastLightX = screenPlayerPos.x;
+    let lastLightY = screenPlayerPos.y;
+
     function drawLight() {
       if (!CONFIG.light.enabled || !player) return;
-      const lightCtx = DOM.lightCanvas.getContext('2d', { willReadFrequently: false });
+      const dist = Math.hypot(screenPlayerPos.x - lastLightX, screenPlayerPos.y - lastLightY);
+      if (dist < CONFIG.light.updateThreshold) {
+        requestAnimationFrame(drawLight);
+        return;
+      }
+      lastLightX = screenPlayerPos.x;
+      lastLightY = screenPlayerPos.y;
+      const lightCtx = DOM.lightCanvas.getContext('2d', { willReadFrequently: false, alpha: true });
+      if (!lightCtx) return;
       lightCtx.clearRect(0, 0, canvasWidth, canvasHeight);
       const gradient = lightCtx.createRadialGradient(
         screenPlayerPos.x, screenPlayerPos.y, 0,
@@ -1346,19 +1635,33 @@
 
   preloadImages();
   preloadAnimations();
+  preloadTextureVideos();
 
   soundtrack = new Audio('https://github.com/HyperRushNet/game/releases/download/soundtrack/soundtrack.mp3');
   soundtrack.loop = true;
   soundtrack.volume = 1;
-  soundtrack.preload = "auto";
+  soundtrack.preload = "metadata";
+  soundtrack.playbackRate = 1.0;
   soundtrack.addEventListener('canplaythrough', () => {
+    if (soundtrackLoaded) return;
+    soundtrackLoaded = true;
     loadedAssets++;
     updateLoading();
   });
-  soundtrack.onerror = () => {
-    loadedAssets++;
-    updateLoading();
-  };
+  soundtrack.addEventListener('error', () => {
+    soundtrackAttempts++;
+    if (soundtrackAttempts < 2) {
+      console.warn(`Retrying soundtrack ${soundtrackAttempts}`);
+      setTimeout(() => {
+        soundtrack.src = 'https://github.com/HyperRushNet/game/releases/download/soundtrack/soundtrack.mp3';
+        soundtrack.load();
+      }, 2000);
+    } else {
+      console.warn('Permanent fail soundtrack');
+      loadedAssets++;
+      updateLoading();
+    }
+  });
   soundtrack.load();
 
   DOM.startButton.addEventListener('click', () => {
