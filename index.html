@@ -1,4 +1,4 @@
-<!-- The Fallen Kingdom - v2.3.9 -->
+<!-- The Fallen Kingdom - v2.4.1 - Massive performance update -->
 <!----------------------------------------->
 <!-- Copyright, HyperRush Network - 2025 -->
 <!-- Do not use this code in any way without the permission of HyperRushNet -->
@@ -10,7 +10,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v2.4.0 - The Fallen Kingdom</title>
+<title>v2.4.1 - The Fallen Kingdom</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=MedievalSharp&display=swap" rel="stylesheet">
 <style>
   body{margin:0;overflow:hidden;font-family:'MedievalSharp',cursive;color:#e6d7b7;background:#091f3b}
@@ -138,8 +138,8 @@
         cullThreshold: 50
     },
     culling: {
-        physicsMargin: 300,
-        renderMargin: 100
+        physicsMargin: 100,
+        renderMargin: 50
     },
     rotationLimit: 5,
     maxVideoResolution: {
@@ -157,10 +157,11 @@
       ],
       blendMode: 'multiply',
       canvasZIndex: 15,
-      updateThreshold: 1
+      updateThreshold: 5
     },
     hudUpdateInterval: 1000,
     particlePoolSize: 100,
+    maxActiveHitboxes: 5,
     nativeAnimationFps: 30
   };
 
@@ -173,11 +174,7 @@
     "zIndex": 1,
     "angle": 0
   },
-  "textures": [
-    "https://placehold.co/2500x100",
-    "https://placehold.co/2000x100"
-
-  ],
+  "textures": [ "https://corsproxy.io/https://poki.com/favicon.ico"],
   "platforms": [
     {
       "id": "6nZuizW8hxb6-m0JFncfLJvDx",
@@ -187,7 +184,7 @@
       "w": 2500,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -198,8 +195,30 @@
       "w": 2000,
       "h": 100,
       "angle": 0,
-      "textureId": 1,
+      "textureId": null,
       "zIndex": 2
+    },
+    {
+      "id": "VejZRojgzHvF-blIm5xKkEuSc",
+      "type": "wall",
+      "x": 785,
+      "y": -279,
+      "w": 300,
+      "h": 100,
+      "angle": 90,
+      "textureId": 0,
+      "zIndex": 3
+    },
+    {
+      "id": "ou9cBmQV4oSC-wSgRFhRiTbIE",
+      "type": "platform",
+      "x": 1035,
+      "y": -179,
+      "w": 400,
+      "h": 100,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 4
     }
   ],
   "decor": []
@@ -277,7 +296,7 @@
 
   function drawChecker(ctx, x, y, w, h, angle) {
     ctx.save();
-    ctx.translate(x, y);
+    ctx.translate(Math.round(x), Math.round(y));
     ctx.rotate(angle);
     const size = 20;
     const cols = Math.ceil(w / size);
@@ -290,7 +309,7 @@
         ctx.fillStyle = color;
         const rectW = (col === cols - 1) ? (w % size || size) : size;
         const rectH = (row === rows - 1) ? (h % size || size) : size;
-        ctx.fillRect(px, py, rectW, rectH);
+        ctx.fillRect(Math.round(px), Math.round(py), rectW, rectH);
       }
     }
     ctx.restore();
@@ -589,9 +608,9 @@
     function drawBodyVideo(ctx, source, x, y, w, h, angle) {
       if (!source || !source.videoWidth) return;
       ctx.save();
-      ctx.translate(x, y);
+      ctx.translate(Math.round(x), Math.round(y));
       ctx.rotate(angle);
-      ctx.drawImage(source, -w / 2, -h / 2, w, h);
+      ctx.drawImage(source, Math.round(-w / 2), Math.round(-h / 2), Math.round(w), Math.round(h));
       ctx.restore();
     }
 
@@ -623,6 +642,21 @@
         max: { x: render.bounds.max.x + CONFIG.culling.renderMargin, y: render.bounds.max.y + CONFIG.culling.renderMargin }
       };
       tempAllVisible.length = 0;
+
+      // Cleanup old hitboxes
+      const now = performance.now();
+      for (let i = blockHitboxes.length - 1; i >= 0; i--) {
+        const block = blockHitboxes[i];
+        if (now - block.creationTime > block.duration) {
+          const videoData = videoTextures.get(block.videoTextureId);
+          if (videoData && videoData.video && videoData.isPlaying) {
+            videoData.video.pause();
+            videoData.video.currentTime = 0;
+            videoData.isPlaying = false;
+          }
+          blockHitboxes.splice(i, 1);
+        }
+      }
 
       let visibleStatic = [];
       for (let i = 0; i < staticRenderables.length; i++) {
@@ -661,18 +695,42 @@
       const allBodies = Composite.allBodies(render.engine.world);
       for (let i = 0; i < allBodies.length; i++) {
         const body = allBodies[i];
-        if (body.label === 'player' || body.label === 'block_hitbox' || body.label === 'particle') {
+        if (body.label === 'player' || body.label === 'particle') {
           const b = body.bounds;
           if (b && boundsOverlap(baseCullBounds.min, baseCullBounds.max, b.min, b.max)) {
             dynamicVisible.push({type: 'body', item: body, zIndex: body.render ? (body.render.zIndex || 0) : 0});
-            if (body.playerVideo || body.swordVideo) {
+            if (body.playerVideo) {
               const videoData = videoTextures.get(body.videoTextureId);
               if (videoData) updateVideoPlay(videoData, true);
             }
-          } else if (body.playerVideo || body.swordVideo) {
+          } else if (body.playerVideo) {
             const videoData = videoTextures.get(body.videoTextureId);
             if (videoData) updateVideoPlay(videoData, false);
           }
+        }
+      }
+
+      // Add visible hitboxes
+      for (let i = 0; i < blockHitboxes.length; i++) {
+        const block = blockHitboxes[i];
+        const b = {
+          min: { x: block.position.x - block.width / 2, y: block.position.y - block.height / 2 },
+          max: { x: block.position.x + block.width / 2, y: block.position.y + block.height / 2 }
+        };
+        if (boundsOverlap(baseCullBounds.min, baseCullBounds.max, b.min, b.max)) {
+          dynamicVisible.push({type: 'hitbox', item: block, zIndex: CONFIG.zIndex.sword});
+          const videoData = videoTextures.get(block.videoTextureId);
+          if (videoData && videoData.loaded && videoData.video) {
+            if (!videoData.isPlaying) {
+              videoData.video.currentTime = 0;
+              videoData.video.play().catch(e => console.warn('Sword video play failed:', e));
+              videoData.isPlaying = true;
+            }
+            updateVideoPlay(videoData, true);
+          }
+        } else {
+          const videoData = videoTextures.get(block.videoTextureId);
+          if (videoData) updateVideoPlay(videoData, false);
         }
       }
 
@@ -700,13 +758,21 @@
             const img = textureCache.get(textureSrc)?.img;
             if (img && img.complete) {
               c.save();
-              c.translate(decor.currentPos.x, decor.currentPos.y);
+              c.translate(Math.round(decor.currentPos.x), Math.round(decor.currentPos.y));
               c.rotate(decor.angle);
-              c.drawImage(img, -decor.w / 2, -decor.h / 2, decor.w, decor.h);
+              c.drawImage(img, Math.round(-decor.w / 2), Math.round(-decor.h / 2), Math.round(decor.w), Math.round(decor.h));
               c.restore();
             } else {
               drawChecker(c, decor.currentPos.x, decor.currentPos.y, decor.w, decor.h, decor.angle);
             }
+          }
+        } else if (type === 'hitbox') {
+          const block = item;
+          const videoData = videoTextures.get(block.videoTextureId);
+          if (videoData && videoData.loaded && videoData.video) {
+            drawBodyVideo(c, videoData.video, block.position.x, block.position.y, block.videoW || block.width, block.videoH || block.height, block.angle);
+          } else {
+            drawChecker(c, block.position.x, block.position.y, block.width, block.height, block.angle);
           }
         } else {
           const body = item;
@@ -725,25 +791,13 @@
             } else {
               drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
             }
-          } else if (body.label === 'block_hitbox' && body.swordVideo) {
-            const videoData = videoTextures.get(body.videoTextureId);
-            if (videoData && videoData.loaded && videoData.video) {
-              if (!videoData.isPlaying) {
-                videoData.video.currentTime = 0;
-                videoData.video.play().catch(e => console.warn('Sword video play failed:', e));
-                videoData.isPlaying = true;
-              }
-              drawBodyVideo(c, videoData.video, body.position.x, body.position.y, body.videoW || body.width, body.videoH || body.height, body.angle);
-            } else {
-              drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
-            }
           } else if (body.render.sprite && body.render.sprite.texture) {
             const img = textureCache.get(body.render.sprite.texture)?.img;
             if (img && img.complete) {
               c.save();
-              c.translate(body.position.x, body.position.y);
+              c.translate(Math.round(body.position.x), Math.round(body.position.y));
               c.rotate(body.angle);
-              c.drawImage(img, -body.width / 2, -body.height / 2, body.width, body.height);
+              c.drawImage(img, Math.round(-body.width / 2), Math.round(-body.height / 2), Math.round(body.width), Math.round(body.height));
               c.restore();
             } else {
               drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
@@ -752,7 +806,7 @@
             drawChecker(c, body.position.x, body.position.y, body.width, body.height, body.angle);
           } else if (body.render.fillStyle) {
             c.save();
-            c.translate(body.position.x, body.position.y);
+            c.translate(Math.round(body.position.x), Math.round(body.position.y));
             c.rotate(body.angle);
             c.fillStyle = body.render.fillStyle;
             if (body.circleRadius) {
@@ -760,14 +814,13 @@
               c.arc(0, 0, body.circleRadius, 0, Math.PI * 2);
               c.fill();
             } else {
-              c.fillRect(-body.width / 2, -body.height / 2, body.width, body.height);
+              c.fillRect(Math.round(-body.width / 2), Math.round(-body.height / 2), Math.round(body.width), Math.round(body.height));
             }
             c.restore();
           }
         }
       }
 
-      const now = performance.now();
       for (let i = activeParticles.length - 1; i >= 0; i--) {
         const particle = activeParticles[i];
         if (now - particle.creationTime > 500) {
@@ -994,6 +1047,16 @@
       const now = Date.now();
       if (now - lastBlockTime < blockCooldown || state.isAttacking) return;
       lastBlockTime = now;
+      // Limit active hitboxes
+      while (blockHitboxes.length >= CONFIG.maxActiveHitboxes) {
+        const old = blockHitboxes.shift();
+        const videoData = videoTextures.get(old.videoTextureId);
+        if (videoData && videoData.video && videoData.isPlaying) {
+          videoData.video.pause();
+          videoData.video.currentTime = 0;
+          videoData.isPlaying = false;
+        }
+      }
       let direction;
       if (state.keys.down) {
         direction = 'down';
@@ -1031,47 +1094,25 @@
       const attackDir = `attack${direction.charAt(0).toUpperCase() + direction.slice(1)}`;
       const videoTextureId = `sword_${attackDir}`;
       const videoData = videoTextures.get(videoTextureId) || { w: blockWidth, h: blockHeight, duration: 200 };
-      const block = Bodies.rectangle(player.position.x + blockOffsetX, player.position.y + blockOffsetY, blockWidth, blockHeight, {
-        isSensor: true,
-        isStatic: false,
-        friction: 0,
-        frictionStatic: 0,
-        frictionAir: 0,
-        label: 'block_hitbox',
-        render: { zIndex: CONFIG.zIndex.sword },
-        collisionFilter: { mask: 0x0000 },
-        swordVideo: true,
-        videoTextureId: videoTextureId,
+      const block = {
+        position: { x: player.position.x + blockOffsetX, y: player.position.y + blockOffsetY },
+        angle: player.angle,
+        width: blockWidth,
+        height: blockHeight,
         videoW: blockWidth,
         videoH: blockHeight,
+        videoTextureId: videoTextureId,
         creationTime: performance.now(),
         duration: videoData.duration || 200,
         offsetX: blockOffsetX,
-        offsetY: blockOffsetY,
-        isStatic: false
-      });
-      block.width = blockWidth;
-      block.height = blockHeight;
+        offsetY: blockOffsetY
+      };
       blockHitboxes.push(block);
-      World.add(engine.world, block);
 
       setAnimationPlaybackRate(videoData, attackDir, 'sword');
-      const timeoutId = setTimeout(() => {
-        if (block) {
-          block.render.visible = false;
-          World.remove(engine.world, block);
-          const index = blockHitboxes.indexOf(block);
-          if (index !== -1) blockHitboxes.splice(index, 1);
-        }
+      setTimeout(() => {
         state.isAttacking = false;
         state.attackDirection = null;
-        const videoData = videoTextures.get(videoTextureId);
-        if (videoData && videoData.video && videoData.isPlaying) {
-          videoData.video.pause();
-          videoData.video.currentTime = 0;
-          videoData.isPlaying = false;
-        }
-        clearTimeout(timeoutId);
       }, block.duration);
       createParticles(player.position.x + blockOffsetX, player.position.y + blockOffsetY, 5);
     }
@@ -1589,17 +1630,16 @@
     });
 
     Events.on(engine, 'afterUpdate', () => {
+      if (!player) return;
+      const playerAngle = player.angle;
+      const cos = cachedCos;  
+      const sin = cachedSin;
       blockHitboxes.forEach(block => {
-        if (!block || !player) return;
-        const playerAngle = player.angle;
-        const cos = cachedCos;  
-        const sin = cachedSin;
         const rotatedOffsetX = block.offsetX * cos - block.offsetY * sin;
         const rotatedOffsetY = block.offsetX * sin + block.offsetY * cos;
-        Body.setPosition(block, { x: player.position.x + rotatedOffsetX, y: player.position.y + rotatedOffsetY });
-        Body.setAngle(block, playerAngle);
-        Body.setVelocity(block, { x: 0, y: 0 });
-        Body.setAngularVelocity(block, 0);
+        block.position.x = player.position.x + rotatedOffsetX;
+        block.position.y = player.position.y + rotatedOffsetY;
+        block.angle = playerAngle;
       });
     });
 
