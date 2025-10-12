@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Engine - Debug Overlay</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #111; color: #0f0; font-family: monospace; word-wrap: break-word; overflow-wrap: break-word; }
+  canvas { background: #222; display: block; margin: 0 auto; }
+  #debug {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(0,0,0,0.7); padding: 10px;
+    border: 1px solid #0f0; max-width: 300px; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap;
+  }
+  #toggle {
+    position: absolute; left: 10px; top: 10px; z-index: 10; background: rgba(0,0,0,0.7); color: #0f0; border: 1px solid #0f0; padding: 5px; font-family: monospace;
+  }
+  #sidebar {
+    position: absolute; left: 0; top: 0; width: 250px; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; border-right: 1px solid #0f0; font-family: monospace; font-size: 12px;
+    transform: translateX(-100%); transition: transform 0.3s ease;
+    overflow-y: auto; word-wrap: break-word; overflow-wrap: break-word;
+  }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar label { display: block; margin: 10px 0; }
+  #sidebar input[type="number"] { width: 100px; background: #222; color: #0f0; border: 1px solid #0f0; padding: 2px; }
+  #sidebar h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+<canvas id="game" width="900" height="600"></canvas>
+<button id="toggle">Toggle Sidebar</button>
+<div id="sidebar">
+  <h3>Settings</h3>
+  <label>Gravity: <input type="number" id="gravity" min="100" max="2000" value="900" step="10"> <span id="gval">900</span></label>
+  <label>Player Speed: <input type="number" id="speed" min="50" max="500" value="200" step="10"> <span id="sval">200</span></label>
+  <label>Jump Height: <input type="number" id="jump" min="100" max="800" value="400" step="10"> <span id="jval">400</span></label>
+  <label>Debug: <input type="checkbox" id="debugToggle" checked> <span id="dtval">true</span></label>
+  <!-- Add more settings here as needed -->
+</div>
+<div id="debug"></div>
+<script>
+// ======== VECTOR ========
+class Vec2 {
+  constructor(x=0, y=0){ this.x=x; this.y=y; }
+  add(v){ return new Vec2(this.x+v.x,this.y+v.y); }
+  sub(v){ return new Vec2(this.x-v.x,this.y-v.y); }
+  scale(s){ return new Vec2(this.x*s,this.y*s); }
+  dot(v){ return this.x*v.x+this.y*v.y; }
+  perp(){ return new Vec2(-this.y,this.x); }
+  len(){ return Math.hypot(this.x,this.y); }
+  norm(){ const l=this.len(); return l?this.scale(1/l):new Vec2(); }
+}
+
+// ======== POLYGON + SAT ========
+class Polygon {
+  constructor(points){ this.points = points; }
+  getTransformed(pos){ return this.points.map(p=>p.add(pos)); }
+  getAxes(){
+    const axes=[];
+    for(let i=0;i<this.points.length;i++){
+      const p1=this.points[i];
+      const p2=this.points[(i+1)%this.points.length];
+      const edge=p2.sub(p1);
+      axes.push(edge.perp().norm());
+    }
+    return axes;
+  }
+  project(axis,pos){
+    const pts=this.getTransformed(pos);
+    let min=pts[0].dot(axis), max=min;
+    for(let i=1;i<pts.length;i++){
+      const p=pts[i].dot(axis);
+      if(p<min)min=p; if(p>max)max=p;
+    }
+    return {min,max};
+  }
+  static overlap(A,posA,B,posB){
+    const axes=[...A.getAxes(),...B.getAxes()];
+    let overlap=Infinity, smallestAxis=null;
+    for(const axis of axes){
+      const pA=A.project(axis,posA);
+      const pB=B.project(axis,posB);
+      const o=Math.min(pA.max,pB.max)-Math.max(pA.min,pB.min);
+      if(o<0) return null;
+      if(o<overlap){ overlap=o; smallestAxis=axis; }
+    }
+    const d=posA.sub(posB);
+    if(d.dot(smallestAxis)<0) smallestAxis=smallestAxis.scale(-1);
+    return {axis:smallestAxis, overlap};
+  }
+}
+
+// ======== ENTITY ========
+class Entity {
+  constructor(x,y,shape){
+    this.pos=new Vec2(x,y);
+    this.vel=new Vec2(0,0);
+    this.shape=shape;
+    this.color="#4af";
+    this.static=false;
+    this.onGround=false;
+    this.groundNormal = new Vec2(0, -1);
+    this.groundAngle = 0;
+  }
+  update(dt,world){
+    if(this.static) return;
+
+    const wasOnGround = this.onGround;
+    this.onGround = false;
+
+    const input_speed = world.keys["ArrowLeft"] ? -playerSpeed : (world.keys["ArrowRight"] ? playerSpeed : 0);
+    const horiz = new Vec2(input_speed, 0);
+
+    if(wasOnGround){
+      const tangent = this.groundNormal.perp().norm();
+      const vt = horiz.dot(tangent);
+      this.vel = tangent.scale(vt);
+      if(Math.abs(vt) > 1){
+        const g_vec = new Vec2(0, world.gravity * dt);
+        const gn = g_vec.dot(this.groundNormal);
+        const g_tang = g_vec.sub(this.groundNormal.scale(gn));
+        this.vel = this.vel.add(g_tang);
+      }
+    } else {
+      this.vel.x = horiz.x;
+      this.vel.y += world.gravity * dt;
+    }
+
+    this.pos = this.pos.add(this.vel.scale(dt));
+
+    // Iterative collision resolution
+    let iterations = 0;
+    const maxIter = 10;
+    while(iterations < maxIter){
+      let hasCollision = false;
+      for(const other of world.entities){
+        if(other===this || !other.shape) continue;
+        const res = Polygon.overlap(this.shape,this.pos,other.shape,other.pos);
+        if(res){
+          hasCollision = true;
+          this.pos = this.pos.add(res.axis.scale(res.overlap));
+          const vn = this.vel.dot(res.axis);
+          if(vn < 0) {
+            this.vel = this.vel.sub(res.axis.scale(vn));
+          }
+          if(res.axis.y < -0.5) {
+            this.onGround = true;
+            this.groundNormal = new Vec2(res.axis.x, res.axis.y);
+          }
+        }
+      }
+      if(!hasCollision) break;
+      iterations++;
+    }
+
+    if(this.onGround) {
+      const vn = this.vel.dot(this.groundNormal);
+      this.vel = this.vel.sub(this.groundNormal.scale(vn));
+
+      const vertical = new Vec2(0, -1);
+      const cosTheta = this.groundNormal.dot(vertical);
+      this.groundAngle = Math.acos(Math.max(-1, Math.min(1, cosTheta))) * 180 / Math.PI;
+    }
+
+    // springen
+    if(world.keys["Space"] && this.onGround){
+      const old_vy = this.vel.y;
+      const target_vy = -jumpHeight;
+      const added_vy = target_vy - old_vy;
+      const k = added_vy / this.groundNormal.y;
+      this.vel = this.vel.add(this.groundNormal.scale(k));
+      this.onGround = false;
+    }
+  }
+
+  draw(ctx, debug=false){
+    const pts=this.shape.getTransformed(this.pos);
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.closePath();
+    ctx.fillStyle=this.color;
+    ctx.fill();
+
+    if(debug){
+      ctx.strokeStyle="#f00";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.strokeStyle="#0f0";
+      ctx.beginPath();
+      ctx.moveTo(this.pos.x,this.pos.y);
+      ctx.lineTo(this.pos.x+this.vel.x*0.1, this.pos.y+this.vel.y*0.1);
+      ctx.stroke();
+    }
+  }
+}
+
+// ======== WORLD ========
+class World {
+  constructor(ctx){
+    this.ctx=ctx;
+    this.entities=[];
+    this.gravity=900;
+    this.keys={};
+  }
+  add(e){ this.entities.push(e); }
+  update(dt){ for(const e of this.entities) e.update(dt,this); }
+  draw(debug=false){ for(const e of this.entities) e.draw(this.ctx, debug); }
+}
+
+// ======== ROTATED RECTANGLE HELPER ========
+function RotatedRect(x, y, w, h, angleDeg){
+  const angle = angleDeg * Math.PI/180;
+  const hw = w/2, hh = h/2;
+  const corners = [
+    new Vec2(-hw, -hh),
+    new Vec2(hw, -hh),
+    new Vec2(hw, hh),
+    new Vec2(-hw, hh)
+  ];
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const rotated = corners.map(p => new Vec2(
+    p.x*cos - p.y*sin,
+    p.x*sin + p.y*cos
+  ));
+  return new Polygon(rotated);
+}
+
+// ======== SETUP ========
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const debugDiv=document.getElementById("debug");
+const world=new World(ctx);
+
+let playerSpeed = 200;
+let jumpHeight = 400;
+let showDebug = true;
+
+window.addEventListener("keydown",e=>world.keys[e.code]=true);
+window.addEventListener("keyup",e=>world.keys[e.code]=false);
+
+// Player
+const playerShape=new Polygon([
+  new Vec2(-20,-20), new Vec2(20,-20),
+  new Vec2(20,20), new Vec2(-20,20)
+]);
+const player=new Entity(150,100,playerShape);
+world.add(player);
+
+// Ground
+const ground=new Entity(450,580,RotatedRect(0,0,900,40,0));
+ground.static=true; ground.color="#555";
+world.add(ground);
+
+// Slope (gedraaide rechthoek)
+const slope=new Entity(500,500,RotatedRect(250,40,250,40,-30));
+slope.static=true; slope.color="#666";
+world.add(slope);
+
+// Overhang platform voor hoofdbotsing testen
+const ceiling = new Entity(400,300,RotatedRect(200,40,200,40,0));
+ceiling.static=true; ceiling.color="#800";
+world.add(ceiling);
+
+// Sidebar setup
+const toggleBtn = document.getElementById('toggle');
+const sidebar = document.getElementById('sidebar');
+
+toggleBtn.addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+});
+
+// Gravity input
+const gravityInput = document.getElementById('gravity');
+const gval = document.getElementById('gval');
+gravityInput.addEventListener('input', (e) => {
+  world.gravity = parseFloat(e.target.value);
+  gval.textContent = e.target.value;
+});
+
+// Speed input
+const speedInput = document.getElementById('speed');
+const sval = document.getElementById('sval');
+speedInput.addEventListener('input', (e) => {
+  playerSpeed = parseFloat(e.target.value);
+  sval.textContent = e.target.value;
+});
+
+// Jump input
+const jumpInput = document.getElementById('jump');
+const jval = document.getElementById('jval');
+jumpInput.addEventListener('input', (e) => {
+  jumpHeight = parseFloat(e.target.value);
+  jval.textContent = e.target.value;
+});
+
+// Debug toggle
+const debugToggle = document.getElementById('debugToggle');
+const dtval = document.getElementById('dtval');
+debugToggle.addEventListener('change', (e) => {
+  showDebug = e.target.checked;
+  dtval.textContent = showDebug ? 'true' : 'false';
+});
+
+// ======== LOOP ========
+let last=0;
+function loop(t){
+  const dt=(t-last)/1000; last=t;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  world.update(dt);
+}
+
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  const camX = player.pos.x - canvas.width / 2;
+  const camY = player.pos.y - canvas.height / 2;
+  ctx.translate(-camX, -camY);
+  world.draw(showDebug);
+  ctx.restore();
+
+  if(showDebug){
+    let keysText = '';
+    if(world.keys["ArrowLeft"]) keysText += 'Left ';
+    if(world.keys["ArrowRight"]) keysText += 'Right ';
+    if(world.keys["Space"]) keysText += 'Jump ';
+    if(keysText.trim()) {
+      keysText = keysText.trim();
+    } else {
+      keysText = 'None';
+    }
+
+    debugDiv.innerHTML=`
+      <b>Player Debug</b><br>
+      pos: (${player.pos.x.toFixed(2)}, ${player.pos.y.toFixed(2)})<br>
+      vel: (${player.vel.x.toFixed(2)}, ${player.vel.y.toFixed(2)})<br>
+      onGround: ${player.onGround}<br>
+      groundAngle: ${player.groundAngle.toFixed(1)}°<br>
+      keys: ${keysText}
+    `;
+  } else {
+    debugDiv.innerHTML = '';
+  }
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
