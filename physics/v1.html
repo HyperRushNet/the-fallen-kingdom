@@ -36,7 +36,8 @@
   <label>Player Speed: <input type="number" id="speed" min="50" max="1000000" value="200" step="10"> <span id="sval">200</span></label>
   <label>Jump Height: <input type="number" id="jump" min="100" max="800" value="400" step="10"> <span id="jval">400</span></label>
   <label>Debug: <input type="checkbox" id="debugToggle" checked> <span id="dtval">true</span></label>
-  <label>Platforms (stacked): <input type="number" id="platforms" min="0" max="100000" value="10000" step="1"> <span id="pval">10000</span></label>
+  <label>Render Tests: <input type="checkbox" id="renderTests" checked> <span id="rtval">true</span></label>
+  <label>Platforms (spread, 0.001px offset): <input type="number" id="platforms" min="0" max="100000" value="10000" step="1"> <span id="pval">10000</span></label>
   <!-- Add more settings here as needed -->
 </div>
 <div id="debug"></div>
@@ -175,14 +176,14 @@ class Entity {
     // Add gravity
     this.vel = this.vel.add(g_vec);
 
-    // Substep position update to prevent tunneling
+    // Substep position update to prevent tunneling (tighter steps for no clipping)
     const disp = this.vel.scale(dt);
-    const maxSubLen = 5;
+    const maxSubLen = 2;  // Reduced from 5 to 2 for better anti-clipping
     let numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen));
     const subDisp = disp.scale(1 / numSteps);
     let currentPos = this.pos.clone();
     const up = new Vec2(0, -1);
-    const maxIter = 10;
+    const maxIter = 20;  // Increased from 10 for more robust resolution
     for (let step = 0; step < numSteps; step++) {
       let testPos = currentPos.add(subDisp);
       let iterations = 0;
@@ -293,8 +294,17 @@ class World {
     this.playerSpeed = 200;
     this.jumpHeight = 400;
     this.keys = {};
-    this.cellSize = 200;
+    this.cellSize = 50;  // Optimized for ~50 entities per cell with 10k spread
     this.spatialHash = new Map();
+    this.renderTests = true;  // Default on for visibility
+    this.renderedTests = 0;
+    this.dirtyStatic = true;
+    // Offscreen for statics
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = 2000;
+    offscreenCanvas.height = 1000;
+    this.offscreen = offscreenCanvas;
+    this.offscreenCtx = offscreenCanvas.getContext('2d');
   }
   getHash(pos) {
     const hx = Math.floor(pos.x / this.cellSize);
@@ -303,32 +313,15 @@ class World {
   }
   rebuildSpatialHash() {
     this.spatialHash.clear();
-    const posToEntity = new Map();
     for (const e of this.entities) {
       if (e.static && e.shape) {
-        if (e.isTestPlatform) {
-          // For test platforms, add only one representative per position
-          const posKey = `${e.pos.x.toFixed(2)},${e.pos.y.toFixed(2)}`;
-          if (!posToEntity.has(posKey)) {
-            posToEntity.set(posKey, e);
-          }
-          const rep = posToEntity.get(posKey);
-          const hash = this.getHash(e.pos);
-          if (!this.spatialHash.has(hash)) {
-            this.spatialHash.set(hash, []);
-          }
-          if (!this.spatialHash.get(hash).includes(rep)) {
-            this.spatialHash.get(hash).push(rep);
-          }
-        } else {
-          // For other statics, add all
-          const hash = this.getHash(e.pos);
-          if (!this.spatialHash.has(hash)) {
-            this.spatialHash.set(hash, []);
-          }
-          if (!this.spatialHash.get(hash).includes(e)) {
-            this.spatialHash.get(hash).push(e);
-          }
+        // Add all statics individually (no rep cheat)
+        const hash = this.getHash(e.pos);
+        if (!this.spatialHash.has(hash)) {
+          this.spatialHash.set(hash, []);
+        }
+        if (!this.spatialHash.get(hash).includes(e)) {
+          this.spatialHash.get(hash).push(e);
         }
       }
     }
@@ -337,7 +330,7 @@ class World {
     const nearby = new Set();
     const cx = Math.floor(pos.x / this.cellSize);
     const cy = Math.floor(pos.y / this.cellSize);
-    for (let dx = -2; dx <= 2; dx++) {
+    for (let dx = -2; dx <= 2; dx++) {  // Balanced for safety and performance
       for (let dy = -2; dy <= 2; dy++) {
         const h = `${cx + dx},${cy + dy}`;
         if (this.spatialHash.has(h)) {
@@ -347,27 +340,28 @@ class World {
     }
     return Array.from(nearby);
   }
-  getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
-    const visible = new Set();
-    const cxMin = Math.floor(viewMinX / this.cellSize) - 1;
-    const cxMax = Math.floor((viewMaxX - 1) / this.cellSize) + 1;
-    const cyMin = Math.floor(viewMinY / this.cellSize) - 1;
-    const cyMax = Math.floor((viewMaxY - 1) / this.cellSize) + 1;
-    for (let cx = cxMin; cx <= cxMax; cx++) {
-      for (let cy = cyMin; cy <= cyMax; cy++) {
-        const h = `${cx},${cy}`;
-        if (this.spatialHash.has(h)) {
-          this.spatialHash.get(h).forEach(e => visible.add(e));
+  redrawStatics() {
+    this.dirtyStatic = false;
+    this.offscreenCtx.clearRect(0, 0, this.offscreen.width, this.offscreen.height);
+    for (const e of this.entities) {
+      if (e.static && e.shape) {
+        this.offscreenCtx.fillStyle = e.color;
+        if (e.isTestPlatform && this.renderTests) {
+          // Fast fillRect for test platforms (axis-aligned rects)
+          this.offscreenCtx.fillRect(e.pos.x - 50, e.pos.y - 10, 100, 20);
+        } else if (!e.isTestPlatform) {
+          // Path for other statics (e.g., rotated slope)
+          const pts = e.shape.getTransformed(e.pos);
+          this.offscreenCtx.beginPath();
+          this.offscreenCtx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) {
+            this.offscreenCtx.lineTo(pts[i].x, pts[i].y);
+          }
+          this.offscreenCtx.closePath();
+          this.offscreenCtx.fill();
         }
       }
     }
-    // Add non-static entities
-    for (const e of this.entities) {
-      if (!e.static) {
-        visible.add(e);
-      }
-    }
-    return Array.from(visible);
   }
   add(e) {
     this.entities.push(e);
@@ -378,29 +372,26 @@ class World {
     }
   }
   draw(debug = false, camX, camY) {
+    if (this.dirtyStatic) this.redrawStatics();
+    // Approximate rendered tests (full if on, since no culling in offscreen)
+    this.renderedTests = this.renderTests ? this.testPlatforms.length : 0;
+
     const width = this.ctx.canvas.width;
     const height = this.ctx.canvas.height;
-    const viewMinX = camX;
-    const viewMaxX = camX + width;
-    const viewMinY = camY;
-    const viewMaxY = camY + height;
-    const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
-    for (const e of visible) {
-      if (e.isTestPlatform) continue; // Skip test for separate handling
-      const aabb = e.aabb || e.shape.getAABB(e.pos);
-      if (aabb.maxX < viewMinX || aabb.minX > viewMaxX ||
-          aabb.maxY < viewMinY || aabb.minY > viewMaxY) continue;
-      e.draw(this.ctx, debug);
-    }
 
-    // Handle test platforms: draw only one representative if in view
-    if (this.testPlatforms.length > 0) {
-      const testAABB = this.testPlatforms[0].shape.getAABB(this.testPlatforms[0].pos);
-      if (!(testAABB.maxX < viewMinX || testAABB.minX > viewMaxX ||
-            testAABB.maxY < viewMinY || testAABB.minY > viewMaxY)) {
-        this.testPlatforms[0].draw(this.ctx, debug);
+    // Clear and draw static layer (blit offscreen portion to view)
+    this.ctx.clearRect(0, 0, width, height);
+    this.ctx.drawImage(this.offscreen, camX, camY, width, height, 0, 0, width, height);
+
+    // Draw dynamics (player) with camera transform
+    this.ctx.save();
+    this.ctx.translate(-camX, -camY);
+    for (const e of this.entities) {
+      if (!e.static) {
+        e.draw(this.ctx, debug);
       }
     }
+    this.ctx.restore();
   }
 }
 
@@ -428,7 +419,7 @@ function RotatedRect(w, h, angleDeg) {
 
 // ======== SETUP AND INITIALIZATION ========
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d", { alpha: true });
+const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
 const debugDiv = document.getElementById("debug");
 const world = new World(ctx);
 
@@ -446,17 +437,17 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => { world.keys[e.code] = false; });
 
-// Create player
+// Create player (placed ABOVE the platforms, at y=50)
 const playerShape = new Polygon([
   new Vec2(-20, -20),
   new Vec2(20, -20),
   new Vec2(20, 20),
   new Vec2(-20, 20)
 ]);
-const player = new Entity(150, 100, playerShape);
+const player = new Entity(150, 50, playerShape);  // y=50 (higher up)
 world.add(player);
 
-// Static ground
+// Static ground (moved down a bit for testing under platforms)
 const ground = new Entity(450, 580, RotatedRect(900, 40, 0));
 ground.static = true;
 ground.color = "#555";
@@ -515,7 +506,16 @@ debugToggle.addEventListener("change", (e) => {
   dtval.textContent = showDebug ? "true" : "false";
 });
 
-// Platforms control (stress test: add stacked platforms at same position)
+// Render Tests toggle
+const renderTestsToggle = document.getElementById("renderTests");
+const rtval = document.getElementById("rtval");
+renderTestsToggle.addEventListener("change", (e) => {
+  world.renderTests = e.target.checked;
+  rtval.textContent = world.renderTests ? "true" : "false";
+  world.dirtyStatic = true;  // Redraw offscreen
+});
+
+// Platforms control (spread over screen with 0.001px offsets, starting at y=100)
 const platformsInput = document.getElementById("platforms");
 const pval = document.getElementById("pval");
 platformsInput.addEventListener("input", (e) => {
@@ -526,22 +526,32 @@ platformsInput.addEventListener("input", (e) => {
     if (idx > -1) world.entities.splice(idx, 1);
   });
   world.testPlatforms = [];
-  // Add new ones stacked at the same place
+  // Add new ones spread in grid with 0.001px random offset
   if (num > 0) {
     const testShape = RotatedRect(100, 20, 0);
-    const testPosX = 100;
-    const testPosY = 500;
-    for (let i = 0; i < num; i++) {
-      const testPos = new Vec2(testPosX, testPosY);
-      const testPlatform = new Entity(testPos.x, testPos.y, testShape);
-      testPlatform.static = true;
-      testPlatform.color = "#f00";
-      testPlatform.isTestPlatform = true;
-      world.add(testPlatform);
-      world.testPlatforms.push(testPlatform);
+    const cols = Math.ceil(Math.sqrt(num));
+    const rows = Math.ceil(num / cols);
+    const spacingX = 900 / cols;
+    const spacingY = 600 / rows;
+    let idx = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (idx >= num) break;
+        const testPosX = 50 + col * spacingX + (Math.random() - 0.5) * 0.002; // ±0.001px offset
+        const testPosY = 100 + row * spacingY + (Math.random() - 0.5) * 0.002; // ±0.001px offset, starting at y=100
+        const testPos = new Vec2(testPosX, testPosY);
+        const testPlatform = new Entity(testPos.x, testPos.y, testShape);
+        testPlatform.static = true;
+        testPlatform.color = "#f00";
+        testPlatform.isTestPlatform = true;
+        world.add(testPlatform);
+        world.testPlatforms.push(testPlatform);
+        idx++;
+      }
     }
   }
   world.rebuildSpatialHash();
+  world.dirtyStatic = true;  // Mark for redraw
   pval.textContent = num;
 });
 
@@ -564,13 +574,9 @@ function loop(currentTime) {
   world.update(dt);
 
   // Render
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
   const camX = Math.max(0, player.pos.x - canvas.width / 2);
   const camY = Math.max(0, player.pos.y - canvas.height / 2);
-  ctx.translate(-camX, -camY);
   world.draw(showDebug, camX, camY);
-  ctx.restore();
 
   // Debug overlay
   if (showDebug) {
@@ -588,6 +594,7 @@ function loop(currentTime) {
       groundAngle: ${player.groundAngle.toFixed(1)}°<br>
       keys: ${keysText}<br>
       test platforms: ${world.testPlatforms.length}<br>
+      rendered platforms: ${world.renderedTests}<br>
       fps: ${fps}
     `;
   } else {
