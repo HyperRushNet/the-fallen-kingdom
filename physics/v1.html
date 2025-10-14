@@ -248,7 +248,7 @@ class Entity {
     }
   }
 
-  draw(ctx, debug = false) {
+  draw(ctx, debug = false, useTexture = false) {
     const pts = this.shape.getTransformed(this.pos);
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
@@ -256,8 +256,17 @@ class Entity {
       ctx.lineTo(pts[i].x, pts[i].y);
     }
     ctx.closePath();
-    ctx.fillStyle = this.color;
-    ctx.fill();
+
+    if (useTexture && texture.complete) {
+      ctx.save();
+      ctx.clip();
+      const aabb = this.shape.getAABB(this.pos);
+      ctx.drawImage(texture, aabb.minX, aabb.minY, aabb.maxX - aabb.minX, aabb.maxY - aabb.minY);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
 
     if (debug && !this.isTestPlatform) {
       // Outline
@@ -295,6 +304,7 @@ class World {
     this.keys = {};
     this.cellSize = 200;
     this.spatialHash = new Map();
+    this.player = null;
   }
   getHash(pos) {
     const hx = Math.floor(pos.x / this.cellSize);
@@ -392,7 +402,8 @@ class World {
       const aabb = e.aabb || e.shape.getAABB(e.pos);
       if (aabb.maxX < viewMinX || aabb.minX > viewMaxX ||
           aabb.maxY < viewMinY || aabb.minY > viewMaxY) continue;
-      e.draw(this.ctx, debug);
+      const useTexture = true;
+      e.draw(this.ctx, debug, useTexture);
     }
   }
 }
@@ -425,6 +436,9 @@ const ctx = canvas.getContext("2d", { alpha: true });
 const debugDiv = document.getElementById("debug");
 const world = new World(ctx);
 
+const texture = new Image();
+texture.src = 'https://placehold.co/200x200/555555/FFFFFF/png';
+
 let showDebug = true;
 
 // FPS counter
@@ -447,6 +461,7 @@ const playerShape = new Polygon([
   new Vec2(-20, 20)
 ]);
 const player = new Entity(150, 100, playerShape);
+world.player = player;
 world.add(player);
 
 // Static ground
