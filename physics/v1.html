@@ -41,6 +41,58 @@
 </div>
 <div id="debug"></div>
 <script>
+const mapData = {
+  "textures": [
+    "https://placehold.co/900x40/555555/FFFFFF/png",
+    "https://placehold.co/250x40/ff0000/FFFFFF/png",
+    "https://placehold.co/200x40/00ff00/FFFFFF/png"
+  ],
+  "player": {
+    "x": 150,
+    "y": 100,
+    "z": 5
+  },
+  "entities": [
+    {
+      "type": "rect",
+      "x": 450,
+      "y": 580,
+      "w": 900,
+      "h": 40,
+      "angle": 0,
+      "color": "#555",
+      "static": true,
+      "z": 0,
+      "textureIndex": 0
+    },
+    {
+      "type": "rect",
+      "x": 500,
+      "y": 500,
+      "w": 250,
+      "h": 40,
+      "angle": -30,
+      "color": "#666",
+      "static": true,
+      "z": 0,
+      "textureIndex": 1
+    },
+    {
+      "type": "rect",
+      "x": 400,
+      "y": 300,
+      "w": 200,
+      "h": 40,
+      "angle": 0,
+      "color": "#800",
+      "static": true,
+      "z": 10,
+      "textureIndex": 2
+    }
+    // Voeg meer entities toe aan de JSON voor extra levels of maps
+  ]
+};
+
 // ======== VECTOR CLASS (Immutable operations) ========
 class Vec2 {
   constructor(x = 0, y = 0) {
@@ -142,6 +194,11 @@ class Entity {
     this.shape = shape;
     this.color = "#4af";
     this.static = false;
+    this.z = 0; // Z-index for rendering order
+    this.width = null;
+    this.height = null;
+    this.angle = 0;
+    this.textureIndex = null;
     this.aabb = this.static ? this.shape.getAABB(this.pos) : null;
     this.onGround = false;
     this.groundNormal = new Vec2(0, -1);
@@ -248,7 +305,7 @@ class Entity {
     }
   }
 
-  draw(ctx, debug = false, useTexture = false) {
+  draw(ctx, debug = false) {
     const pts = this.shape.getTransformed(this.pos);
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
@@ -257,13 +314,16 @@ class Entity {
     }
     ctx.closePath();
 
-    if (useTexture && texture.complete) {
+    let drewSomething = false;
+    if (this.textureIndex !== undefined && textures[this.textureIndex] && textures[this.textureIndex].complete && this.width && this.height) {
       ctx.save();
-      ctx.clip();
-      const aabb = this.shape.getAABB(this.pos);
-      ctx.drawImage(texture, aabb.minX, aabb.minY, aabb.maxX - aabb.minX, aabb.maxY - aabb.minY);
+      ctx.translate(this.pos.x, this.pos.y);
+      ctx.rotate(this.angle);
+      ctx.drawImage(textures[this.textureIndex], -this.width / 2, -this.height / 2, this.width, this.height);
       ctx.restore();
-    } else {
+      drewSomething = true;
+    }
+    if (!drewSomething) {
       ctx.fillStyle = this.color;
       ctx.fill();
     }
@@ -305,6 +365,52 @@ class World {
     this.cellSize = 200;
     this.spatialHash = new Map();
     this.player = null;
+  }
+  loadMap(data) {
+    this.entities = [];
+    for (const entData of data.entities || []) {
+      let shape;
+      if (entData.type === "rect") {
+        shape = RotatedRect(entData.w || 100, entData.h || 20, entData.angle || 0);
+        // For rects, store unrotated dimensions and angle for texturing
+      } else if (entData.type === "polygon") {
+        shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
+      }
+      if (shape) {
+        const e = new Entity(entData.x || 0, entData.y || 0, shape);
+        e.color = entData.color || "#4af";
+        e.static = entData.static !== false;
+        e.z = entData.z || 0;
+        e.textureIndex = entData.textureIndex;
+        if (entData.type === "rect") {
+          e.width = entData.w || 100;
+          e.height = entData.h || 20;
+          e.angle = (entData.angle || 0) * Math.PI / 180;
+        }
+        if (entData.isTestPlatform) {
+          e.isTestPlatform = true;
+        }
+        this.add(e);
+        if (entData.isTestPlatform) {
+          this.testPlatforms.push(e);
+        }
+      }
+    }
+    if (data.player) {
+      const playerShape = new Polygon([
+        new Vec2(-20, -20),
+        new Vec2(20, -20),
+        new Vec2(20, 20),
+        new Vec2(-20, 20)
+      ]);
+      this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape);
+      this.player.z = data.player.z || 5;
+      this.player.width = 40;
+      this.player.height = 40;
+      this.player.angle = 0;
+      this.player.textureIndex = data.player.textureIndex;
+      this.add(this.player);
+    }
   }
   getHash(pos) {
     const hx = Math.floor(pos.x / this.cellSize);
@@ -397,13 +503,14 @@ class World {
     const viewMaxX = camX + width;
     const viewMinY = camY;
     const viewMaxY = camY + height;
-    const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+    let visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+    // Sort by z-index for rendering order (lower z drawn first, behind)
+    visible.sort((a, b) => a.z - b.z);
     for (const e of visible) {
       const aabb = e.aabb || e.shape.getAABB(e.pos);
       if (aabb.maxX < viewMinX || aabb.minX > viewMaxX ||
           aabb.maxY < viewMinY || aabb.minY > viewMaxY) continue;
-      const useTexture = true;
-      e.draw(this.ctx, debug, useTexture);
+      e.draw(this.ctx, debug);
     }
   }
 }
@@ -436,8 +543,12 @@ const ctx = canvas.getContext("2d", { alpha: true });
 const debugDiv = document.getElementById("debug");
 const world = new World(ctx);
 
-const texture = new Image();
-texture.src = 'https://placehold.co/200x200/555555/FFFFFF/png';
+const textures = [];
+mapData.textures.forEach(url => {
+  const img = new Image();
+  img.src = url;
+  textures.push(img);
+});
 
 let showDebug = true;
 
@@ -453,35 +564,8 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => { world.keys[e.code] = false; });
 
-// Create player
-const playerShape = new Polygon([
-  new Vec2(-20, -20),
-  new Vec2(20, -20),
-  new Vec2(20, 20),
-  new Vec2(-20, 20)
-]);
-const player = new Entity(150, 100, playerShape);
-world.player = player;
-world.add(player);
-
-// Static ground
-const ground = new Entity(450, 580, RotatedRect(900, 40, 0));
-ground.static = true;
-ground.color = "#555";
-world.add(ground);
-
-// Static slope (tilted rectangle)
-const slope = new Entity(500, 500, RotatedRect(250, 40, -30));
-slope.static = true;
-slope.color = "#666";
-world.add(slope);
-
-// Static ceiling (for head collision testing)
-const ceiling = new Entity(400, 300, RotatedRect(200, 40, 0));
-ceiling.static = true;
-ceiling.color = "#800";
-world.add(ceiling);
-
+// Load map from JSON
+world.loadMap(mapData);
 world.rebuildSpatialHash();
 
 // Sidebar controls
@@ -543,6 +627,11 @@ platformsInput.addEventListener("input", (e) => {
       testPlatform.static = true;
       testPlatform.color = "#f00";
       testPlatform.isTestPlatform = true;
+      testPlatform.z = 1; // Set z-index for test platforms
+      testPlatform.width = 100;
+      testPlatform.height = 20;
+      testPlatform.angle = 0;
+      testPlatform.textureIndex = 0; // Assign texture index 0 to test platforms
       world.add(testPlatform);
       world.testPlatforms.push(testPlatform);
     }
@@ -572,8 +661,8 @@ function loop(currentTime) {
   // Render
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  const camX = Math.max(0, player.pos.x - canvas.width / 2);
-  const camY = Math.max(0, player.pos.y - canvas.height / 2);
+  const camX = Math.max(0, world.player.pos.x - canvas.width / 2);
+  const camY = Math.max(0, world.player.pos.y - canvas.height / 2);
   ctx.translate(-camX, -camY);
   world.draw(showDebug, camX, camY);
   ctx.restore();
@@ -588,10 +677,11 @@ function loop(currentTime) {
 
     debugDiv.innerHTML = `
       <b>Player Debug</b><br>
-      pos: (${player.pos.x.toFixed(2)}, ${player.pos.y.toFixed(2)})<br>
-      vel: (${player.vel.x.toFixed(2)}, ${player.vel.y.toFixed(2)})<br>
-      onGround: ${player.onGround}<br>
-      groundAngle: ${player.groundAngle.toFixed(1)}°<br>
+      pos: (${world.player.pos.x.toFixed(2)}, ${world.player.pos.y.toFixed(2)})<br>
+      vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>
+      onGround: ${world.player.onGround}<br>
+      groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>
+      z: ${world.player.z}<br>
       keys: ${keysText}<br>
       test platforms: ${world.testPlatforms.length}<br>
       fps: ${fps}
