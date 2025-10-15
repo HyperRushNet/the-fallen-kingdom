@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Engine - Debug Overlay with Decor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { overflow: hidden; background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
+        canvas { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); display: block; width: 100vw; height: 100vh; }
+        #debug {
+            position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.85);
+            padding: 12px; border: 1px solid #00ff41; border-radius: 8px;
+            width: 260px; font-size: 11px; line-height: 1.3;
+            box-shadow: 0 4px 15px rgba(0, 255, 65, 0.1); backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+    <div id="debug"></div>
+    <script>
+        const mapData = {
+            textures: [
+                "https://placehold.co/900x40/555555/FFFFFF/png",
+                "https://placehold.co/250x40/ff0000/FFFFFF/png",
+                "https://placehold.co/200x40/00ff00/FFFFFF/png",
+                "https://placehold.co/100x100/00FFFF/FFFFFF/png"
+            ],
+            player: { x: 150, y: 100, z: 5 },
+            entities: [
+                { type: "rect", x: 450, y: 580, w: 900, h: 40, angle: 0, color: "#555", static: true, z: 0, textureIndex: 0 },
+                { type: "rect", x: 500, y: 500, w: 250, h: 40, angle: -30, color: "#666", static: true, z: 0, textureIndex: 1 },
+                { type: "rect", x: 400, y: 300, w: 200, h: 40, angle: 0, color: "#800", static: true, z: 10, textureIndex: 2 },
+                { type: "decor", x: 300, y: 200, w: 100, h: 100, angle: 0, z: 2, textureIndex: 3 },
+                { type: "decor", x: 600, y: 250, w: 100, h: 100, angle: 45, z: 8, textureIndex: 3 }
+            ]
+        };
+
+        class Vec2 {
+            constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+            add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+            scale(s) { return new Vec2(this.x * s, this.y * s); }
+            dot(v) { return this.x * v.x + this.y * v.y; }
+            perp() { return new Vec2(-this.y, this.x); }
+            len() { return Math.hypot(this.x, this.y); }
+            norm() { const l = this.len(); return l ? this.scale(1 / l) : new Vec2(); }
+            clone() { return new Vec2(this.x, this.y); }
+        }
+
+        function aabbOverlap(a, b) {
+            return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
+        }
+
+        class Polygon {
+            constructor(points) {
+                this.points = points.map(p => new Vec2(p.x, p.y));
+                this.axes = this.getAxes();
+            }
+            getAxes() {
+                const axes = [];
+                for (let i = 0; i < this.points.length; i++) {
+                    const edge = this.points[(i + 1) % this.points.length].sub(this.points[i]);
+                    const axis = edge.perp().norm();
+                    if (axis.len() > 0) axes.push(axis);
+                }
+                return axes;
+            }
+            getAABB(pos) {
+                const pts = this.getTransformed(pos);
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of pts) {
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                }
+                return { minX, minY, maxX, maxY };
+            }
+            getTransformed(pos) {
+                return this.points.map(p => p.add(pos));
+            }
+            project(axis, pos) {
+                const pts = this.getTransformed(pos);
+                let min = Infinity, max = -Infinity;
+                for (const p of pts) {
+                    const proj = p.dot(axis);
+                    min = Math.min(min, proj);
+                    max = Math.max(max, proj);
+                }
+                return { min, max };
+            }
+            static overlap(A, posA, B, posB) {
+                const axes = [...A.axes, ...B.axes];
+                let overlap = Infinity, smallestAxis = null;
+                for (const axis of axes) {
+                    if (axis.len() < 1e-6) continue;
+                    const projA = A.project(axis, posA);
+                    const projB = B.project(axis, posB);
+                    const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+                    if (o < 1e-9) return null;
+                    if (o < overlap) { overlap = o; smallestAxis = axis; }
+                }
+                if (!smallestAxis) return null;
+                const d = posA.sub(posB);
+                if (d.dot(smallestAxis) < 0) smallestAxis = smallestAxis.scale(-1);
+                return { axis: smallestAxis, overlap };
+            }
+        }
+
+        class Decor {
+            constructor(x, y, w, h, angleDeg, z, textureIndex) {
+                this.pos = new Vec2(x, y);
+                this.width = w;
+                this.height = h;
+                this.angle = angleDeg * Math.PI / 180;
+                this.z = z || 0;
+                this.textureIndex = textureIndex;
+                const hw = w / 2, hh = h / 2;
+                const cos = Math.cos(this.angle), sin = Math.sin(this.angle);
+                this.points = [
+                    new Vec2(-hw, -hh), new Vec2(hw, -hh),
+                    new Vec2(hw, hh), new Vec2(-hw, hh)
+                ].map(p => new Vec2(p.x * cos - p.y * sin, p.x * sin + p.y * cos));
+                const corners = this.points.map(p => p.add(this.pos));
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of corners) {
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                }
+                this.aabb = { minX, minY, maxX, maxY };
+            }
+            draw(ctx, debug = false) {
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(this.angle);
+                const texture = textures[this.textureIndex];
+                if (texture?.complete) {
+                    ctx.drawImage(texture, -this.width / 2, -this.height / 2, this.width, this.height);
+                } else {
+                    ctx.fillStyle = "#0ff";
+                    ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                }
+                ctx.restore();
+                if (debug) {
+                    ctx.strokeStyle = "#0ff";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    const pts = this.points.map(p => p.add(this.pos));
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            }
+        }
+
+        class Entity {
+            constructor(x, y, shape) {
+                this.pos = new Vec2(x, y);
+                this.vel = new Vec2(0, 0);
+                this.shape = shape;
+                this.color = "#4af";
+                this.static = false;
+                this.z = 0;
+                this.width = null;
+                this.height = null;
+                this.angle = 0;
+                this.textureIndex = null;
+                this.aabb = this.static ? this.shape.getAABB(this.pos) : null;
+                this.onGround = false;
+                this.groundNormal = new Vec2(0, -1);
+                this.groundAngle = 0;
+            }
+            update(dt, world) {
+                if (this.static) return;
+                const oldOnGround = this.onGround;
+                this.onGround = false;
+                const input_speed = world.keys["ArrowLeft"] ? -world.playerSpeed : world.keys["ArrowRight"] ? world.playerSpeed : 0;
+                const g_vec = new Vec2(0, world.gravity * dt);
+                if (oldOnGround) {
+                    const tangent = this.groundNormal.perp().norm();
+                    this.vel = tangent.scale(input_speed).add(this.groundNormal.scale(this.vel.dot(this.groundNormal)));
+                } else {
+                    this.vel.x = input_speed;
+                }
+                this.vel = this.vel.add(g_vec);
+                const disp = this.vel.scale(dt);
+                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen));
+                const subDisp = disp.scale(1 / numSteps);
+                let currentPos = this.pos.clone();
+                const up = new Vec2(0, -1);
+                for (let step = 0; step < numSteps; step++) {
+                    let testPos = currentPos.add(subDisp);
+                    for (let i = 0; i < 10; i++) {
+                        let hasCollision = false;
+                        const testAABB = this.shape.getAABB(testPos);
+                        for (const other of world.getNearby(testPos)) {
+                            if (!other.shape || other === this || other instanceof Decor) continue;
+                            const otherAABB = other.aabb || other.shape.getAABB(other.pos);
+                            if (!aabbOverlap(testAABB, otherAABB)) continue;
+                            const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
+                            if (res) {
+                                hasCollision = true;
+                                let axis = res.axis;
+                                const d = testPos.sub(other.pos);
+                                const dir = d.len() > 1e-6 ? d.norm() : up.clone();
+                                if (dir.dot(axis) < 0) axis = axis.scale(-1);
+                                testPos = testPos.add(axis.scale(res.overlap));
+                                const vn = this.vel.dot(axis);
+                                if (vn < 0) this.vel = this.vel.sub(axis.scale(vn));
+                                if (axis.dot(up) > 0.01) {
+                                    this.onGround = true;
+                                    this.groundNormal = axis;
+                                }
+                            }
+                        }
+                        if (!hasCollision) break;
+                    }
+                    currentPos = testPos;
+                }
+                this.pos = currentPos;
+                if (this.onGround) {
+                    const tangent = this.groundNormal.perp().norm();
+                    this.vel = tangent.scale(input_speed);
+                    this.pos = this.pos.sub(tangent.scale(g_vec.dot(tangent) * dt));
+                    this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot(up)))) * 180 / Math.PI;
+                }
+                if (world.keys["Space"] && oldOnGround) {
+                    this.vel.y = -world.jumpHeight;
+                    this.vel.x = input_speed;
+                    this.onGround = false;
+                }
+            }
+            draw(ctx, debug = false) {
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(this.angle);
+                const texture = textures[this.textureIndex];
+                let drewTexture = false;
+                if (texture?.complete && this.width && this.height) {
+                    ctx.drawImage(texture, -this.width / 2, -this.height / 2, this.width, this.height);
+                    drewTexture = true;
+                }
+                if (!drewTexture) {
+                    const pts = this.shape.getTransformed(new Vec2(0, 0));
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                    ctx.closePath();
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+                ctx.restore();
+                if (debug) {
+                    const pts = this.shape.getTransformed(this.pos);
+                    ctx.strokeStyle = "#f00";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.strokeStyle = "#0f0";
+                    ctx.beginPath();
+                    ctx.moveTo(this.pos.x, this.pos.y);
+                    ctx.lineTo(this.pos.x + this.vel.x * 0.1, this.pos.y + this.vel.y * 0.1);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        class World {
+            constructor(ctx) {
+                this.ctx = ctx;
+                this.statics = [];
+                this.dynamics = [];
+                this.decors = [];
+                this.gravity = 900;
+                this.playerSpeed = 200;
+                this.jumpHeight = 600;
+                this.keys = {};
+                this.cellSize = 200;
+                this.spatialHash = new Map();
+                this.player = null;
+            }
+            loadMap(data) {
+                for (const entData of data.entities) {
+                    if (entData.type === "decor") {
+                        this.decors.push(new Decor(
+                            entData.x || 0, entData.y || 0, entData.w || 100, entData.h || 100,
+                            entData.angle || 0, entData.z || 0, entData.textureIndex
+                        ));
+                    } else {
+                        let shape;
+                        if (entData.type === "rect") {
+                            shape = RotatedRect(entData.w || 100, entData.h || 20, entData.angle || 0);
+                        } else if (entData.type === "polygon") {
+                            shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
+                        }
+                        if (shape) {
+                            const e = new Entity(entData.x || 0, entData.y || 0, shape);
+                            e.color = entData.color || "#4af";
+                            e.static = entData.static !== false;
+                            e.z = entData.z || 0;
+                            e.textureIndex = entData.textureIndex;
+                            if (entData.type === "rect") {
+                                e.width = entData.w || 100;
+                                e.height = entData.h || 20;
+                                e.angle = (entData.angle || 0) * Math.PI / 180;
+                            }
+                            this.add(e);
+                        }
+                    }
+                }
+                if (data.player) {
+                    const playerShape = new Polygon([
+                        new Vec2(-20, -20), new Vec2(20, -20),
+                        new Vec2(20, 20), new Vec2(-20, 20)
+                    ]);
+                    this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape);
+                    this.player.z = data.player.z || 5;
+                    this.player.width = 40;
+                    this.player.height = 40;
+                    this.add(this.player);
+                }
+            }
+            add(e) {
+                if (e instanceof Decor) this.decors.push(e);
+                else if (e.static) this.statics.push(e);
+                else this.dynamics.push(e);
+            }
+            getHash(pos) {
+                return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
+            }
+            rebuildSpatialHash() {
+                this.spatialHash.clear();
+                for (const e of this.statics) {
+                    if (!e.shape) continue;
+                    const aabb = e.aabb || e.shape.getAABB(e.pos);
+                    const minX = Math.floor((aabb.minX - 50) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + 50) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - 50) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + 50) / this.cellSize);
+                    for (let x = minX; x <= maxX; x++) {
+                        for (let y = minY; y <= maxY; y++) {
+                            const h = `${x},${y}`;
+                            if (!this.spatialHash.has(h)) this.spatialHash.set(h, []);
+                            this.spatialHash.get(h).push(e);
+                        }
+                    }
+                }
+                for (const e of this.decors) {
+                    const aabb = e.aabb;
+                    const minX = Math.floor((aabb.minX - 100) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + 100) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - 100) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + 100) / this.cellSize);
+                    for (let x = minX; x <= maxX; x++) {
+                        for (let y = minY; y <= maxY; y++) {
+                            const h = `${x},${y}`;
+                            if (!this.spatialHash.has(h)) this.spatialHash.set(h, []);
+                            this.spatialHash.get(h).push(e);
+                        }
+                    }
+                }
+            }
+            getNearby(pos) {
+                const nearby = new Set(this.dynamics);
+                const cx = Math.floor(pos.x / this.cellSize), cy = Math.floor(pos.y / this.cellSize);
+                for (let dx = -2; dx <= 2; dx++) {
+                    for (let dy = -2; dy <= 2; dy++) {
+                        const h = `${cx + dx},${cy + dy}`;
+                        if (this.spatialHash.has(h)) {
+                            this.spatialHash.get(h).forEach(e => {
+                                if (!(e instanceof Decor)) nearby.add(e);
+                            });
+                        }
+                    }
+                }
+                return Array.from(nearby);
+            }
+            getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
+                const visible = new Set([...this.dynamics, ...this.decors, ...this.statics]);
+                const cxMin = Math.floor((viewMinX - 100) / this.cellSize);
+                const cxMax = Math.floor((viewMaxX + 100) / this.cellSize);
+                const cyMin = Math.floor((viewMinY - 100) / this.cellSize);
+                const cyMax = Math.floor((viewMaxY + 100) / this.cellSize);
+                for (let cx = cxMin; cx <= cxMax; cx++) {
+                    for (let cy = cyMin; cy <= cyMax; cy++) {
+                        const h = `${cx},${cy}`;
+                        if (this.spatialHash.has(h)) this.spatialHash.get(h).forEach(e => visible.add(e));
+                    }
+                }
+                return Array.from(visible).sort((a, b) => a.z - b.z);
+            }
+            update(dt) {
+                for (const e of this.dynamics) e.update(dt, this);
+            }
+            draw(debug = false, camX, camY) {
+                const { width, height } = this.ctx.canvas;
+                const viewMinX = camX - 100, viewMaxX = camX + width + 100;
+                const viewMinY = camY - 100, viewMaxY = camY + height + 100;
+                const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                ctx.save();
+                ctx.beginPath();
+                for (const e of visible) {
+                    const aabb = e.aabb || e.shape?.getAABB(e.pos);
+                    if (!aabb || aabb.maxX < viewMinX || aabb.minX > viewMaxX || aabb.maxY < viewMinY || aabb.minY > viewMaxY) continue;
+                    e.draw(this.ctx, debug);
+                }
+                ctx.restore();
+            }
+        }
+
+        function RotatedRect(w, h, angleDeg) {
+            const angle = angleDeg * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
+            const hw = w / 2, hh = h / 2;
+            return new Polygon([
+                new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos),
+                new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
+                new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos)
+            ]);
+        }
+
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d", { alpha: true });
+        const debugDiv = document.getElementById("debug");
+        const world = new World(ctx);
+        const textures = mapData.textures.map(url => {
+            const img = new Image();
+            img.src = url;
+            return img;
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        window.addEventListener("keydown", e => {
+            world.keys[e.code] = true;
+            if (e.code === "Space") e.preventDefault();
+        });
+        window.addEventListener("keyup", e => world.keys[e.code] = false);
+
+        world.loadMap(mapData);
+        world.rebuildSpatialHash();
+
+        let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
+        const targetDT = 1 / 60; // Target 60 FPS
+        function loop(currentTime) {
+            frameCount++;
+            if (currentTime - lastFPSTime >= 1000) {
+                fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
+                frameCount = 0;
+                lastFPSTime = currentTime;
+            }
+            const dt = Math.min((currentTime - lastTime) / 1000, targetDT);
+            lastTime = currentTime;
+
+            world.update(dt);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const camX = world.player.pos.x - canvas.width / 2;
+            const camY = world.player.pos.y - canvas.height / 2;
+            ctx.translate(-camX, -camY);
+            world.draw(true, camX, camY);
+            ctx.resetTransform();
+
+            const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
+            debugDiv.textContent = `Player Debug\npos: (${world.player.pos.x.toFixed(2)}, ${world.player.pos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
+
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
