@@ -156,38 +156,50 @@
         const vsSource = `
             attribute vec2 a_position;
             attribute vec2 a_texcoord;
+            attribute vec4 a_color;
             uniform mat3 u_matrix;
             varying vec2 v_texcoord;
+            varying vec4 v_color;
             void main() {
                 gl_Position = vec4((u_matrix * vec3(a_position, 1.0)).xy, 0.0, 1.0);
                 v_texcoord = a_texcoord;
+                v_color = a_color;
             }
         `;
 
         const fsSource = `
             precision mediump float;
             varying vec2 v_texcoord;
+            varying vec4 v_color;
             uniform sampler2D u_texture;
-            uniform vec4 u_color;
             uniform bool u_useTexture;
             void main() {
                 if (u_useTexture) {
-                    gl_FragColor = texture2D(u_texture, v_texcoord);
+                    gl_FragColor = texture2D(u_texture, v_texcoord) * v_color;
                 } else {
-                    gl_FragColor = u_color;
+                    gl_FragColor = v_color;
                 }
             }
         `;
 
+        function isTextureReady(texObj) {
+            if (!texObj) return false;
+            if (texObj instanceof HTMLImageElement) {
+                return texObj.complete && texObj.naturalWidth > 0;
+            } else if (texObj && texObj.video) {
+                return texObj.video.readyState >= 2;
+            }
+            return false;
+        }
+
         class Decor {
-            constructor(x, y, w, h, angleDeg, z, textureIndex, gl) {
+            constructor(x, y, w, h, angleDeg, z, textureIndex) {
                 this.pos = new Vec2(x, y);
                 this.width = w;
                 this.height = h;
                 this.angle = angleDeg * Math.PI / 180;
                 this.z = z || 0;
                 this.textureIndex = textureIndex;
-                this.gl = gl;
                 const hw = w / 2, hh = h / 2;
                 const cos = Math.cos(this.angle), sin = Math.sin(this.angle);
                 this.localPoints = [
@@ -203,74 +215,49 @@
                     maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
                 }
                 this.aabb = { minX, minY, maxX, maxY };
-                this.posArray = new Float32Array(8);
                 this.lineArray = new Float32Array(16);
-                this.positionBuffer = gl.createBuffer();
-                this.dirty = true;
-                this.bufferReady = false;
             }
-            updatePosArray() {
-                const lp = this.localPoints;
-                const px = this.pos.x, py = this.pos.y;
-                const pa = this.posArray;
-                pa[0] = lp[0].x + px; pa[1] = lp[0].y + py;
-                pa[2] = lp[1].x + px; pa[3] = lp[1].y + py;
-                pa[4] = lp[2].x + px; pa[5] = lp[2].y + py;
-                pa[6] = lp[3].x + px; pa[7] = lp[3].y + py;
+            getTransformedPoints() {
+                return this.localPoints.map(p => p.add(this.pos));
             }
             updateLineArray() {
-                const pa = this.posArray;
+                const pts = this.getTransformedPoints();
                 const la = this.lineArray;
-                la[0] = pa[0]; la[1] = pa[1];
-                la[2] = pa[2]; la[3] = pa[3];
-                la[4] = pa[2]; la[5] = pa[3];
-                la[6] = pa[4]; la[7] = pa[5];
-                la[8] = pa[4]; la[9] = pa[5];
-                la[10] = pa[6]; la[11] = pa[7];
-                la[12] = pa[6]; la[13] = pa[7];
-                la[14] = pa[0]; la[15] = pa[1];
+                la[0] = pts[0].x; la[1] = pts[0].y;
+                la[2] = pts[1].x; la[3] = pts[1].y;
+                la[4] = pts[1].x; la[5] = pts[1].y;
+                la[6] = pts[2].x; la[7] = pts[2].y;
+                la[8] = pts[2].x; la[9] = pts[2].y;
+                la[10] = pts[3].x; la[11] = pts[3].y;
+                la[12] = pts[3].x; la[13] = pts[3].y;
+                la[14] = pts[0].x; la[15] = pts[0].y;
             }
-            draw(gl, debug, projview) {
-                if (this.dirty) {
-                    this.updatePosArray();
-                    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, this.posArray, gl.STATIC_DRAW);
-                    this.dirty = false;
-                    this.bufferReady = true;
+            drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, cyanColor) {
+                this.updateLineArray();
+                const lineVerts = new Float32Array(64);
+                for (let k = 0; k < 8; k++) {
+                    const idx = k * 2;
+                    lineVerts[k * 8 + 0] = this.lineArray[idx];
+                    lineVerts[k * 8 + 1] = this.lineArray[idx + 1];
+                    lineVerts[k * 8 + 2] = 0;
+                    lineVerts[k * 8 + 3] = 0;
+                    lineVerts[k * 8 + 4] = cyanColor[0];
+                    lineVerts[k * 8 + 5] = cyanColor[1];
+                    lineVerts[k * 8 + 6] = cyanColor[2];
+                    lineVerts[k * 8 + 7] = cyanColor[3];
                 }
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
-                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
-                const textureObj = textures[this.textureIndex];
-                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj && textureObj.video && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA));
-                gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
-                if (useTex) {
-                    gl.activeTexture(gl.TEXTURE0);
-                    gl.bindTexture(gl.TEXTURE_2D, glTextures[this.textureIndex]);
-                } else {
-                    const col = cyanColor;
-                    gl.uniform4fv(colorLoc, col);
-                }
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-                gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in Decor draw');
-                if (debug) {
-                    this.updateLineArray();
-                    gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, this.lineArray, gl.DYNAMIC_DRAW);
-                    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
-                    gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
-                    gl.uniform1i(useTextureLoc, 0);
-                    gl.uniform4fv(colorLoc, cyanColor);
-                    gl.drawArrays(gl.LINES, 0, 8);
-                }
+                gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, lineVerts, gl.DYNAMIC_DRAW);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
+                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
+                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
+                gl.uniform1i(useTextureLoc, 0);
+                gl.drawArrays(gl.LINES, 0, 8);
             }
         }
 
         class Entity {
-            constructor(x, y, shape, gl) {
+            constructor(x, y, shape) {
                 this.pos = new Vec2(x, y);
                 this.vel = new Vec2(0, 0);
                 this.shape = shape;
@@ -281,18 +268,16 @@
                 this.height = null;
                 this.angle = 0;
                 this.textureIndex = null;
-                this.gl = gl;
                 this.aabb = this.static ? this.shape.getAABB(this.pos) : null;
                 this.onGround = false;
                 this.groundNormal = new Vec2(0, -1);
                 this.groundAngle = 0;
                 this.oldOnGround = false;
-                this.posArray = new Float32Array(8);
                 this.lineArray = new Float32Array(16);
                 this.velArray = new Float32Array(4);
-                this.positionBuffer = gl.createBuffer();
-                this.dirty = true;
-                this.bufferReady = false;
+            }
+            getTransformedPoints() {
+                return this.shape.getTransformed(this.pos);
             }
             update(dt, world) {
                 if (this.static) return;
@@ -362,28 +347,18 @@
                     this.vel.x = input_speed;
                     this.onGround = false;
                 }
-                this.dirty = true;
-            }
-            updatePosArray() {
-                const pts = this.shape.points;
-                const px = this.pos.x, py = this.pos.y;
-                const pa = this.posArray;
-                pa[0] = pts[0].x + px; pa[1] = pts[0].y + py;
-                pa[2] = pts[1].x + px; pa[3] = pts[1].y + py;
-                pa[4] = pts[2].x + px; pa[5] = pts[2].y + py;
-                pa[6] = pts[3].x + px; pa[7] = pts[3].y + py;
             }
             updateLineArray() {
-                const pa = this.posArray;
+                const pts = this.getTransformedPoints();
                 const la = this.lineArray;
-                la[0] = pa[0]; la[1] = pa[1];
-                la[2] = pa[2]; la[3] = pa[3];
-                la[4] = pa[2]; la[5] = pa[3];
-                la[6] = pa[4]; la[7] = pa[5];
-                la[8] = pa[4]; la[9] = pa[5];
-                la[10] = pa[6]; la[11] = pa[7];
-                la[12] = pa[6]; la[13] = pa[7];
-                la[14] = pa[0]; la[15] = pa[1];
+                la[0] = pts[0].x; la[1] = pts[0].y;
+                la[2] = pts[1].x; la[3] = pts[1].y;
+                la[4] = pts[1].x; la[5] = pts[1].y;
+                la[6] = pts[2].x; la[7] = pts[2].y;
+                la[8] = pts[2].x; la[9] = pts[2].y;
+                la[10] = pts[3].x; la[11] = pts[3].y;
+                la[12] = pts[3].x; la[13] = pts[3].y;
+                la[14] = pts[0].x; la[15] = pts[0].y;
             }
             updateVelArray() {
                 const va = this.velArray;
@@ -391,51 +366,44 @@
                 va[0] = this.pos.x; va[1] = this.pos.y;
                 va[2] = this.pos.x + this.vel.x * scale; va[3] = this.pos.y + this.vel.y * scale;
             }
-            draw(gl, debug, projview) {
-                if (this.dirty) {
-                    this.updatePosArray();
-                    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, this.posArray, this.static ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
-                    this.dirty = false;
-                    this.bufferReady = true;
+            drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, redColor, greenColor) {
+                this.updateLineArray();
+                const lineVerts = new Float32Array(64);
+                for (let k = 0; k < 8; k++) {
+                    const idx = k * 2;
+                    lineVerts[k * 8 + 0] = this.lineArray[idx];
+                    lineVerts[k * 8 + 1] = this.lineArray[idx + 1];
+                    lineVerts[k * 8 + 2] = 0;
+                    lineVerts[k * 8 + 3] = 0;
+                    lineVerts[k * 8 + 4] = redColor[0];
+                    lineVerts[k * 8 + 5] = redColor[1];
+                    lineVerts[k * 8 + 6] = redColor[2];
+                    lineVerts[k * 8 + 7] = redColor[3];
                 }
-                gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-                gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
-                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
-                const textureObj = textures[this.textureIndex];
-                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj && textureObj.video && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)) && this.width && this.height;
-                gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
-                if (useTex) {
-                    gl.activeTexture(gl.TEXTURE0);
-                    gl.bindTexture(gl.TEXTURE_2D, glTextures[this.textureIndex]);
-                } else {
-                    gl.uniform4fv(colorLoc, hexToRgb(this.color));
-                }
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-                gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in Entity draw');
-                if (debug) {
-                    this.updateLineArray();
-                    gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, this.lineArray, gl.DYNAMIC_DRAW);
-                    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-                    gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
-                    gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
-                    gl.uniform1i(useTextureLoc, 0);
-                    gl.uniform4fv(colorLoc, redColor);
-                    gl.drawArrays(gl.LINES, 0, 8);
-                    if (this.vel.len() > 0) {
-                        this.updateVelArray();
-                        gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
-                        gl.bufferData(gl.ARRAY_BUFFER, this.velArray, gl.DYNAMIC_DRAW);
-                        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-                        gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
-                        gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
-                        gl.uniform1i(useTextureLoc, 0);
-                        gl.uniform4fv(colorLoc, greenColor);
-                        gl.drawArrays(gl.LINES, 0, 2);
+                gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, lineVerts, gl.DYNAMIC_DRAW);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
+                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
+                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
+                gl.uniform1i(useTextureLoc, 0);
+                gl.drawArrays(gl.LINES, 0, 8);
+                if (this.vel.len() > 0) {
+                    this.updateVelArray();
+                    const velVerts = new Float32Array(16);
+                    for (let k = 0; k < 2; k++) {
+                        const idx = k * 2;
+                        velVerts[k * 8 + 0] = this.velArray[idx];
+                        velVerts[k * 8 + 1] = this.velArray[idx + 1];
+                        velVerts[k * 8 + 2] = 0;
+                        velVerts[k * 8 + 3] = 0;
+                        velVerts[k * 8 + 4] = greenColor[0];
+                        velVerts[k * 8 + 5] = greenColor[1];
+                        velVerts[k * 8 + 6] = greenColor[2];
+                        velVerts[k * 8 + 7] = greenColor[3];
                     }
+                    gl.bufferData(gl.ARRAY_BUFFER, velVerts, gl.DYNAMIC_DRAW);
+                    gl.uniform1i(useTextureLoc, 0);
+                    gl.drawArrays(gl.LINES, 0, 2);
                 }
             }
         }
@@ -454,19 +422,16 @@
                 this.spatialHash = new Map();
                 this.player = null;
                 this.allEntities = [];
+                this.batchPositionBuffer = gl.createBuffer();
+                this.batchIndexBuffer = gl.createBuffer();
             }
             loadMap(data) {
                 for (const entData of data.entities) {
                     if (entData.type === "decor") {
                         const d = new Decor(
                             entData.x || 0, entData.y || 0, entData.w || 100, entData.h || 100,
-                            entData.angle || 0, entData.z || 0, entData.textureIndex, this.gl
+                            entData.angle || 0, entData.z || 0, entData.textureIndex
                         );
-                        d.updatePosArray();
-                        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, d.positionBuffer);
-                        this.gl.bufferData(this.gl.ARRAY_BUFFER, d.posArray, this.gl.STATIC_DRAW);
-                        d.dirty = false;
-                        d.bufferReady = true;
                         this.decors.push(d);
                         this.allEntities.push(d);
                     } else {
@@ -477,7 +442,7 @@
                             shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
                         }
                         if (shape) {
-                            const e = new Entity(entData.x || 0, entData.y || 0, shape, this.gl);
+                            const e = new Entity(entData.x || 0, entData.y || 0, shape);
                             e.color = entData.color || "#4af";
                             e.static = entData.static !== false;
                             e.z = entData.z || 0;
@@ -487,11 +452,6 @@
                                 e.height = entData.h || 20;
                                 e.angle = (entData.angle || 0) * Math.PI / 180;
                             }
-                            e.updatePosArray();
-                            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, e.positionBuffer);
-                            this.gl.bufferData(this.gl.ARRAY_BUFFER, e.posArray, e.static ? this.gl.STATIC_DRAW : this.gl.DYNAMIC_DRAW);
-                            e.dirty = e.static ? false : true;
-                            e.bufferReady = true;
                             if (e.static) e.aabb = e.shape.getAABB(e.pos);
                             this.add(e);
                             this.allEntities.push(e);
@@ -503,15 +463,10 @@
                         new Vec2(-20, -20), new Vec2(20, -20),
                         new Vec2(20, 20), new Vec2(-20, 20)
                     ]);
-                    this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape, this.gl);
+                    this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape);
                     this.player.z = data.player.z || 5;
                     this.player.width = 40;
                     this.player.height = 40;
-                    this.player.updatePosArray();
-                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.player.positionBuffer);
-                    this.gl.bufferData(this.gl.ARRAY_BUFFER, this.player.posArray, this.gl.DYNAMIC_DRAW);
-                    this.player.dirty = true;
-                    this.player.bufferReady = true;
                     this.add(this.player);
                     this.allEntities.push(this.player);
                 }
@@ -585,7 +540,7 @@
                 for (const e of this.dynamics) e.update(dt, this);
                 this.updateZSort();
             }
-            draw(debug, camX, camY, frameCount) {
+            draw(debug, camX, camY, frameCount, textures) {
                 const gl = this.gl;
                 const { width, height } = gl.canvas;
                 getProjViewMatrix(width, height, camX, camY, projviewMatrix);
@@ -613,10 +568,92 @@
                     }
                 }
 
+                let vertData = [];
+                let indexData = [];
+                let vertOffset = 0;
+                let currentBatch = {indexStart: 0, numElements: 0, texIndex: -1};
+                let batches = [];
+                const fixedTex = [0, 0, 1, 0, 1, 1, 0, 1];
                 for (const e of visible) {
-                    e.draw(gl, debug, projviewMatrix);
+                    let thisTex = e.textureIndex ?? -1;
+                    let effectiveTex = -1;
+                    if (thisTex >= 0) {
+                        const texObj = textures[thisTex];
+                        let texReady = isTextureReady(texObj);
+                        let hasDims = !(e.width === null || e.height === null || e.width === undefined || e.height === undefined);
+                        if (texReady && (e instanceof Decor || hasDims)) {
+                            effectiveTex = thisTex;
+                        }
+                    }
+                    let useTex = effectiveTex >= 0;
+                    let col;
+                    if (useTex) {
+                        col = new Float32Array([1, 1, 1, 1]);
+                    } else {
+                        col = hexToRgb(e.color || "#4af");
+                    }
+                    let points;
+                    if (e.shape) {
+                        points = e.shape.getTransformed(e.pos);
+                    } else {
+                        points = e.localPoints.map(p => p.add(e.pos));
+                    }
+                    const baseVert = vertOffset;
+                    for (let j = 0; j < 4; j++) {
+                        const p = points[j];
+                        const tx = fixedTex[j * 2], ty = fixedTex[j * 2 + 1];
+                        vertData.push(p.x, p.y, tx, ty, col[0], col[1], col[2], col[3]);
+                    }
+                    vertOffset += 4;
+                    if (currentBatch.numElements > 0 && effectiveTex !== currentBatch.texIndex) {
+                        batches.push({
+                            indexStart: currentBatch.indexStart,
+                            numElements: currentBatch.numElements,
+                            texIndex: currentBatch.texIndex
+                        });
+                        currentBatch = {indexStart: indexData.length, numElements: 0, texIndex: effectiveTex};
+                    } else if (currentBatch.numElements === 0) {
+                        currentBatch = {indexStart: indexData.length, numElements: 0, texIndex: effectiveTex};
+                    }
+                    currentBatch.numElements += 6;
+                    indexData.push(baseVert + 0, baseVert + 1, baseVert + 2, baseVert + 0, baseVert + 2, baseVert + 3);
+                }
+                if (currentBatch.numElements > 0) {
+                    batches.push({
+                        indexStart: currentBatch.indexStart,
+                        numElements: currentBatch.numElements,
+                        texIndex: currentBatch.texIndex
+                    });
+                }
+                const allVertData = new Float32Array(vertData);
+                const allIndexData = new Uint16Array(indexData);
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, allVertData, gl.DYNAMIC_DRAW);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, allIndexData, gl.DYNAMIC_DRAW);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
+                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
+                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
+                for (const b of batches) {
+                    if (b.texIndex >= 0) {
+                        gl.activeTexture(gl.TEXTURE0);
+                        gl.bindTexture(gl.TEXTURE_2D, glTextures[b.texIndex]);
+                        gl.uniform1i(useTextureLoc, 1);
+                    } else {
+                        gl.uniform1i(useTextureLoc, 0);
+                    }
+                    gl.drawElements(gl.TRIANGLES, b.numElements, gl.UNSIGNED_SHORT, b.indexStart * 2);
                 }
                 if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in World draw');
+                if (debug) {
+                    for (const e of visible) {
+                        if (e instanceof Decor) {
+                            e.drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, cyanColor);
+                        } else {
+                            e.drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, redColor, greenColor);
+                        }
+                    }
+                }
             }
         }
 
@@ -644,26 +681,18 @@
         gl.useProgram(program);
         const positionLoc = gl.getAttribLocation(program, "a_position");
         const texcoordLoc = gl.getAttribLocation(program, "a_texcoord");
+        const colorLoc = gl.getAttribLocation(program, "a_color");
         const matrixLoc = gl.getUniformLocation(program, "u_matrix");
         const textureLoc = gl.getUniformLocation(program, "u_texture");
-        const colorLoc = gl.getUniformLocation(program, "u_color");
         const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
         gl.enableVertexAttribArray(positionLoc);
         gl.enableVertexAttribArray(texcoordLoc);
+        gl.enableVertexAttribArray(colorLoc);
         gl.uniform1i(textureLoc, 0);
-        const indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-        const fixedTexcoords = new Float32Array([0,0, 1,0, 1,1, 0,1]);
-        const fixedTexcoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, fixedTexcoords, gl.STATIC_DRAW);
         const debugPositionBuffer = gl.createBuffer();
-        const lineTexcoords = new Float32Array(16);
         const lineTexcoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, lineTexcoords, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(16), gl.STATIC_DRAW);
         const cyanColor = new Float32Array([0, 1, 1, 1]);
         const redColor = hexToRgb("#f00");
         const greenColor = new Float32Array([0, 1, 0, 1]);
@@ -770,7 +799,7 @@
             camX += (targetCamX - camX) * cameraSmoothing;
             camY += (targetCamY - camY) * cameraSmoothing;
 
-            world.draw(true, camX, camY, frameCount);
+            world.draw(true, camX, camY, frameCount, textures);
             if (currentTime - lastDebugTime >= 100) {
                 const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
                 debugDiv.textContent = `Player Debug\npos: (${world.player.pos.x.toFixed(2)}, ${world.player.pos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
