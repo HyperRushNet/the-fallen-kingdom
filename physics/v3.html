@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Engine - Debug Overlay with Decor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { overflow: hidden; background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
+        canvas { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); display: block; width: 100vw; height: 100vh; }
+        #debug {
+            position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.85);
+            padding: 12px; border: 1px solid #00ff41; border-radius: 8px;
+            width: 260px; font-size: 11px; line-height: 1.3;
+            box-shadow: 0 4px 15px rgba(0, 255, 65, 0.1); backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game"></canvas>
+    <div id="debug"></div>
+    <script>
+        const mapData = {
+            textures: [
+                "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm"
+            ],
+            player: { x: 150, y: 100, z: 5 },
+            entities: [
+                { type: "rect", x: 450, y: 580, w: 900, h: 40, angle: 0, color: "#555", static: true, z: 0, textureIndex: 0 },
+                { type: "rect", x: 500, y: 500, w: 250, h: 40, angle: -30, color: "#666", static: true, z: 0, textureIndex: 0 },
+                { type: "rect", x: 400, y: 300, w: 200, h: 40, angle: 0, color: "#800", static: true, z: 10, textureIndex: 0 },
+                { type: "decor", x: 300, y: 200, w: 100, h: 100, angle: 0, z: 2, textureIndex: 0 },
+                { type: "decor", x: 600, y: 250, w: 100, h: 100, angle: 45, z: 8, textureIndex: 0 }
+            ]
+        };
+
+        class Vec2 {
+            constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+            add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+            scale(s) { return new Vec2(this.x * s, this.y * s); }
+            dot(v) { return this.x * v.x + this.y * v.y; }
+            perp() { return new Vec2(-this.y, this.x); }
+            len() { return Math.hypot(this.x, this.y); }
+            norm() { const l = this.len(); return l ? this.scale(1 / l) : new Vec2(); }
+            clone() { return new Vec2(this.x, this.y); }
+        }
+
+        function aabbOverlap(a, b) {
+            return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
+        }
+
+        class Polygon {
+            constructor(points) {
+                this.points = points.map(p => new Vec2(p.x, p.y));
+                this.axes = this.getAxes();
+            }
+            getAxes() {
+                const axes = [];
+                for (let i = 0; i < this.points.length; i++) {
+                    const edge = this.points[(i + 1) % this.points.length].sub(this.points[i]);
+                    const axis = edge.perp().norm();
+                    if (axis.len() > 0) axes.push(axis);
+                }
+                return axes;
+            }
+            getAABB(pos) {
+                const pts = this.getTransformed(pos);
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of pts) {
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                }
+                return { minX, minY, maxX, maxY };
+            }
+            getTransformed(pos) {
+                return this.points.map(p => p.add(pos));
+            }
+            project(axis, pos) {
+                const pts = this.getTransformed(pos);
+                let min = Infinity, max = -Infinity;
+                for (const p of pts) {
+                    const proj = p.dot(axis);
+                    min = Math.min(min, proj);
+                    max = Math.max(max, proj);
+                }
+                return { min, max };
+            }
+            static overlap(A, posA, B, posB) {
+                const axes = [...A.axes, ...B.axes];
+                let overlap = Infinity, smallestAxis = null;
+                for (const axis of axes) {
+                    if (axis.len() < 1e-6) continue;
+                    const projA = A.project(axis, posA);
+                    const projB = B.project(axis, posB);
+                    const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+                    if (o < 1e-6) return null; // Slightly larger epsilon for stability
+                    if (o < overlap) { overlap = o; smallestAxis = axis; }
+                }
+                if (!smallestAxis) return null;
+                const d = posA.sub(posB);
+                if (d.dot(smallestAxis) < 0) smallestAxis = smallestAxis.scale(-1);
+                return { axis: smallestAxis, overlap };
+            }
+        }
+
+        function hexToRgb(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return new Float32Array([r, g, b, 1]);
+        }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.log(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vsource, fsource) {
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsource);
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.log(gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+
+        const projviewMatrix = new Float32Array(9);
+
+        function getProjViewMatrix(width, height, camX, camY, matrix) {
+            matrix[0] = 2 / width;
+            matrix[1] = 0;
+            matrix[2] = 0;
+            matrix[3] = 0;
+            matrix[4] = -2 / height;
+            matrix[5] = 0;
+            matrix[6] = -1 - 2 * camX / width;
+            matrix[7] = 1 + 2 * camY / height;
+            matrix[8] = 1;
+            return matrix;
+        }
+
+        const vsSource = `
+            attribute vec2 a_position;
+            attribute vec2 a_texcoord;
+            uniform mat3 u_matrix;
+            varying vec2 v_texcoord;
+            void main() {
+                gl_Position = vec4((u_matrix * vec3(a_position, 1.0)).xy, 0.0, 1.0);
+                v_texcoord = a_texcoord;
+            }
+        `;
+
+        const fsSource = `
+            precision mediump float;
+            varying vec2 v_texcoord;
+            uniform sampler2D u_texture;
+            uniform vec4 u_color;
+            uniform bool u_useTexture;
+            void main() {
+                if (u_useTexture) {
+                    gl_FragColor = texture2D(u_texture, v_texcoord);
+                } else {
+                    gl_FragColor = u_color;
+                }
+            }
+        `;
+
+        class Decor {
+            constructor(x, y, w, h, angleDeg, z, textureIndex, gl) {
+                this.pos = new Vec2(x, y);
+                this.width = w;
+                this.height = h;
+                this.angle = angleDeg * Math.PI / 180;
+                this.z = z || 0;
+                this.textureIndex = textureIndex;
+                this.gl = gl;
+                const hw = w / 2, hh = h / 2;
+                const cos = Math.cos(this.angle), sin = Math.sin(this.angle);
+                this.localPoints = [
+                    new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos),
+                    new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                    new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
+                    new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos)
+                ];
+                const corners = this.localPoints.map(p => p.add(this.pos));
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of corners) {
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                }
+                this.aabb = { minX, minY, maxX, maxY };
+                this.posArray = new Float32Array(8);
+                this.lineArray = new Float32Array(16);
+                this.positionBuffer = gl.createBuffer();
+                this.dirty = true;
+                this.bufferReady = false;
+            }
+            updatePosArray() {
+                const lp = this.localPoints;
+                const px = this.pos.x, py = this.pos.y;
+                const pa = this.posArray;
+                pa[0] = lp[0].x + px; pa[1] = lp[0].y + py;
+                pa[2] = lp[1].x + px; pa[3] = lp[1].y + py;
+                pa[4] = lp[2].x + px; pa[5] = lp[2].y + py;
+                pa[6] = lp[3].x + px; pa[7] = lp[3].y + py;
+            }
+            updateLineArray() {
+                const pa = this.posArray;
+                const la = this.lineArray;
+                la[0] = pa[0]; la[1] = pa[1];
+                la[2] = pa[2]; la[3] = pa[3];
+                la[4] = pa[2]; la[5] = pa[3];
+                la[6] = pa[4]; la[7] = pa[5];
+                la[8] = pa[4]; la[9] = pa[5];
+                la[10] = pa[6]; la[11] = pa[7];
+                la[12] = pa[6]; la[13] = pa[7];
+                la[14] = pa[0]; la[15] = pa[1];
+            }
+            draw(gl, debug, projview) {
+                if (this.dirty) {
+                    this.updatePosArray();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, this.posArray, gl.STATIC_DRAW);
+                    this.dirty = false;
+                    this.bufferReady = true;
+                }
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
+                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+                const textureObj = textures[this.textureIndex];
+                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj.canvas && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA));
+                gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
+                if (useTex) {
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, glTextures[this.textureIndex]);
+                } else {
+                    const col = cyanColor;
+                    gl.uniform4fv(colorLoc, col);
+                }
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                if (debug) {
+                    this.updateLineArray();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, this.lineArray, gl.DYNAMIC_DRAW);
+                    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
+                    gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+                    gl.uniform1i(useTextureLoc, 0);
+                    gl.uniform4fv(colorLoc, cyanColor);
+                    gl.drawArrays(gl.LINES, 0, 8);
+                }
+            }
+        }
+
+        class Entity {
+            constructor(x, y, shape, gl) {
+                this.pos = new Vec2(x, y);
+                this.vel = new Vec2(0, 0);
+                this.shape = shape;
+                this.color = "#4af";
+                this.static = false;
+                this.z = 0;
+                this.width = null;
+                this.height = null;
+                this.angle = 0;
+                this.textureIndex = null;
+                this.gl = gl;
+                this.aabb = this.static ? this.shape.getAABB(this.pos) : null;
+                this.onGround = false;
+                this.groundNormal = new Vec2(0, -1);
+                this.groundAngle = 0;
+                this.posArray = new Float32Array(8);
+                this.lineArray = new Float32Array(16);
+                this.velArray = new Float32Array(4);
+                this.positionBuffer = gl.createBuffer();
+                this.dirty = true;
+                this.bufferReady = false;
+            }
+            update(dt, world) {
+                if (this.static) return;
+                const oldOnGround = this.onGround;
+                this.onGround = false;
+                const input_speed = world.keys["ArrowLeft"] ? -world.playerSpeed : world.keys["ArrowRight"] ? world.playerSpeed : 0;
+                const g_vec = new Vec2(0, world.gravity * dt);
+                const up = new Vec2(0, -1);
+                if (oldOnGround) {
+                    const tangent = this.groundNormal.perp().norm();
+                    this.vel = tangent.scale(input_speed).add(this.groundNormal.scale(this.vel.dot(this.groundNormal)));
+                } else {
+                    this.vel.x = input_speed;
+                }
+                // Semi-implicit Euler: update vel first
+                this.vel = this.vel.add(g_vec);
+                // Cap velocity for stability
+                const maxVel = 1000;
+                if (this.vel.len() > maxVel) {
+                    this.vel = this.vel.norm().scale(maxVel);
+                }
+                const disp = this.vel.scale(dt);
+                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen)); // Smaller steps for less tunneling
+                const subDisp = disp.scale(1 / numSteps);
+                let currentPos = this.pos.clone();
+                const beta = 0.8; // Partial correction for less jitter
+                for (let step = 0; step < numSteps; step++) {
+                    let testPos = currentPos.add(subDisp);
+                    for (let i = 0; i < 10; i++) { // More iterations for better resolution
+                        let hasCollision = false;
+                        const testAABB = this.shape.getAABB(testPos);
+                        for (const other of world.getNearby(testPos)) {
+                            if (!other.shape || other === this || other instanceof Decor) continue;
+                            const otherAABB = other.aabb || other.shape.getAABB(other.pos);
+                            if (!aabbOverlap(testAABB, otherAABB)) continue;
+                            const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
+                            if (res) {
+                                hasCollision = true;
+                                let axis = res.axis;
+                                const d = testPos.sub(other.pos);
+                                const dir = d.len() > 1e-6 ? d.norm() : up.clone();
+                                if (dir.dot(axis) < 0) axis = axis.scale(-1);
+                                // Partial positional correction
+                                testPos = testPos.add(axis.scale(beta * res.overlap));
+                                const vn = this.vel.dot(axis);
+                                if (vn < 0) this.vel = this.vel.sub(axis.scale(vn));
+                                if (axis.dot(up) > 0.01) {
+                                    this.onGround = true;
+                                    this.groundNormal = axis;
+                                }
+                            }
+                        }
+                        if (!hasCollision) break;
+                    }
+                    currentPos = testPos;
+                }
+                this.pos = currentPos;
+                if (this.onGround) {
+                    const tangent = this.groundNormal.perp().norm();
+                    this.vel = tangent.scale(input_speed);
+                    // Project out any remaining downward velocity for stability
+                    const proj = this.vel.dot(up);
+                    if (proj > 0) { // If pushing into ground
+                        this.vel = this.vel.sub(up.scale(proj));
+                    }
+                    this.pos = this.pos.sub(tangent.scale(g_vec.dot(tangent) * dt));
+                    this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot(up)))) * 180 / Math.PI;
+                }
+                if (world.keys["Space"] && oldOnGround) {
+                    this.vel.y = -world.jumpHeight;
+                    this.vel.x = input_speed;
+                    this.onGround = false;
+                }
+                this.dirty = true;
+            }
+            updatePosArray() {
+                const pts = this.shape.points;
+                const px = this.pos.x, py = this.pos.y;
+                const pa = this.posArray;
+                pa[0] = pts[0].x + px; pa[1] = pts[0].y + py;
+                pa[2] = pts[1].x + px; pa[3] = pts[1].y + py;
+                pa[4] = pts[2].x + px; pa[5] = pts[2].y + py;
+                pa[6] = pts[3].x + px; pa[7] = pts[3].y + py;
+            }
+            updateLineArray() {
+                const pa = this.posArray;
+                const la = this.lineArray;
+                la[0] = pa[0]; la[1] = pa[1];
+                la[2] = pa[2]; la[3] = pa[3];
+                la[4] = pa[2]; la[5] = pa[3];
+                la[6] = pa[4]; la[7] = pa[5];
+                la[8] = pa[4]; la[9] = pa[5];
+                la[10] = pa[6]; la[11] = pa[7];
+                la[12] = pa[6]; la[13] = pa[7];
+                la[14] = pa[0]; la[15] = pa[1];
+            }
+            updateVelArray() {
+                const va = this.velArray;
+                const scale = 0.1;
+                va[0] = this.pos.x; va[1] = this.pos.y;
+                va[2] = this.pos.x + this.vel.x * scale; va[3] = this.pos.y + this.vel.y * scale;
+            }
+            draw(gl, debug, projview) {
+                if (this.dirty) {
+                    this.updatePosArray();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, this.posArray, this.static ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
+                    this.dirty = false;
+                    this.bufferReady = true;
+                }
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+                gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
+                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+                const textureObj = textures[this.textureIndex];
+                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj.canvas && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)) && this.width && this.height;
+                gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
+                if (useTex) {
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, glTextures[this.textureIndex]);
+                } else {
+                    gl.uniform4fv(colorLoc, hexToRgb(this.color));
+                }
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                if (debug) {
+                    this.updateLineArray();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, this.lineArray, gl.DYNAMIC_DRAW);
+                    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
+                    gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+                    gl.uniform1i(useTextureLoc, 0);
+                    gl.uniform4fv(colorLoc, redColor);
+                    gl.drawArrays(gl.LINES, 0, 8);
+                    if (this.vel.len() > 0) {
+                        this.updateVelArray();
+                        gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
+                        gl.bufferData(gl.ARRAY_BUFFER, this.velArray, gl.DYNAMIC_DRAW);
+                        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
+                        gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
+                        gl.uniform1i(useTextureLoc, 0);
+                        gl.uniform4fv(colorLoc, greenColor);
+                        gl.drawArrays(gl.LINES, 0, 2);
+                    }
+                }
+            }
+        }
+
+        class World {
+            constructor(gl) {
+                this.gl = gl;
+                this.statics = [];
+                this.dynamics = [];
+                this.decors = [];
+                this.gravity = 900;
+                this.playerSpeed = 200;
+                this.jumpHeight = 600;
+                this.keys = {};
+                this.cellSize = 200;
+                this.spatialHash = new Map();
+                this.player = null;
+                this.sortedEntities = [];
+            }
+            loadMap(data) {
+                for (const entData of data.entities) {
+                    if (entData.type === "decor") {
+                        const d = new Decor(
+                            entData.x || 0, entData.y || 0, entData.w || 100, entData.h || 100,
+                            entData.angle || 0, entData.z || 0, entData.textureIndex, this.gl
+                        );
+                        d.updatePosArray();
+                        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, d.positionBuffer);
+                        this.gl.bufferData(this.gl.ARRAY_BUFFER, d.posArray, this.gl.STATIC_DRAW);
+                        d.dirty = false;
+                        d.bufferReady = true;
+                        this.decors.push(d);
+                    } else {
+                        let shape;
+                        if (entData.type === "rect") {
+                            shape = RotatedRect(entData.w || 100, entData.h || 20, entData.angle || 0);
+                        } else if (entData.type === "polygon") {
+                            shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
+                        }
+                        if (shape) {
+                            const e = new Entity(entData.x || 0, entData.y || 0, shape, this.gl);
+                            e.color = entData.color || "#4af";
+                            e.static = entData.static !== false;
+                            e.z = entData.z || 0;
+                            e.textureIndex = entData.textureIndex;
+                            if (entData.type === "rect") {
+                                e.width = entData.w || 100;
+                                e.height = entData.h || 20;
+                                e.angle = (entData.angle || 0) * Math.PI / 180;
+                            }
+                            e.updatePosArray();
+                            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, e.positionBuffer);
+                            this.gl.bufferData(this.gl.ARRAY_BUFFER, e.posArray, e.static ? this.gl.STATIC_DRAW : this.gl.DYNAMIC_DRAW);
+                            e.dirty = e.static ? false : true;
+                            e.bufferReady = true;
+                            if (e.static) e.aabb = e.shape.getAABB(e.pos);
+                            this.add(e);
+                        }
+                    }
+                }
+                if (data.player) {
+                    const playerShape = new Polygon([
+                        new Vec2(-20, -20), new Vec2(20, -20),
+                        new Vec2(20, 20), new Vec2(-20, 20)
+                    ]);
+                    this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape, this.gl);
+                    this.player.z = data.player.z || 5;
+                    this.player.width = 40;
+                    this.player.height = 40;
+                    this.player.updatePosArray();
+                    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.player.positionBuffer);
+                    this.gl.bufferData(this.gl.ARRAY_BUFFER, this.player.posArray, this.gl.DYNAMIC_DRAW);
+                    this.player.dirty = true;
+                    this.player.bufferReady = true;
+                    this.add(this.player);
+                }
+                this.sortedEntities = [...this.statics, ...this.decors, ...this.dynamics].sort((a, b) => a.z - b.z);
+            }
+            add(e) {
+                if (e instanceof Decor) this.decors.push(e);
+                else if (e.static) this.statics.push(e);
+                else this.dynamics.push(e);
+            }
+            getHash(pos) {
+                return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
+            }
+            rebuildSpatialHash() {
+                this.spatialHash.clear();
+                for (const e of this.statics) {
+                    if (!e.shape) continue;
+                    const aabb = e.aabb || e.shape.getAABB(e.pos);
+                    const minX = Math.floor((aabb.minX - 50) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + 50) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - 50) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + 50) / this.cellSize);
+                    for (let x = minX; x <= maxX; x++) {
+                        for (let y = minY; y <= maxY; y++) {
+                            const h = `${x},${y}`;
+                            if (!this.spatialHash.has(h)) this.spatialHash.set(h, []);
+                            this.spatialHash.get(h).push(e);
+                        }
+                    }
+                }
+                for (const e of this.decors) {
+                    const aabb = e.aabb;
+                    const minX = Math.floor((aabb.minX - 100) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + 100) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - 100) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + 100) / this.cellSize);
+                    for (let x = minX; x <= maxX; x++) {
+                        for (let y = minY; y <= maxY; y++) {
+                            const h = `${x},${y}`;
+                            if (!this.spatialHash.has(h)) this.spatialHash.set(h, []);
+                            this.spatialHash.get(h).push(e);
+                        }
+                    }
+                }
+            }
+            getNearby(pos) {
+                const nearby = new Set(this.dynamics);
+                const cx = Math.floor(pos.x / this.cellSize), cy = Math.floor(pos.y / this.cellSize);
+                for (let dx = -2; dx <= 2; dx++) {
+                    for (let dy = -2; dy <= 2; dy++) {
+                        const h = `${cx + dx},${cy + dy}`;
+                        if (this.spatialHash.has(h)) {
+                            this.spatialHash.get(h).forEach(e => {
+                                if (!(e instanceof Decor)) nearby.add(e);
+                            });
+                        }
+                    }
+                }
+                return Array.from(nearby);
+            }
+            getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
+                return this.sortedEntities.filter(e => {
+                    const aabb = e.aabb || (e.shape ? e.shape.getAABB(e.pos) : null);
+                    return aabb && !(aabb.maxX < viewMinX || aabb.minX > viewMaxX || aabb.maxY < viewMinY || aabb.minY > viewMaxY);
+                });
+            }
+            update(dt) {
+                for (const e of this.dynamics) e.update(dt, this);
+            }
+            draw(debug, camX, camY, frameCount) {
+                const gl = this.gl;
+                const { width, height } = gl.canvas;
+                getProjViewMatrix(width, height, camX, camY, projviewMatrix);
+                gl.uniformMatrix3fv(matrixLoc, false, projviewMatrix);
+                const viewMinX = camX - 100, viewMaxX = camX + width + 100;
+                const viewMinY = camY - 100, viewMaxY = camY + height + 100;
+                const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // Update video textures via scaled canvas for performance (throttled)
+                const videoUpdateInterval = 3;
+                if (frameCount % videoUpdateInterval === 0) {
+                    for (let i = 0; i < textures.length; i++) {
+                        const textureObj = textures[i];
+                        if (textureObj && textureObj.video && textureObj.canvas && textureObj.video.readyState >= 2 && !textureObj.video.paused && !textureObj.video.ended) {
+                            textureObj.ctx.drawImage(textureObj.video, 0, 0, textureObj.canvas.width, textureObj.canvas.height);
+                            gl.activeTexture(gl.TEXTURE0);
+                            gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
+                            try {
+                                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureObj.canvas);
+                            } catch (e) {
+                                console.warn('Failed to update video texture ' + i + ':', e);
+                            }
+                        }
+                    }
+                }
+
+                for (const e of visible) {
+                    e.draw(gl, debug, projviewMatrix);
+                }
+            }
+        }
+
+        function RotatedRect(w, h, angleDeg) {
+            const angle = angleDeg * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
+            const hw = w / 2, hh = h / 2;
+            return new Polygon([
+                new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos),
+                new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
+                new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos)
+            ]);
+        }
+
+        const canvas = document.getElementById("game");
+        const gl = canvas.getContext("webgl", { alpha: true });
+        if (!gl) {
+            alert("WebGL not supported");
+        }
+        const debugDiv = document.getElementById("debug");
+        const program = createProgram(gl, vsSource, fsSource);
+        if (!program) {
+            alert("Shader program failed");
+        }
+        gl.useProgram(program);
+        const positionLoc = gl.getAttribLocation(program, "a_position");
+        const texcoordLoc = gl.getAttribLocation(program, "a_texcoord");
+        const matrixLoc = gl.getUniformLocation(program, "u_matrix");
+        const textureLoc = gl.getUniformLocation(program, "u_texture");
+        const colorLoc = gl.getUniformLocation(program, "u_color");
+        const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
+        gl.enableVertexAttribArray(positionLoc);
+        gl.enableVertexAttribArray(texcoordLoc);
+        gl.uniform1i(textureLoc, 0);
+        const indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        const fixedTexcoords = new Float32Array([0,0, 1,0, 1,1, 0,1]);
+        const fixedTexcoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, fixedTexcoords, gl.STATIC_DRAW);
+        const debugPositionBuffer = gl.createBuffer();
+        const lineTexcoords = new Float32Array(16);
+        const lineTexcoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, lineTexcoords, gl.STATIC_DRAW);
+        const cyanColor = new Float32Array([0, 1, 1, 1]);
+        const redColor = hexToRgb("#f00");
+        const greenColor = new Float32Array([0, 1, 0, 1]);
+        const world = new World(gl);
+        const textures = [];
+        const glTextures = [];
+        mapData.textures.forEach((url, i) => {
+            const tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+            let textureObj;
+            if (url.match(/\.(webm|mp4)$/i)) {
+                const video = document.createElement('video');
+                video.crossOrigin = 'anonymous';
+                video.src = url;
+                video.loop = true;
+                video.muted = true;
+                video.preload = 'auto';
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                video.addEventListener('loadedmetadata', () => {
+                    // Scale down to max 128 width for performance
+                    const scale = Math.min(1, 128 / video.videoWidth);
+                    canvas.width = video.videoWidth * scale;
+                    canvas.height = video.videoHeight * scale;
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                });
+                video.addEventListener('loadeddata', () => {
+                    gl.bindTexture(gl.TEXTURE_2D, tex);
+                    try {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+                    } catch (e) {
+                        console.warn('Initial video texture upload failed:', e);
+                    }
+                });
+                video.addEventListener('error', () => console.error('Video load error'));
+                textureObj = { video, canvas, ctx };
+            } else {
+                textureObj = new Image();
+                textureObj.crossOrigin = "anonymous";
+                textureObj.src = url;
+                textureObj.onload = () => {
+                    gl.bindTexture(gl.TEXTURE_2D, tex);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureObj);
+                };
+                textureObj.onerror = () => console.error('Image load error');
+            }
+            textures.push(textureObj);
+            glTextures.push(tex);
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        window.addEventListener("keydown", e => {
+            world.keys[e.code] = true;
+            if (e.code === "Space") e.preventDefault();
+        });
+        window.addEventListener("keyup", e => world.keys[e.code] = false);
+
+        world.loadMap(mapData);
+        world.rebuildSpatialHash();
+
+        let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
+        let lastDebugTime = lastTime;
+        let accumulator = 0;
+        const fixedDT = 1 / 60;
+        const maxAccumulator = fixedDT * 6; // cap at 6 frames
+        let camX = 0;
+        let camY = 0;
+        const cameraSmoothing = 0.1; // Adjust this value for smoother (lower) or snappier (higher) camera movement
+        function loop(currentTime) {
+            frameCount++;
+            if (currentTime - lastFPSTime >= 1000) {
+                fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
+                frameCount = 0;
+                lastFPSTime = currentTime;
+            }
+            const delta = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            accumulator += delta;
+            while (accumulator >= fixedDT) {
+                world.update(fixedDT);
+                accumulator -= fixedDT;
+            }
+            if (accumulator > maxAccumulator) accumulator = 0;
+
+            // Smooth camera movement
+            const targetCamX = world.player.pos.x - canvas.width / 2;
+            const targetCamY = world.player.pos.y - canvas.height / 2;
+            camX += (targetCamX - camX) * cameraSmoothing;
+            camY += (targetCamY - camY) * cameraSmoothing;
+
+            world.draw(true, camX, camY, frameCount);
+            if (currentTime - lastDebugTime >= 100) {
+                const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
+                debugDiv.textContent = `Player Debug\npos: (${world.player.pos.x.toFixed(2)}, ${world.player.pos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
+                lastDebugTime = currentTime;
+            }
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
