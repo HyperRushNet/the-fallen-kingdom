@@ -36,7 +36,7 @@
   <label>Player Speed: <input type="number" id="speed" min="50" max="1000000" value="200" step="10"> <span id="sval">200</span></label>
   <label>Jump Height: <input type="number" id="jump" min="100" max="800" value="400" step="10"> <span id="jval">400</span></label>
   <label>Debug: <input type="checkbox" id="debugToggle" checked> <span id="dtval">true</span></label>
-  <label>Platforms (stacked): <input type="number" id="platforms" min="0" max="100000" value="10000" step="1"> <span id="pval">10000</span></label>
+  <label>Platforms (stacked): <input type="number" id="platforms" min="0" max="100000" value="0" step="1"> <span id="pval">0</span></label>
   <!-- Add more settings here as needed -->
 </div>
 <div id="debug"></div>
@@ -89,7 +89,7 @@ const mapData = {
       "z": 10,
       "textureIndex": 2
     }
-    // Voeg meer entities toe aan de JSON voor extra levels of maps
+    // Voeg meer entities toe aan de JSON voor extra levels or maps
   ]
 };
 
@@ -171,13 +171,14 @@ class Polygon {
       const projA = A.project(axis, posA);
       const projB = B.project(axis, posB);
       const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
-      if (o < 0) return null;
+      if (o < 1e-9) return null; // Tighter epsilon for precision
       if (o < overlap) {
         overlap = o;
         smallestAxis = axis;
       }
     }
     if (smallestAxis === null) return null;
+    // Basic flip for now; full orientation in resolution
     const d = posA.sub(posB);
     if (d.dot(smallestAxis) < 0) {
       smallestAxis = smallestAxis.scale(-1);
@@ -251,17 +252,34 @@ class Entity {
           if (!other.shape || other === this) continue;
           const otherAABB = other.aabb || other.shape.getAABB(other.pos);
           if (!aabbOverlap(testAABB, otherAABB)) continue;
-          const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
+          let res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
           if (res) {
             hasCollision = true;
-            testPos = testPos.add(res.axis.scale(res.overlap));
-            const vn = this.vel.dot(res.axis);
-            if (vn < 0) {
-              this.vel = this.vel.sub(res.axis.scale(vn));
+            // Orient axis properly for resolution
+            let axis = res.axis.clone();
+            const d = testPos.sub(other.pos);
+            const d_len = d.len();
+            let dir;
+            if (d_len > 1e-6) {
+              dir = d.norm();
+            } else {
+              const otherVel = other.vel ? other.vel.clone() : new Vec2(0, 0);
+              const relVel = this.vel.sub(otherVel);
+              dir = relVel.len() > 0 ? relVel.scale(-1).norm() : up.clone();
             }
-            if (res.axis.dot(up) > 0.01) {
+            const proj = dir.dot(axis);
+            if (proj < 0) {
+              axis = axis.scale(-1);
+            }
+            // Now resolve with oriented axis
+            testPos = testPos.add(axis.scale(res.overlap));
+            const vn = this.vel.dot(axis);
+            if (vn < 0) {
+              this.vel = this.vel.sub(axis.scale(vn));
+            }
+            if (axis.dot(up) > 0.01) {
               this.onGround = true;
-              this.groundNormal = res.axis;
+              this.groundNormal = axis.clone();
             }
           }
         }
@@ -356,7 +374,8 @@ class Entity {
 class World {
   constructor(ctx) {
     this.ctx = ctx;
-    this.entities = [];
+    this.statics = [];
+    this.dynamics = [];
     this.testPlatforms = [];
     this.gravity = 900;
     this.playerSpeed = 200;
@@ -367,12 +386,13 @@ class World {
     this.player = null;
   }
   loadMap(data) {
-    this.entities = [];
+    this.statics = [];
+    this.dynamics = [];
+    this.testPlatforms = [];
     for (const entData of data.entities || []) {
       let shape;
       if (entData.type === "rect") {
         shape = RotatedRect(entData.w || 100, entData.h || 20, entData.angle || 0);
-        // For rects, store unrotated dimensions and angle for texturing
       } else if (entData.type === "polygon") {
         shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
       }
@@ -391,7 +411,7 @@ class World {
           e.isTestPlatform = true;
         }
         this.add(e);
-        if (entData.isTestPlatform) {
+        if (e.isTestPlatform) {
           this.testPlatforms.push(e);
         }
       }
@@ -412,6 +432,13 @@ class World {
       this.add(this.player);
     }
   }
+  add(e) {
+    if (e.static) {
+      this.statics.push(e);
+    } else {
+      this.dynamics.push(e);
+    }
+  }
   getHash(pos) {
     const hx = Math.floor(pos.x / this.cellSize);
     const hy = Math.floor(pos.y / this.cellSize);
@@ -420,10 +447,9 @@ class World {
   rebuildSpatialHash() {
     this.spatialHash.clear();
     const posToEntity = new Map();
-    for (const e of this.entities) {
-      if (e.static && e.shape) {
+    for (const e of this.statics) {
+      if (e.shape) {
         if (e.isTestPlatform) {
-          // For test platforms, add only one representative per tolerance group
           const tolerance = 10;
           const gx = Math.floor(e.pos.x / tolerance);
           const gy = Math.floor(e.pos.y / tolerance);
@@ -440,7 +466,6 @@ class World {
             this.spatialHash.get(hash).push(rep);
           }
         } else {
-          // For other statics, add all
           const hash = this.getHash(e.pos);
           if (!this.spatialHash.has(hash)) {
             this.spatialHash.set(hash, []);
@@ -464,7 +489,14 @@ class World {
         }
       }
     }
-    return Array.from(nearby);
+    // Voeg andere dynamics toe als er meerdere zijn (nu alleen player, dus optioneel)
+    this.dynamics.forEach(e => {
+      if (e !== this.player) {  // Skip self (player) voor collision checks
+        nearby.add(e);
+      }
+    });
+    // Sort by y ascending (upper first for resolution priority)
+    return Array.from(nearby).sort((a, b) => a.pos.y - b.pos.y);
   }
   getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
     const visible = new Set();
@@ -480,20 +512,12 @@ class World {
         }
       }
     }
-    // Add non-static entities
-    for (const e of this.entities) {
-      if (!e.static) {
-        visible.add(e);
-      }
-    }
+    this.dynamics.forEach(e => visible.add(e));
     return Array.from(visible);
   }
-  add(e) {
-    this.entities.push(e);
-  }
   update(dt) {
-    for (const e of this.entities) {
-      if (!e.static) e.update(dt, this);
+    for (const e of this.dynamics) {
+      e.update(dt, this);
     }
   }
   draw(debug = false, camX, camY) {
@@ -613,8 +637,8 @@ const pval = document.getElementById("pval");
 platformsInput.addEventListener("input", (e) => {
   const num = parseInt(e.target.value) || 0;
   // Remove existing test platforms
-  world.entities = world.entities.filter(e => !e.isTestPlatform);
   world.testPlatforms = [];
+  world.statics = world.statics.filter(e => !e.isTestPlatform);
   // Add new ones with 1px vertical offsets
   if (num > 0) {
     const testShape = RotatedRect(100, 20, 0);
@@ -661,8 +685,9 @@ function loop(currentTime) {
   // Render
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  const camX = Math.max(0, world.player.pos.x - canvas.width / 2);
-  const camY = Math.max(0, world.player.pos.y - canvas.height / 2);
+  // Camera follows player freely (no clamping)
+  const camX = world.player.pos.x - canvas.width / 2;
+  const camY = world.player.pos.y - canvas.height / 2;
   ctx.translate(-camX, -camY);
   world.draw(showDebug, camX, camY);
   ctx.restore();
