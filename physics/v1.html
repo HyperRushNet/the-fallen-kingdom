@@ -5,30 +5,124 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Game Engine - Debug Overlay</title>
 <style>
-  body { margin: 0; overflow: hidden; background: #111; color: #0f0; font-family: monospace; word-wrap: break-word; overflow-wrap: break-word; }
-  canvas { background: #222; display: block; margin: 0 auto; }
+  * { box-sizing: border-box; }
+  body { 
+    margin: 0; 
+    overflow: hidden; 
+    background: #0a0a0a; 
+    color: #00ff41; 
+    font-family: 'Courier New', monospace; 
+  }
+  canvas { 
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
+    display: block; 
+    width: 100vw; 
+    height: 100vh; 
+  }
   #debug {
-    position: absolute; top: 10px; right: 10px;
-    background: rgba(0,0,0,0.7); padding: 10px;
-    border: 1px solid #0f0; max-width: 300px; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap;
+    position: absolute; 
+    top: 20px; 
+    right: 20px;
+    background: rgba(0, 0, 0, 0.85); 
+    padding: 15px;
+    border: 1px solid #00ff41; 
+    border-radius: 8px;
+    max-width: 280px; 
+    font-size: 12px; 
+    line-height: 1.4;
+    box-shadow: 0 4px 20px rgba(0, 255, 65, 0.1);
+    backdrop-filter: blur(10px);
   }
   #toggle {
-    position: absolute; left: 10px; top: 10px; z-index: 10; background: rgba(0,0,0,0.7); color: #0f0; border: 1px solid #0f0; padding: 5px; font-family: monospace;
+    position: absolute; 
+    left: 20px; 
+    top: 20px; 
+    z-index: 10; 
+    background: linear-gradient(145deg, #1e1e1e, #2a2a2a); 
+    color: #00ff41; 
+    border: 1px solid #00ff41; 
+    border-radius: 6px; 
+    padding: 10px 16px; 
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 255, 65, 0.2);
+  }
+  #toggle:hover {
+    background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
+    box-shadow: 0 4px 15px rgba(0, 255, 65, 0.3);
+    transform: translateY(-1px);
   }
   #sidebar {
-    position: absolute; left: 0; top: 0; width: 250px; height: 100%; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; border-right: 1px solid #0f0; font-family: monospace; font-size: 12px;
-    transform: translateX(-100%); transition: transform 0.3s ease;
-    overflow-y: auto; word-wrap: break-word; overflow-wrap: break-word;
+    position: absolute; 
+    left: 0; 
+    top: 0; 
+    width: 280px; 
+    height: 100vh; 
+    background: rgba(0, 0, 0, 0.92); 
+    color: #00ff41; 
+    padding: 20px; 
+    border-right: 1px solid #00ff41; 
+    font-family: inherit; 
+    font-size: 13px;
+    transform: translateX(-100%); 
+    transition: transform 0.3s ease;
+    overflow-y: auto; 
+    box-shadow: 2px 0 20px rgba(0, 255, 65, 0.1);
+    backdrop-filter: blur(10px);
   }
   #sidebar.open { transform: translateX(0); }
-  #sidebar label { display: block; margin: 10px 0; }
-  #sidebar input[type="number"] { width: 100px; background: #222; color: #0f0; border: 1px solid #0f0; padding: 2px; }
-  #sidebar input[type="checkbox"] { margin-left: 10px; }
-  #sidebar h3 { margin-top: 0; }
+  #sidebar h3 { 
+    margin: 0 0 20px 0; 
+    color: #00ff41; 
+    font-size: 18px;
+    text-align: center;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+  }
+  #sidebar label { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    margin: 15px 0; 
+    padding: 8px;
+    background: rgba(0, 255, 65, 0.05);
+    border-radius: 4px;
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    transition: all 0.2s ease;
+  }
+  #sidebar label:hover {
+    background: rgba(0, 255, 65, 0.1);
+    border-color: #00ff41;
+  }
+  #sidebar input[type="number"] { 
+    width: 80px; 
+    background: #1a1a1a; 
+    color: #00ff41; 
+    border: 1px solid #00ff41; 
+    padding: 4px 6px; 
+    border-radius: 3px;
+    text-align: right;
+    transition: border-color 0.2s ease;
+  }
+  #sidebar input[type="number"]:focus {
+    outline: none;
+    border-color: #00ff41;
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+  }
+  #sidebar input[type="checkbox"] { 
+    margin-left: 10px; 
+    accent-color: #00ff41;
+    transform: scale(1.2);
+  }
+  #sidebar span {
+    font-weight: bold;
+    color: #66ff88;
+  }
 </style>
 </head>
 <body>
-<canvas id="game" width="900" height="600"></canvas>
+<canvas id="game"></canvas>
 <button id="toggle">Toggle Sidebar</button>
 <div id="sidebar">
   <h3>Settings</h3>
@@ -566,6 +660,13 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", { alpha: true });
 const debugDiv = document.getElementById("debug");
 const world = new World(ctx);
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 const textures = [];
 mapData.textures.forEach(url => {
