@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Engine - Debug Overlay with Decor</title>
+    <title>Game Engine - Debug Overlay with Decor (Stable FPS)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { overflow: hidden; background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
@@ -94,7 +94,7 @@
                     const projA = A.project(axis, posA);
                     const projB = B.project(axis, posB);
                     const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
-                    if (o < 1e-6) return null; // Slightly larger epsilon for stability
+                    if (o < 1e-4) return null;
                     if (o < overlap) { overlap = o; smallestAxis = axis; }
                 }
                 if (!smallestAxis) return null;
@@ -116,7 +116,7 @@
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.log(gl.getShaderInfoLog(shader));
+                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
                 gl.deleteShader(shader);
                 return null;
             }
@@ -131,7 +131,7 @@
             gl.attachShader(program, fs);
             gl.linkProgram(program);
             if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.log(gl.getProgramInfoLog(program));
+                console.error('Program link error:', gl.getProgramInfoLog(program));
                 gl.deleteProgram(program);
                 return null;
             }
@@ -243,7 +243,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
                 gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
                 const textureObj = textures[this.textureIndex];
-                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj.canvas && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA));
+                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj && textureObj.video && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA));
                 gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
                 if (useTex) {
                     gl.activeTexture(gl.TEXTURE0);
@@ -254,6 +254,7 @@
                 }
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in Decor draw');
                 if (debug) {
                     this.updateLineArray();
                     gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
@@ -285,6 +286,7 @@
                 this.onGround = false;
                 this.groundNormal = new Vec2(0, -1);
                 this.groundAngle = 0;
+                this.oldOnGround = false;
                 this.posArray = new Float32Array(8);
                 this.lineArray = new Float32Array(16);
                 this.velArray = new Float32Array(4);
@@ -294,32 +296,30 @@
             }
             update(dt, world) {
                 if (this.static) return;
-                const oldOnGround = this.onGround;
+                this.oldOnGround = this.onGround;
                 this.onGround = false;
                 const input_speed = world.keys["ArrowLeft"] ? -world.playerSpeed : world.keys["ArrowRight"] ? world.playerSpeed : 0;
                 const g_vec = new Vec2(0, world.gravity * dt);
                 const up = new Vec2(0, -1);
-                if (oldOnGround) {
+                if (this.oldOnGround) {
                     const tangent = this.groundNormal.perp().norm();
                     this.vel = tangent.scale(input_speed).add(this.groundNormal.scale(this.vel.dot(this.groundNormal)));
                 } else {
                     this.vel.x = input_speed;
                 }
-                // Semi-implicit Euler: update vel first
                 this.vel = this.vel.add(g_vec);
-                // Cap velocity for stability
                 const maxVel = 1000;
                 if (this.vel.len() > maxVel) {
                     this.vel = this.vel.norm().scale(maxVel);
                 }
                 const disp = this.vel.scale(dt);
-                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen)); // Smaller steps for less tunneling
+                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen));
                 const subDisp = disp.scale(1 / numSteps);
                 let currentPos = this.pos.clone();
-                const beta = 0.8; // Partial correction for less jitter
+                const beta = 0.8;
                 for (let step = 0; step < numSteps; step++) {
                     let testPos = currentPos.add(subDisp);
-                    for (let i = 0; i < 10; i++) { // More iterations for better resolution
+                    for (let i = 0; i < 10; i++) {
                         let hasCollision = false;
                         const testAABB = this.shape.getAABB(testPos);
                         for (const other of world.getNearby(testPos)) {
@@ -333,7 +333,6 @@
                                 const d = testPos.sub(other.pos);
                                 const dir = d.len() > 1e-6 ? d.norm() : up.clone();
                                 if (dir.dot(axis) < 0) axis = axis.scale(-1);
-                                // Partial positional correction
                                 testPos = testPos.add(axis.scale(beta * res.overlap));
                                 const vn = this.vel.dot(axis);
                                 if (vn < 0) this.vel = this.vel.sub(axis.scale(vn));
@@ -351,15 +350,14 @@
                 if (this.onGround) {
                     const tangent = this.groundNormal.perp().norm();
                     this.vel = tangent.scale(input_speed);
-                    // Project out any remaining downward velocity for stability
                     const proj = this.vel.dot(up);
-                    if (proj > 0) { // If pushing into ground
+                    if (proj > 0) {
                         this.vel = this.vel.sub(up.scale(proj));
                     }
                     this.pos = this.pos.sub(tangent.scale(g_vec.dot(tangent) * dt));
                     this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot(up)))) * 180 / Math.PI;
                 }
-                if (world.keys["Space"] && oldOnGround) {
+                if (world.keys["Space"] && this.oldOnGround) {
                     this.vel.y = -world.jumpHeight;
                     this.vel.x = input_speed;
                     this.onGround = false;
@@ -406,7 +404,7 @@
                 gl.bindBuffer(gl.ARRAY_BUFFER, fixedTexcoordBuffer);
                 gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 0, 0);
                 const textureObj = textures[this.textureIndex];
-                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj.canvas && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)) && this.width && this.height;
+                let useTex = textureObj && (textureObj instanceof HTMLImageElement ? textureObj.complete : (textureObj && textureObj.video && textureObj.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA)) && this.width && this.height;
                 gl.uniform1i(useTextureLoc, useTex ? 1 : 0);
                 if (useTex) {
                     gl.activeTexture(gl.TEXTURE0);
@@ -416,6 +414,7 @@
                 }
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in Entity draw');
                 if (debug) {
                     this.updateLineArray();
                     gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
@@ -454,7 +453,7 @@
                 this.cellSize = 200;
                 this.spatialHash = new Map();
                 this.player = null;
-                this.sortedEntities = [];
+                this.allEntities = [];
             }
             loadMap(data) {
                 for (const entData of data.entities) {
@@ -469,6 +468,7 @@
                         d.dirty = false;
                         d.bufferReady = true;
                         this.decors.push(d);
+                        this.allEntities.push(d);
                     } else {
                         let shape;
                         if (entData.type === "rect") {
@@ -494,6 +494,7 @@
                             e.bufferReady = true;
                             if (e.static) e.aabb = e.shape.getAABB(e.pos);
                             this.add(e);
+                            this.allEntities.push(e);
                         }
                     }
                 }
@@ -512,13 +513,17 @@
                     this.player.dirty = true;
                     this.player.bufferReady = true;
                     this.add(this.player);
+                    this.allEntities.push(this.player);
                 }
-                this.sortedEntities = [...this.statics, ...this.decors, ...this.dynamics].sort((a, b) => a.z - b.z);
+                this.updateZSort();
             }
             add(e) {
                 if (e instanceof Decor) this.decors.push(e);
                 else if (e.static) this.statics.push(e);
                 else this.dynamics.push(e);
+            }
+            updateZSort() {
+                this.allEntities.sort((a, b) => a.z - b.z);
             }
             getHash(pos) {
                 return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
@@ -542,10 +547,10 @@
                 }
                 for (const e of this.decors) {
                     const aabb = e.aabb;
-                    const minX = Math.floor((aabb.minX - 100) / this.cellSize);
-                    const maxX = Math.floor((aabb.maxX + 100) / this.cellSize);
-                    const minY = Math.floor((aabb.minY - 100) / this.cellSize);
-                    const maxY = Math.floor((aabb.maxY + 100) / this.cellSize);
+                    const minX = Math.floor((aabb.minX - 150) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + 150) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - 150) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + 150) / this.cellSize);
                     for (let x = minX; x <= maxX; x++) {
                         for (let y = minY; y <= maxY; y++) {
                             const h = `${x},${y}`;
@@ -571,13 +576,14 @@
                 return Array.from(nearby);
             }
             getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
-                return this.sortedEntities.filter(e => {
+                return this.allEntities.filter(e => {
                     const aabb = e.aabb || (e.shape ? e.shape.getAABB(e.pos) : null);
                     return aabb && !(aabb.maxX < viewMinX || aabb.minX > viewMaxX || aabb.maxY < viewMinY || aabb.minY > viewMaxY);
                 });
             }
             update(dt) {
                 for (const e of this.dynamics) e.update(dt, this);
+                this.updateZSort();
             }
             draw(debug, camX, camY, frameCount) {
                 const gl = this.gl;
@@ -590,7 +596,6 @@
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
 
-                // Update video textures via scaled canvas for performance (throttled)
                 const videoUpdateInterval = 3;
                 if (frameCount % videoUpdateInterval === 0) {
                     for (let i = 0; i < textures.length; i++) {
@@ -611,6 +616,7 @@
                 for (const e of visible) {
                     e.draw(gl, debug, projviewMatrix);
                 }
+                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in World draw');
             }
         }
 
@@ -683,7 +689,6 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 video.addEventListener('loadedmetadata', () => {
-                    // Scale down to max 128 width for performance
                     const scale = Math.min(1, 128 / video.videoWidth);
                     canvas.width = video.videoWidth * scale;
                     canvas.height = video.videoHeight * scale;
@@ -735,27 +740,31 @@
         let lastDebugTime = lastTime;
         let accumulator = 0;
         const fixedDT = 1 / 60;
-        const maxAccumulator = fixedDT * 6; // cap at 6 frames
+        const maxAccumulator = fixedDT * 3; 
         let camX = 0;
         let camY = 0;
-        const cameraSmoothing = 0.1; // Adjust this value for smoother (lower) or snappier (higher) camera movement
+        const cameraSmoothing = 0.1;
         function loop(currentTime) {
             frameCount++;
+
             if (currentTime - lastFPSTime >= 1000) {
-                fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
+                fps = Math.round(1000 / (currentTime - lastFPSTime) * frameCount); 
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
-            const delta = (currentTime - lastTime) / 1000;
+
+            const delta = Math.min((currentTime - lastTime) / 1000, fixedDT * 3);
             lastTime = currentTime;
             accumulator += delta;
             while (accumulator >= fixedDT) {
                 world.update(fixedDT);
                 accumulator -= fixedDT;
             }
-            if (accumulator > maxAccumulator) accumulator = 0;
 
-            // Smooth camera movement
+            const alpha = accumulator / fixedDT;
+
+            if (accumulator > maxAccumulator) accumulator = maxAccumulator; 
+
             const targetCamX = world.player.pos.x - canvas.width / 2;
             const targetCamY = world.player.pos.y - canvas.height / 2;
             camX += (targetCamX - camX) * cameraSmoothing;
