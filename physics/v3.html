@@ -11,7 +11,7 @@
         #debug {
             position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.85);
             padding: 12px; border: 1px solid #00ff41; border-radius: 8px;
-            width: 260px; font-size: 11px; line-height: 1.3;
+            width: 260px; font-size: 11px; line-height: 1.1;
             box-shadow: 0 4px 15px rgba(0, 255, 65, 0.1); backdrop-filter: blur(8px);
         }
     </style>
@@ -125,7 +125,9 @@
 
         function createProgram(gl, vsource, fsource) {
             const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
+            if (!vs) return null;
             const fs = createShader(gl, gl.FRAGMENT_SHADER, fsource);
+            if (!fs) return null;
             const program = gl.createProgram();
             gl.attachShader(program, vs);
             gl.attachShader(program, fs);
@@ -153,13 +155,14 @@
             return matrix;
         }
 
-        const vsSource = `
-            attribute vec2 a_position;
-            attribute vec2 a_texcoord;
-            attribute vec4 a_color;
+        const vsSource = `#version 300 es
+            precision mediump float;
+            layout(location = 0) in vec2 a_position;
+            layout(location = 1) in vec2 a_texcoord;
+            layout(location = 2) in vec4 a_color;
             uniform mat3 u_matrix;
-            varying vec2 v_texcoord;
-            varying vec4 v_color;
+            out vec2 v_texcoord;
+            out vec4 v_color;
             void main() {
                 gl_Position = vec4((u_matrix * vec3(a_position, 1.0)).xy, 0.0, 1.0);
                 v_texcoord = a_texcoord;
@@ -167,17 +170,18 @@
             }
         `;
 
-        const fsSource = `
+        const fsSource = `#version 300 es
             precision mediump float;
-            varying vec2 v_texcoord;
-            varying vec4 v_color;
+            in vec2 v_texcoord;
+            in vec4 v_color;
             uniform sampler2D u_texture;
             uniform bool u_useTexture;
+            out vec4 fragColor;
             void main() {
                 if (u_useTexture) {
-                    gl_FragColor = texture2D(u_texture, v_texcoord) * v_color;
+                    fragColor = texture(u_texture, v_texcoord) * v_color;
                 } else {
-                    gl_FragColor = v_color;
+                    fragColor = v_color;
                 }
             }
         `;
@@ -192,22 +196,25 @@
             return false;
         }
 
-        class Decor {
-            constructor(x, y, w, h, angleDeg, z, textureIndex) {
+        class BaseShape {
+            constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false) {
                 this.pos = new Vec2(x, y);
+                this.prevPos = new Vec2(x, y);
                 this.width = w;
                 this.height = h;
                 this.angle = angleDeg * Math.PI / 180;
                 this.z = z || 0;
                 this.textureIndex = textureIndex;
+                this.isDecor = isDecor;
                 const hw = w / 2, hh = h / 2;
                 const cos = Math.cos(this.angle), sin = Math.sin(this.angle);
                 this.localPoints = [
-                    new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos),
-                    new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                    new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos),
                     new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
-                    new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos)
+                    new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                    new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos)
                 ];
+                this.shape = new Polygon(this.localPoints);
                 const corners = this.localPoints.map(p => p.add(this.pos));
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                 for (const p of corners) {
@@ -216,12 +223,19 @@
                 }
                 this.aabb = { minX, minY, maxX, maxY };
                 this.lineArray = new Float32Array(16);
+                if (!isDecor) {
+                    this.vel = new Vec2(0, 0);
+                    this.onGround = false;
+                    this.groundNormal = new Vec2(0, -1);
+                    this.oldOnGround = false;
+                    this.groundAngle = 0;
+                }
             }
-            getTransformedPoints() {
-                return this.localPoints.map(p => p.add(this.pos));
+            getTransformedPoints(pos) {
+                return this.localPoints.map(p => p.add(pos));
             }
-            updateLineArray() {
-                const pts = this.getTransformedPoints();
+            updateLineArray(pos) {
+                const pts = this.getTransformedPoints(pos);
                 const la = this.lineArray;
                 la[0] = pts[0].x; la[1] = pts[0].y;
                 la[2] = pts[1].x; la[3] = pts[1].y;
@@ -232,55 +246,32 @@
                 la[12] = pts[3].x; la[13] = pts[3].y;
                 la[14] = pts[0].x; la[15] = pts[0].y;
             }
-            drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, cyanColor) {
-                this.updateLineArray();
-                const lineVerts = new Float32Array(64);
+            appendDebugLines(debugVertData, lineColor, interpPos, vel = null, velColor = null) {
+                this.updateLineArray(interpPos);
+                const la = this.lineArray;
                 for (let k = 0; k < 8; k++) {
                     const idx = k * 2;
-                    lineVerts[k * 8 + 0] = this.lineArray[idx];
-                    lineVerts[k * 8 + 1] = this.lineArray[idx + 1];
-                    lineVerts[k * 8 + 2] = 0;
-                    lineVerts[k * 8 + 3] = 0;
-                    lineVerts[k * 8 + 4] = cyanColor[0];
-                    lineVerts[k * 8 + 5] = cyanColor[1];
-                    lineVerts[k * 8 + 6] = cyanColor[2];
-                    lineVerts[k * 8 + 7] = cyanColor[3];
+                    debugVertData.push(la[idx], la[idx + 1], 0, 0, lineColor[0], lineColor[1], lineColor[2], lineColor[3]);
                 }
-                gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, lineVerts, gl.DYNAMIC_DRAW);
-                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
-                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
-                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
-                gl.uniform1i(useTextureLoc, 0);
-                gl.drawArrays(gl.LINES, 0, 8);
+                if (vel && vel.len() > 0) {
+                    const scale = 0.1;
+                    debugVertData.push(interpPos.x, interpPos.y, 0, 0, velColor[0], velColor[1], velColor[2], velColor[3]);
+                    debugVertData.push(interpPos.x + vel.x * scale, interpPos.y + vel.y * scale, 0, 0, velColor[0], velColor[1], velColor[2], velColor[3]);
+                }
             }
         }
 
-        class Entity {
-            constructor(x, y, shape) {
-                this.pos = new Vec2(x, y);
-                this.vel = new Vec2(0, 0);
-                this.shape = shape;
-                this.color = "#4af";
-                this.static = false;
-                this.z = 0;
-                this.width = null;
-                this.height = null;
-                this.angle = 0;
-                this.textureIndex = null;
-                this.aabb = this.static ? this.shape.getAABB(this.pos) : null;
-                this.onGround = false;
-                this.groundNormal = new Vec2(0, -1);
-                this.groundAngle = 0;
-                this.oldOnGround = false;
-                this.lineArray = new Float32Array(16);
-                this.velArray = new Float32Array(4);
-            }
-            getTransformedPoints() {
-                return this.shape.getTransformed(this.pos);
+        class Entity extends BaseShape {
+            constructor(x, y, w, h, angleDeg, color, isStatic = false, z, textureIndex) {
+                super(x, y, w, h, angleDeg, z, textureIndex, false);
+                this.color = color;
+                this.isStatic = isStatic;
+                if (isStatic) {
+                    this.aabb = this.shape.getAABB(this.pos);
+                }
             }
             update(dt, world) {
-                if (this.static) return;
+                if (this.isStatic) return;
                 this.oldOnGround = this.onGround;
                 this.onGround = false;
                 const input_speed = world.keys["ArrowLeft"] ? -world.playerSpeed : world.keys["ArrowRight"] ? world.playerSpeed : 0;
@@ -294,11 +285,13 @@
                 }
                 this.vel = this.vel.add(g_vec);
                 const maxVel = 1000;
-                if (this.vel.len() > maxVel) {
-                    this.vel = this.vel.norm().scale(maxVel);
+                const velLen = this.vel.len();
+                if (velLen > maxVel) {
+                    this.vel = this.vel.scale(maxVel / velLen);
                 }
                 const disp = this.vel.scale(dt);
-                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(disp.len() / maxSubLen));
+                const dispLen = disp.len();
+                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
                 const subDisp = disp.scale(1 / numSteps);
                 let currentPos = this.pos.clone();
                 const beta = 0.8;
@@ -308,7 +301,7 @@
                         let hasCollision = false;
                         const testAABB = this.shape.getAABB(testPos);
                         for (const other of world.getNearby(testPos)) {
-                            if (!other.shape || other === this || other instanceof Decor) continue;
+                            if (!other.shape || other === this || other.isDecor) continue;
                             const otherAABB = other.aabb || other.shape.getAABB(other.pos);
                             if (!aabbOverlap(testAABB, otherAABB)) continue;
                             const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
@@ -316,7 +309,8 @@
                                 hasCollision = true;
                                 let axis = res.axis;
                                 const d = testPos.sub(other.pos);
-                                const dir = d.len() > 1e-6 ? d.norm() : up.clone();
+                                const dLen = d.len();
+                                const dir = dLen > 1e-6 ? d.scale(1 / dLen) : up.clone();
                                 if (dir.dot(axis) < 0) axis = axis.scale(-1);
                                 testPos = testPos.add(axis.scale(beta * res.overlap));
                                 const vn = this.vel.dot(axis);
@@ -331,6 +325,7 @@
                     }
                     currentPos = testPos;
                 }
+                this.prevPos = this.pos.clone();
                 this.pos = currentPos;
                 if (this.onGround) {
                     const tangent = this.groundNormal.perp().norm();
@@ -346,64 +341,6 @@
                     this.vel.y = -world.jumpHeight;
                     this.vel.x = input_speed;
                     this.onGround = false;
-                }
-            }
-            updateLineArray() {
-                const pts = this.getTransformedPoints();
-                const la = this.lineArray;
-                la[0] = pts[0].x; la[1] = pts[0].y;
-                la[2] = pts[1].x; la[3] = pts[1].y;
-                la[4] = pts[1].x; la[5] = pts[1].y;
-                la[6] = pts[2].x; la[7] = pts[2].y;
-                la[8] = pts[2].x; la[9] = pts[2].y;
-                la[10] = pts[3].x; la[11] = pts[3].y;
-                la[12] = pts[3].x; la[13] = pts[3].y;
-                la[14] = pts[0].x; la[15] = pts[0].y;
-            }
-            updateVelArray() {
-                const va = this.velArray;
-                const scale = 0.1;
-                va[0] = this.pos.x; va[1] = this.pos.y;
-                va[2] = this.pos.x + this.vel.x * scale; va[3] = this.pos.y + this.vel.y * scale;
-            }
-            drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, redColor, greenColor) {
-                this.updateLineArray();
-                const lineVerts = new Float32Array(64);
-                for (let k = 0; k < 8; k++) {
-                    const idx = k * 2;
-                    lineVerts[k * 8 + 0] = this.lineArray[idx];
-                    lineVerts[k * 8 + 1] = this.lineArray[idx + 1];
-                    lineVerts[k * 8 + 2] = 0;
-                    lineVerts[k * 8 + 3] = 0;
-                    lineVerts[k * 8 + 4] = redColor[0];
-                    lineVerts[k * 8 + 5] = redColor[1];
-                    lineVerts[k * 8 + 6] = redColor[2];
-                    lineVerts[k * 8 + 7] = redColor[3];
-                }
-                gl.bindBuffer(gl.ARRAY_BUFFER, debugPositionBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, lineVerts, gl.DYNAMIC_DRAW);
-                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
-                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
-                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
-                gl.uniform1i(useTextureLoc, 0);
-                gl.drawArrays(gl.LINES, 0, 8);
-                if (this.vel.len() > 0) {
-                    this.updateVelArray();
-                    const velVerts = new Float32Array(16);
-                    for (let k = 0; k < 2; k++) {
-                        const idx = k * 2;
-                        velVerts[k * 8 + 0] = this.velArray[idx];
-                        velVerts[k * 8 + 1] = this.velArray[idx + 1];
-                        velVerts[k * 8 + 2] = 0;
-                        velVerts[k * 8 + 3] = 0;
-                        velVerts[k * 8 + 4] = greenColor[0];
-                        velVerts[k * 8 + 5] = greenColor[1];
-                        velVerts[k * 8 + 6] = greenColor[2];
-                        velVerts[k * 8 + 7] = greenColor[3];
-                    }
-                    gl.bufferData(gl.ARRAY_BUFFER, velVerts, gl.DYNAMIC_DRAW);
-                    gl.uniform1i(useTextureLoc, 0);
-                    gl.drawArrays(gl.LINES, 0, 2);
                 }
             }
         }
@@ -424,74 +361,61 @@
                 this.allEntities = [];
                 this.batchPositionBuffer = gl.createBuffer();
                 this.batchIndexBuffer = gl.createBuffer();
+                this.debugLineBuffer = gl.createBuffer();
+                this.needRebuildHash = true;
+                this.videoTextures = [];
             }
             loadMap(data) {
                 for (const entData of data.entities) {
                     if (entData.type === "decor") {
-                        const d = new Decor(
+                        const d = new BaseShape(
                             entData.x || 0, entData.y || 0, entData.w || 100, entData.h || 100,
-                            entData.angle || 0, entData.z || 0, entData.textureIndex
+                            entData.angle || 0, entData.z || 0, entData.textureIndex, true
                         );
                         this.decors.push(d);
                         this.allEntities.push(d);
                     } else {
-                        let shape;
-                        if (entData.type === "rect") {
-                            shape = RotatedRect(entData.w || 100, entData.h || 20, entData.angle || 0);
-                        } else if (entData.type === "polygon") {
-                            shape = new Polygon(entData.points.map(p => new Vec2(p.x, p.y)));
-                        }
-                        if (shape) {
-                            const e = new Entity(entData.x || 0, entData.y || 0, shape);
-                            e.color = entData.color || "#4af";
-                            e.static = entData.static !== false;
-                            e.z = entData.z || 0;
-                            e.textureIndex = entData.textureIndex;
-                            if (entData.type === "rect") {
-                                e.width = entData.w || 100;
-                                e.height = entData.h || 20;
-                                e.angle = (entData.angle || 0) * Math.PI / 180;
-                            }
-                            if (e.static) e.aabb = e.shape.getAABB(e.pos);
-                            this.add(e);
-                            this.allEntities.push(e);
-                        }
+                        let shapeWidth = entData.w || 100;
+                        let shapeHeight = entData.h || 20;
+                        let shapeAngle = entData.angle || 0;
+                        const e = new Entity(entData.x || 0, entData.y || 0, shapeWidth, shapeHeight, shapeAngle, entData.color || "#4af", entData.static !== false, entData.z || 0, entData.textureIndex);
+                        if (e.isStatic) e.aabb = e.shape.getAABB(e.pos);
+                        this.add(e);
+                        this.allEntities.push(e);
                     }
                 }
                 if (data.player) {
                     const playerShape = new Polygon([
-                        new Vec2(-20, -20), new Vec2(20, -20),
-                        new Vec2(20, 20), new Vec2(-20, 20)
+                        {x: -20, y: -20}, {x: 20, y: -20},
+                        {x: 20, y: 20}, {x: -20, y: 20}
                     ]);
-                    this.player = new Entity(data.player.x || 150, data.player.y || 100, playerShape);
-                    this.player.z = data.player.z || 5;
+                    this.player = new Entity(data.player.x || 150, data.player.y || 100, 40, 40, 0, "#4af", false, data.player.z || 5);
+                    this.player.shape = playerShape;
                     this.player.width = 40;
                     this.player.height = 40;
                     this.add(this.player);
                     this.allEntities.push(this.player);
                 }
-                this.updateZSort();
+                this.allEntities.sort((a, b) => a.z - b.z);
             }
             add(e) {
-                if (e instanceof Decor) this.decors.push(e);
-                else if (e.static) this.statics.push(e);
+                if (e.isDecor) this.decors.push(e);
+                else if (e.isStatic) this.statics.push(e);
                 else this.dynamics.push(e);
-            }
-            updateZSort() {
-                this.allEntities.sort((a, b) => a.z - b.z);
             }
             getHash(pos) {
                 return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
             }
             rebuildSpatialHash() {
                 this.spatialHash.clear();
-                for (const e of this.statics) {
-                    if (!e.shape) continue;
+                const allStaticLike = [...this.statics, ...this.decors];
+                for (const e of allStaticLike) {
                     const aabb = e.aabb || e.shape.getAABB(e.pos);
-                    const minX = Math.floor((aabb.minX - 50) / this.cellSize);
-                    const maxX = Math.floor((aabb.maxX + 50) / this.cellSize);
-                    const minY = Math.floor((aabb.minY - 50) / this.cellSize);
-                    const maxY = Math.floor((aabb.maxY + 50) / this.cellSize);
+                    const expand = e.isDecor ? 150 : 50;
+                    const minX = Math.floor((aabb.minX - expand) / this.cellSize);
+                    const maxX = Math.floor((aabb.maxX + expand) / this.cellSize);
+                    const minY = Math.floor((aabb.minY - expand) / this.cellSize);
+                    const maxY = Math.floor((aabb.maxY + expand) / this.cellSize);
                     for (let x = minX; x <= maxX; x++) {
                         for (let y = minY; y <= maxY; y++) {
                             const h = `${x},${y}`;
@@ -500,20 +424,7 @@
                         }
                     }
                 }
-                for (const e of this.decors) {
-                    const aabb = e.aabb;
-                    const minX = Math.floor((aabb.minX - 150) / this.cellSize);
-                    const maxX = Math.floor((aabb.maxX + 150) / this.cellSize);
-                    const minY = Math.floor((aabb.minY - 150) / this.cellSize);
-                    const maxY = Math.floor((aabb.maxY + 150) / this.cellSize);
-                    for (let x = minX; x <= maxX; x++) {
-                        for (let y = minY; y <= maxY; y++) {
-                            const h = `${x},${y}`;
-                            if (!this.spatialHash.has(h)) this.spatialHash.set(h, []);
-                            this.spatialHash.get(h).push(e);
-                        }
-                    }
-                }
+                this.needRebuildHash = false;
             }
             getNearby(pos) {
                 const nearby = new Set(this.dynamics);
@@ -523,7 +434,7 @@
                         const h = `${cx + dx},${cy + dy}`;
                         if (this.spatialHash.has(h)) {
                             this.spatialHash.get(h).forEach(e => {
-                                if (!(e instanceof Decor)) nearby.add(e);
+                                if (!e.isDecor) nearby.add(e);
                             });
                         }
                     }
@@ -531,41 +442,61 @@
                 return Array.from(nearby);
             }
             getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
-                return this.allEntities.filter(e => {
+                const visible = [];
+                for (const e of this.allEntities) {
                     const aabb = e.aabb || (e.shape ? e.shape.getAABB(e.pos) : null);
-                    return aabb && !(aabb.maxX < viewMinX || aabb.minX > viewMaxX || aabb.maxY < viewMinY || aabb.minY > viewMaxY);
-                });
+                    if (aabb && aabb.maxX >= viewMinX && aabb.minX <= viewMaxX && aabb.maxY >= viewMinY && aabb.minY <= viewMaxY) {
+                        visible.push(e);
+                    }
+                }
+                return visible;
             }
             update(dt) {
-                for (const e of this.dynamics) e.update(dt, this);
-                this.updateZSort();
+                let moved = false;
+                for (const e of this.dynamics) {
+                    e.update(dt, this);
+                    if (e.pos.x !== e.prevPos.x || e.pos.y !== e.prevPos.y) moved = true;
+                }
+                if (moved) this.needRebuildHash = true;
             }
-            draw(debug, camX, camY, frameCount, textures) {
+            getInterpolatedPosition(entity, alpha) {
+                return new Vec2(
+                    entity.prevPos.x + (entity.pos.x - entity.prevPos.x) * alpha,
+                    entity.prevPos.y + (entity.pos.y - entity.prevPos.y) * alpha
+                );
+            }
+            getInterpolatedVel(entity, alpha) {
+                if (entity.vel) {
+                    return entity.vel.clone();
+                }
+                return new Vec2(0, 0);
+            }
+            updateVideoTextures() {
                 const gl = this.gl;
+                for (const texObj of this.videoTextures) {
+                    if (texObj && texObj.video && texObj.isReady) {
+                        const video = texObj.video;
+                        if (video.readyState >= 2 && !video.paused && !video.ended && video.currentTime !== texObj.lastTime) {
+                            gl.bindTexture(gl.TEXTURE_2D, texObj.glTex);
+                            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+                            texObj.lastTime = video.currentTime;
+                        }
+                    }
+                }
+            }
+            draw(debug, camX, camY, frameCount, textures, renderAlpha) {
+                const gl = this.gl;
+                this.updateVideoTextures();
                 const { width, height } = gl.canvas;
                 getProjViewMatrix(width, height, camX, camY, projviewMatrix);
                 gl.uniformMatrix3fv(matrixLoc, false, projviewMatrix);
-                const viewMinX = camX - 100, viewMaxX = camX + width + 100;
-                const viewMinY = camY - 100, viewMaxY = camY + height + 100;
+                const viewMinX = camX - 20, viewMaxX = camX + width + 20;
+                const viewMinY = camY - 20, viewMaxY = camY + height + 20;
                 const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
 
-                const videoUpdateInterval = 2;
-                if (frameCount % videoUpdateInterval === 0) {
-                    for (let i = 0; i < textures.length; i++) {
-                        const textureObj = textures[i];
-                        if (textureObj && textureObj.video && textureObj.canvas && textureObj.isReady) {
-                            const video = textureObj.video;
-                            if (video.readyState >= 2 && !video.paused && !video.ended) {
-                                textureObj.ctx.drawImage(video, 0, 0, textureObj.canvas.width, textureObj.canvas.height);
-                                gl.activeTexture(gl.TEXTURE0);
-                                gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
-                                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureObj.canvas);
-                            }
-                        }
-                    }
-                }
+                if (this.needRebuildHash) this.rebuildSpatialHash();
 
                 let vertData = [];
                 let indexData = [];
@@ -574,29 +505,19 @@
                 let batches = [];
                 const fixedTex = [0, 0, 1, 0, 1, 1, 0, 1];
                 for (const e of visible) {
+                    const interpPos = this.getInterpolatedPosition(e, renderAlpha);
                     let thisTex = e.textureIndex ?? -1;
                     let effectiveTex = -1;
                     if (thisTex >= 0) {
                         const texObj = textures[thisTex];
                         let texReady = isTextureReady(texObj);
-                        let hasDims = !(e.width === null || e.height === null || e.width === undefined || e.height === undefined);
-                        if (texReady && (e instanceof Decor || hasDims)) {
+                        let hasDims = e.width != null && e.height != null;
+                        if (texReady && (e.isDecor || hasDims)) {
                             effectiveTex = thisTex;
                         }
                     }
-                    let useTex = effectiveTex >= 0;
-                    let col;
-                    if (useTex) {
-                        col = new Float32Array([1, 1, 1, 1]);
-                    } else {
-                        col = hexToRgb(e.color || "#4af");
-                    }
-                    let points;
-                    if (e.shape) {
-                        points = e.shape.getTransformed(e.pos);
-                    } else {
-                        points = e.localPoints.map(p => p.add(e.pos));
-                    }
+                    let col = effectiveTex >= 0 ? new Float32Array([1, 1, 1, 1]) : hexToRgb(e.color || "#4af");
+                    let points = e.shape.getTransformed(interpPos);
                     const baseVert = vertOffset;
                     for (let j = 0; j < 4; j++) {
                         const p = points[j];
@@ -605,11 +526,7 @@
                     }
                     vertOffset += 4;
                     if (currentBatch.numElements > 0 && effectiveTex !== currentBatch.texIndex) {
-                        batches.push({
-                            indexStart: currentBatch.indexStart,
-                            numElements: currentBatch.numElements,
-                            texIndex: currentBatch.texIndex
-                        });
+                        batches.push({...currentBatch});
                         currentBatch = {indexStart: indexData.length, numElements: 0, texIndex: effectiveTex};
                     } else if (currentBatch.numElements === 0) {
                         currentBatch = {indexStart: indexData.length, numElements: 0, texIndex: effectiveTex};
@@ -618,11 +535,7 @@
                     indexData.push(baseVert + 0, baseVert + 1, baseVert + 2, baseVert + 0, baseVert + 2, baseVert + 3);
                 }
                 if (currentBatch.numElements > 0) {
-                    batches.push({
-                        indexStart: currentBatch.indexStart,
-                        numElements: currentBatch.numElements,
-                        texIndex: currentBatch.texIndex
-                    });
+                    batches.push({...currentBatch});
                 }
                 const allVertData = new Float32Array(vertData);
                 const allIndexData = new Uint16Array(indexData);
@@ -630,9 +543,12 @@
                 gl.bufferData(gl.ARRAY_BUFFER, allVertData, gl.DYNAMIC_DRAW);
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
                 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, allIndexData, gl.DYNAMIC_DRAW);
-                gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 32, 0);
-                gl.vertexAttribPointer(texcoordLoc, 2, gl.FLOAT, false, 32, 8);
-                gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 32, 16);
+                gl.enableVertexAttribArray(0);
+                gl.enableVertexAttribArray(1);
+                gl.enableVertexAttribArray(2);
+                gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
+                gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 8);
+                gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
                 for (const b of batches) {
                     if (b.texIndex >= 0) {
                         gl.activeTexture(gl.TEXTURE0);
@@ -644,53 +560,48 @@
                     gl.drawElements(gl.TRIANGLES, b.numElements, gl.UNSIGNED_SHORT, b.indexStart * 2);
                 }
                 if (debug) {
+                    let debugVertData = [];
                     for (const e of visible) {
-                        if (e instanceof Decor) {
-                            e.drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, cyanColor);
+                        const interpPos = this.getInterpolatedPosition(e, renderAlpha);
+                        if (e.isDecor) {
+                            e.appendDebugLines(debugVertData, cyanColor, interpPos);
                         } else {
-                            e.drawDebug(gl, positionLoc, texcoordLoc, colorLoc, useTextureLoc, debugPositionBuffer, lineTexcoordBuffer, redColor, greenColor);
+                            const interpVel = this.getInterpolatedVel(e, renderAlpha);
+                            e.appendDebugLines(debugVertData, redColor, interpPos, interpVel, greenColor);
                         }
+                    }
+                    if (debugVertData.length > 0) {
+                        const debugVerts = new Float32Array(debugVertData);
+                        gl.bindBuffer(gl.ARRAY_BUFFER, this.debugLineBuffer);
+                        gl.bufferData(gl.ARRAY_BUFFER, debugVerts, gl.DYNAMIC_DRAW);
+                        gl.enableVertexAttribArray(0);
+                        gl.enableVertexAttribArray(1);
+                        gl.enableVertexAttribArray(2);
+                        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
+                        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 8);
+                        gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
+                        gl.uniform1i(useTextureLoc, 0);
+                        gl.drawArrays(gl.LINES, 0, debugVerts.length / 8);
                     }
                 }
             }
         }
 
-        function RotatedRect(w, h, angleDeg) {
-            const angle = angleDeg * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
-            const hw = w / 2, hh = h / 2;
-            return new Polygon([
-                new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos),
-                new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
-                new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
-                new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos)
-            ]);
-        }
-
         const canvas = document.getElementById("game");
-        const gl = canvas.getContext("webgl", { alpha: true });
+        const gl = canvas.getContext("webgl2", { alpha: true, desynchronized: true, powerPreference: "high-performance" });
         if (!gl) {
-            alert("WebGL not supported");
+            alert("WebGL2 niet ondersteund");
         }
         const debugDiv = document.getElementById("debug");
         const program = createProgram(gl, vsSource, fsSource);
         if (!program) {
-            alert("Shader program failed");
+            alert("Shader program mislukt");
         }
         gl.useProgram(program);
-        const positionLoc = gl.getAttribLocation(program, "a_position");
-        const texcoordLoc = gl.getAttribLocation(program, "a_texcoord");
-        const colorLoc = gl.getAttribLocation(program, "a_color");
         const matrixLoc = gl.getUniformLocation(program, "u_matrix");
         const textureLoc = gl.getUniformLocation(program, "u_texture");
         const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
-        gl.enableVertexAttribArray(positionLoc);
-        gl.enableVertexAttribArray(texcoordLoc);
-        gl.enableVertexAttribArray(colorLoc);
         gl.uniform1i(textureLoc, 0);
-        const debugPositionBuffer = gl.createBuffer();
-        const lineTexcoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, lineTexcoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(16), gl.STATIC_DRAW);
         const cyanColor = new Float32Array([0, 1, 1, 1]);
         const redColor = hexToRgb("#f00");
         const greenColor = new Float32Array([0, 1, 0, 1]);
@@ -713,28 +624,22 @@
                 video.loop = true;
                 video.muted = true;
                 video.preload = 'auto';
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                textureObj = { video, canvas, ctx, isReady: false };
-                
-                video.addEventListener('loadedmetadata', () => {
-                    const scale = Math.min(1, 256 / Math.max(video.videoWidth, video.videoHeight));
-                    canvas.width = Math.floor(video.videoWidth * scale);
-                    canvas.height = Math.floor(video.videoHeight * scale);
-                });
-                
+                video.playbackRate = 1;
+                textureObj = { video, isReady: false, glTex: tex, lastTime: 0 };
+                world.videoTextures.push(textureObj);
+
                 video.addEventListener('canplay', () => {
                     if (!textureObj.isReady) {
                         textureObj.isReady = true;
                         video.play().catch(e => console.log('Autoplay prevented:', e));
                     }
                 });
-                
+
                 video.addEventListener('ended', () => {
                     video.currentTime = 0;
-                    video.play().catch(e => console.log('Video replay failed:', e));
+                    video.play().catch(e => {});
                 });
-                
+
                 video.addEventListener('error', (e) => {
                     console.error('Video load error:', e);
                     textureObj.isReady = false;
@@ -761,7 +666,9 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
+        let debugMode = true; 
         window.addEventListener("keydown", e => {
+            if (e.code === "KeyD") debugMode = !debugMode;
             world.keys[e.code] = true;
             if (e.code === "Space") e.preventDefault();
         });
@@ -774,38 +681,43 @@
         let lastDebugTime = lastTime;
         let accumulator = 0;
         const fixedDT = 1 / 60;
-        const maxAccumulator = fixedDT * 3; 
-        let camX = 0;
-        let camY = 0;
+        const maxAccumulator = fixedDT * 1.5;
+        let camX = 0, camY = 0, prevCamX = 0, prevCamY = 0;
         const cameraSmoothing = 0.1;
         function loop(currentTime) {
             frameCount++;
 
-            if (currentTime - lastFPSTime >= 1000) {
-                fps = Math.round(1000 / (currentTime - lastFPSTime) * frameCount); 
+            if (currentTime - lastFPSTime >= 2000) {
+                fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
 
-            const delta = Math.min((currentTime - lastTime) / 1000, fixedDT * 3);
+            const delta = Math.min((currentTime - lastTime) / 1000, 0.1);
             lastTime = currentTime;
             accumulator += delta;
             while (accumulator >= fixedDT) {
+                prevCamX = camX;
+                prevCamY = camY;
                 world.update(fixedDT);
+                const targetCamX = world.player.pos.x - canvas.width / 2;
+                const targetCamY = world.player.pos.y - canvas.height / 2;
+                camX += (targetCamX - camX) * cameraSmoothing;
+                camY += (targetCamY - camY) * cameraSmoothing;
                 accumulator -= fixedDT;
             }
 
-            if (accumulator > maxAccumulator) accumulator = maxAccumulator; 
+            if (accumulator > maxAccumulator) accumulator = maxAccumulator;
 
-            const targetCamX = world.player.pos.x - canvas.width / 2;
-            const targetCamY = world.player.pos.y - canvas.height / 2;
-            camX += (targetCamX - camX) * cameraSmoothing;
-            camY += (targetCamY - camY) * cameraSmoothing;
+            const renderAlpha = accumulator / fixedDT;
+            const interpCamX = prevCamX + (camX - prevCamX) * renderAlpha;
+            const interpCamY = prevCamY + (camY - prevCamY) * renderAlpha;
 
-            world.draw(true, camX, camY, frameCount, textures);
+            world.draw(debugMode, interpCamX, interpCamY, frameCount, textures, renderAlpha);
             if (currentTime - lastDebugTime >= 100) {
                 const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
-                debugDiv.textContent = `Player Debug\npos: (${world.player.pos.x.toFixed(2)}, ${world.player.pos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
+                const interpPos = world.getInterpolatedPosition(world.player, renderAlpha);
+                debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
                 lastDebugTime = currentTime;
             }
             requestAnimationFrame(loop);
