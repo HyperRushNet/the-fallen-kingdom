@@ -187,7 +187,7 @@
             if (texObj instanceof HTMLImageElement) {
                 return texObj.complete && texObj.naturalWidth > 0;
             } else if (texObj && texObj.video) {
-                return texObj.video.readyState >= 2;
+                return texObj.video.readyState >= 2 && texObj.isReady;
             }
             return false;
         }
@@ -551,18 +551,17 @@
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
 
-                const videoUpdateInterval = 3;
+                const videoUpdateInterval = 2;
                 if (frameCount % videoUpdateInterval === 0) {
                     for (let i = 0; i < textures.length; i++) {
                         const textureObj = textures[i];
-                        if (textureObj && textureObj.video && textureObj.canvas && textureObj.video.readyState >= 2 && !textureObj.video.paused && !textureObj.video.ended) {
-                            textureObj.ctx.drawImage(textureObj.video, 0, 0, textureObj.canvas.width, textureObj.canvas.height);
-                            gl.activeTexture(gl.TEXTURE0);
-                            gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
-                            try {
+                        if (textureObj && textureObj.video && textureObj.canvas && textureObj.isReady) {
+                            const video = textureObj.video;
+                            if (video.readyState >= 2 && !video.paused && !video.ended) {
+                                textureObj.ctx.drawImage(video, 0, 0, textureObj.canvas.width, textureObj.canvas.height);
+                                gl.activeTexture(gl.TEXTURE0);
+                                gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
                                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureObj.canvas);
-                            } catch (e) {
-                                console.warn('Failed to update video texture ' + i + ':', e);
                             }
                         }
                     }
@@ -644,7 +643,6 @@
                     }
                     gl.drawElements(gl.TRIANGLES, b.numElements, gl.UNSIGNED_SHORT, b.indexStart * 2);
                 }
-                if (gl.getError() !== gl.NO_ERROR) console.warn('GL error in World draw');
                 if (debug) {
                     for (const e of visible) {
                         if (e instanceof Decor) {
@@ -717,23 +715,30 @@
                 video.preload = 'auto';
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
+                textureObj = { video, canvas, ctx, isReady: false };
+                
                 video.addEventListener('loadedmetadata', () => {
-                    const scale = Math.min(1, 128 / video.videoWidth);
-                    canvas.width = video.videoWidth * scale;
-                    canvas.height = video.videoHeight * scale;
-                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                    const scale = Math.min(1, 256 / Math.max(video.videoWidth, video.videoHeight));
+                    canvas.width = Math.floor(video.videoWidth * scale);
+                    canvas.height = Math.floor(video.videoHeight * scale);
                 });
-                video.addEventListener('loadeddata', () => {
-                    gl.bindTexture(gl.TEXTURE_2D, tex);
-                    try {
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-                    } catch (e) {
-                        console.warn('Initial video texture upload failed:', e);
+                
+                video.addEventListener('canplay', () => {
+                    if (!textureObj.isReady) {
+                        textureObj.isReady = true;
+                        video.play().catch(e => console.log('Autoplay prevented:', e));
                     }
                 });
-                video.addEventListener('error', () => console.error('Video load error'));
-                textureObj = { video, canvas, ctx };
+                
+                video.addEventListener('ended', () => {
+                    video.currentTime = 0;
+                    video.play().catch(e => console.log('Video replay failed:', e));
+                });
+                
+                video.addEventListener('error', (e) => {
+                    console.error('Video load error:', e);
+                    textureObj.isReady = false;
+                });
             } else {
                 textureObj = new Image();
                 textureObj.crossOrigin = "anonymous";
@@ -789,8 +794,6 @@
                 world.update(fixedDT);
                 accumulator -= fixedDT;
             }
-
-            const alpha = accumulator / fixedDT;
 
             if (accumulator > maxAccumulator) accumulator = maxAccumulator; 
 
