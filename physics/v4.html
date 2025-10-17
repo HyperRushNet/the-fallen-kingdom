@@ -541,12 +541,12 @@
                 this.debugLineBuffer = gl.createBuffer();
                 this.vao = gl.createVertexArray();
                 this.debugVao = gl.createVertexArray();
-                this.maxQuads = 256;
+                this.maxQuads = 1024;  
                 this.maxVerts = this.maxQuads * 4;
                 this.maxIndices = this.maxQuads * 6;
                 this.vertData = new Float32Array(this.maxVerts * 8);
                 this.indexData = new Uint16Array(this.maxIndices);
-                this.debugVertData = new Float32Array(2048);
+                this.debugVertData = new Float32Array(8192);  
                 this.videoTextures = [];
                 this.uboMatrices = null;
 
