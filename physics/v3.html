@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Engine - Debug Overlay with Decor (Stable FPS)</title>
+    <title>Game Engine</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { overflow: hidden; background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
@@ -215,13 +215,7 @@
                     new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos)
                 ];
                 this.shape = new Polygon(this.localPoints);
-                const corners = this.localPoints.map(p => p.add(this.pos));
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                for (const p of corners) {
-                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
-                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
-                }
-                this.aabb = { minX, minY, maxX, maxY };
+                this.updateAABB();
                 this.lineArray = new Float32Array(16);
                 if (!isDecor) {
                     this.vel = new Vec2(0, 0);
@@ -230,6 +224,15 @@
                     this.oldOnGround = false;
                     this.groundAngle = 0;
                 }
+            }
+            updateAABB() {
+                const corners = this.localPoints.map(p => p.add(this.pos));
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of corners) {
+                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                }
+                this.aabb = { minX, minY, maxX, maxY };
             }
             getTransformedPoints(pos) {
                 return this.localPoints.map(p => p.add(pos));
@@ -266,9 +269,7 @@
                 super(x, y, w, h, angleDeg, z, textureIndex, false);
                 this.color = color;
                 this.isStatic = isStatic;
-                if (isStatic) {
-                    this.aabb = this.shape.getAABB(this.pos);
-                }
+                if (isStatic) this.updateAABB();
             }
             update(dt, world) {
                 if (this.isStatic) return;
@@ -291,18 +292,19 @@
                 }
                 const disp = this.vel.scale(dt);
                 const dispLen = disp.len();
-                const maxSubLen = 5, numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
+                const maxSubLen = 10;
+                const numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
                 const subDisp = disp.scale(1 / numSteps);
                 let currentPos = this.pos.clone();
                 const beta = 0.8;
                 for (let step = 0; step < numSteps; step++) {
                     let testPos = currentPos.add(subDisp);
-                    for (let i = 0; i < 10; i++) {
+                    for (let i = 0; i < 5; i++) {
                         let hasCollision = false;
                         const testAABB = this.shape.getAABB(testPos);
                         for (const other of world.getNearby(testPos)) {
                             if (!other.shape || other === this || other.isDecor) continue;
-                            const otherAABB = other.aabb || other.shape.getAABB(other.pos);
+                            const otherAABB = other.aabb;
                             if (!aabbOverlap(testAABB, otherAABB)) continue;
                             const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
                             if (res) {
@@ -327,6 +329,7 @@
                 }
                 this.prevPos = this.pos.clone();
                 this.pos = currentPos;
+                this.updateAABB();
                 if (this.onGround) {
                     const tangent = this.groundNormal.perp().norm();
                     this.vel = tangent.scale(input_speed);
@@ -364,6 +367,7 @@
                 this.debugLineBuffer = gl.createBuffer();
                 this.needRebuildHash = true;
                 this.videoTextures = [];
+                this.lastHashUpdate = 0;
             }
             loadMap(data) {
                 for (const entData of data.entities) {
@@ -379,7 +383,6 @@
                         let shapeHeight = entData.h || 20;
                         let shapeAngle = entData.angle || 0;
                         const e = new Entity(entData.x || 0, entData.y || 0, shapeWidth, shapeHeight, shapeAngle, entData.color || "#4af", entData.static !== false, entData.z || 0, entData.textureIndex);
-                        if (e.isStatic) e.aabb = e.shape.getAABB(e.pos);
                         this.add(e);
                         this.allEntities.push(e);
                     }
@@ -406,11 +409,12 @@
             getHash(pos) {
                 return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
             }
-            rebuildSpatialHash() {
+            rebuildSpatialHash(currentTime) {
+                if (currentTime - this.lastHashUpdate < 100) return;
                 this.spatialHash.clear();
                 const allStaticLike = [...this.statics, ...this.decors];
                 for (const e of allStaticLike) {
-                    const aabb = e.aabb || e.shape.getAABB(e.pos);
+                    const aabb = e.aabb;
                     const expand = e.isDecor ? 150 : 50;
                     const minX = Math.floor((aabb.minX - expand) / this.cellSize);
                     const maxX = Math.floor((aabb.maxX + expand) / this.cellSize);
@@ -424,6 +428,7 @@
                         }
                     }
                 }
+                this.lastHashUpdate = currentTime;
                 this.needRebuildHash = false;
             }
             getNearby(pos) {
@@ -444,7 +449,7 @@
             getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY) {
                 const visible = [];
                 for (const e of this.allEntities) {
-                    const aabb = e.aabb || (e.shape ? e.shape.getAABB(e.pos) : null);
+                    const aabb = e.aabb;
                     if (aabb && aabb.maxX >= viewMinX && aabb.minX <= viewMaxX && aabb.maxY >= viewMinY && aabb.minY <= viewMaxY) {
                         visible.push(e);
                     }
@@ -466,21 +471,15 @@
                 );
             }
             getInterpolatedVel(entity, alpha) {
-                if (entity.vel) {
-                    return entity.vel.clone();
-                }
-                return new Vec2(0, 0);
+                return entity.vel ? entity.vel.clone() : new Vec2(0, 0);
             }
             updateVideoTextures() {
                 const gl = this.gl;
                 for (const texObj of this.videoTextures) {
-                    if (texObj && texObj.video && texObj.isReady) {
-                        const video = texObj.video;
-                        if (video.readyState >= 2 && !video.paused && !video.ended && video.currentTime !== texObj.lastTime) {
-                            gl.bindTexture(gl.TEXTURE_2D, texObj.glTex);
-                            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-                            texObj.lastTime = video.currentTime;
-                        }
+                    if (texObj && texObj.video && texObj.isReady && !texObj.video.paused && !texObj.video.ended && texObj.video.currentTime !== texObj.lastTime) {
+                        gl.bindTexture(gl.TEXTURE_2D, texObj.glTex);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texObj.video);
+                        texObj.lastTime = texObj.video.currentTime;
                     }
                 }
             }
@@ -492,36 +491,42 @@
                 gl.uniformMatrix3fv(matrixLoc, false, projviewMatrix);
                 const viewMinX = camX - 20, viewMaxX = camX + width + 20;
                 const viewMinY = camY - 20, viewMaxY = camY + height + 20;
-                const visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                let visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                if (!visible.includes(this.player)) visible.push(this.player); 
+
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
 
-                if (this.needRebuildHash) this.rebuildSpatialHash();
+                if (this.needRebuildHash) this.rebuildSpatialHash(performance.now());
 
                 let vertData = [];
                 let indexData = [];
                 let vertOffset = 0;
                 let currentBatch = {indexStart: 0, numElements: 0, texIndex: -1};
                 let batches = [];
-                const fixedTex = [0, 0, 1, 0, 1, 1, 0, 1];
+                const fixedTex = [0, 1, 1, 1, 1, 0, 0, 0]; 
+                const standardTex = [0, 0, 1, 0, 1, 1, 0, 1]; 
                 for (const e of visible) {
                     const interpPos = this.getInterpolatedPosition(e, renderAlpha);
                     let thisTex = e.textureIndex ?? -1;
                     let effectiveTex = -1;
+                    let isVideoTexture = false;
                     if (thisTex >= 0) {
                         const texObj = textures[thisTex];
                         let texReady = isTextureReady(texObj);
                         let hasDims = e.width != null && e.height != null;
                         if (texReady && (e.isDecor || hasDims)) {
                             effectiveTex = thisTex;
+                            isVideoTexture = texObj.video !== undefined;
                         }
                     }
                     let col = effectiveTex >= 0 ? new Float32Array([1, 1, 1, 1]) : hexToRgb(e.color || "#4af");
                     let points = e.shape.getTransformed(interpPos);
                     const baseVert = vertOffset;
+                    const texCoords = isVideoTexture ? fixedTex : standardTex; 
                     for (let j = 0; j < 4; j++) {
                         const p = points[j];
-                        const tx = fixedTex[j * 2], ty = fixedTex[j * 2 + 1];
+                        const tx = texCoords[j * 2], ty = texCoords[j * 2 + 1];
                         vertData.push(p.x, p.y, tx, ty, col[0], col[1], col[2], col[3]);
                     }
                     vertOffset += 4;
@@ -534,9 +539,8 @@
                     currentBatch.numElements += 6;
                     indexData.push(baseVert + 0, baseVert + 1, baseVert + 2, baseVert + 0, baseVert + 2, baseVert + 3);
                 }
-                if (currentBatch.numElements > 0) {
-                    batches.push({...currentBatch});
-                }
+                if (currentBatch.numElements > 0) batches.push({...currentBatch});
+
                 const allVertData = new Float32Array(vertData);
                 const allIndexData = new Uint16Array(indexData);
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
@@ -574,9 +578,6 @@
                         const debugVerts = new Float32Array(debugVertData);
                         gl.bindBuffer(gl.ARRAY_BUFFER, this.debugLineBuffer);
                         gl.bufferData(gl.ARRAY_BUFFER, debugVerts, gl.DYNAMIC_DRAW);
-                        gl.enableVertexAttribArray(0);
-                        gl.enableVertexAttribArray(1);
-                        gl.enableVertexAttribArray(2);
                         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
                         gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 8);
                         gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
@@ -627,19 +628,16 @@
                 video.playbackRate = 1;
                 textureObj = { video, isReady: false, glTex: tex, lastTime: 0 };
                 world.videoTextures.push(textureObj);
-
                 video.addEventListener('canplay', () => {
                     if (!textureObj.isReady) {
                         textureObj.isReady = true;
                         video.play().catch(e => console.log('Autoplay prevented:', e));
                     }
                 });
-
                 video.addEventListener('ended', () => {
                     video.currentTime = 0;
                     video.play().catch(e => {});
                 });
-
                 video.addEventListener('error', (e) => {
                     console.error('Video load error:', e);
                     textureObj.isReady = false;
@@ -666,7 +664,7 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        let debugMode = true; 
+        let debugMode = false;
         window.addEventListener("keydown", e => {
             if (e.code === "KeyD") debugMode = !debugMode;
             world.keys[e.code] = true;
@@ -675,25 +673,24 @@
         window.addEventListener("keyup", e => world.keys[e.code] = false);
 
         world.loadMap(mapData);
-        world.rebuildSpatialHash();
+        world.rebuildSpatialHash(performance.now());
 
-        let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
+        let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 120;
         let lastDebugTime = lastTime;
         let accumulator = 0;
-        const fixedDT = 1 / 60;
-        const maxAccumulator = fixedDT * 1.5;
+        const fixedDT = 1 / 120;
+        const maxAccumulator = fixedDT * 1.2;
         let camX = 0, camY = 0, prevCamX = 0, prevCamY = 0;
         const cameraSmoothing = 0.1;
         function loop(currentTime) {
             frameCount++;
-
-            if (currentTime - lastFPSTime >= 2000) {
+            if (currentTime - lastFPSTime >= 1000) {
                 fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
 
-            const delta = Math.min((currentTime - lastTime) / 1000, 0.1);
+            const delta = Math.min((currentTime - lastTime) / 1000, 0.05);
             lastTime = currentTime;
             accumulator += delta;
             while (accumulator >= fixedDT) {
@@ -714,7 +711,7 @@
             const interpCamY = prevCamY + (camY - prevCamY) * renderAlpha;
 
             world.draw(debugMode, interpCamX, interpCamY, frameCount, textures, renderAlpha);
-            if (currentTime - lastDebugTime >= 100) {
+            if (currentTime - lastDebugTime >= 100 && debugMode) {
                 const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
                 const interpPos = world.getInterpolatedPosition(world.player, renderAlpha);
                 debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\nkeys: ${activeKeys}\nfps: ${fps}`;
