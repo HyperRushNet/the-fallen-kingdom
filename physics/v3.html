@@ -142,27 +142,32 @@
             return program;
         }
 
-        const projviewMatrix = new Float32Array(9);
+        const projviewMatrix = new Float32Array(12);
 
         function getProjViewMatrix(width, height, camX, camY, matrix) {
             matrix[0] = 2 / width;
             matrix[1] = 0;
             matrix[2] = 0;
             matrix[3] = 0;
-            matrix[4] = -2 / height;
-            matrix[5] = 0;
-            matrix[6] = -1 - 2 * camX / width;
-            matrix[7] = 1 + 2 * camY / height;
-            matrix[8] = 1;
+            matrix[4] = 0;
+            matrix[5] = -2 / height;
+            matrix[6] = 0;
+            matrix[7] = 0;
+            matrix[8] = -1 - 2 * camX / width;
+            matrix[9] = 1 + 2 * camY / height;
+            matrix[10] = 1;
+            matrix[11] = 0;
             return matrix;
         }
 
         const vsSource = `#version 300 es
             precision mediump float;
+            layout(std140) uniform Matrices {
+                mat3 u_matrix;
+            };
             layout(location = 0) in vec2 a_position;
             layout(location = 1) in vec2 a_texcoord;
             layout(location = 2) in vec4 a_color;
-            uniform mat3 u_matrix;
             out vec2 v_texcoord;
             out vec4 v_color;
             void main() {
@@ -370,6 +375,7 @@
                 this.needRebuildHash = true;
                 this.videoTextures = [];
                 this.lastHashUpdate = 0;
+                this.uboMatrices = null;
             }
             loadMap(data) {
                 for (const entData of data.entities) {
@@ -490,7 +496,10 @@
                 this.updateVideoTextures();
                 const { width, height } = gl.canvas;
                 getProjViewMatrix(width, height, camX, camY, projviewMatrix);
-                gl.uniformMatrix3fv(matrixLoc, false, projviewMatrix);
+                if (this.uboMatrices) {
+                    gl.bindBuffer(gl.UNIFORM_BUFFER, this.uboMatrices);
+                    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projviewMatrix);
+                }
                 const viewMinX = camX - 20, viewMaxX = camX + width + 20;
                 const viewMinY = camY - 20, viewMaxY = camY + height + 20;
                 let visible = this.getVisible(viewMinX, viewMinY, viewMaxX, viewMaxY);
@@ -599,16 +608,31 @@
         const program = createProgram(gl, vsSource, fsSource);
         if (!program) {
             alert("Shader program mislukt");
+            throw new Error("Failed to create program");
         }
         gl.useProgram(program);
-        const matrixLoc = gl.getUniformLocation(program, "u_matrix");
         const textureLoc = gl.getUniformLocation(program, "u_texture");
         const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
         gl.uniform1i(textureLoc, 0);
+
+        const matricesBlockIndex = gl.getUniformBlockIndex(program, "Matrices");
+        let uboMatrices = null;
+        if (matricesBlockIndex !== gl.INVALID_INDEX) {
+            gl.uniformBlockBinding(program, matricesBlockIndex, 0);
+            uboMatrices = gl.createBuffer();
+            gl.bindBuffer(gl.UNIFORM_BUFFER, uboMatrices);
+            gl.bufferData(gl.UNIFORM_BUFFER, 48, gl.DYNAMIC_DRAW);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, uboMatrices);
+        } else {
+            console.error("Uniform block 'Matrices' not found");
+        }
+
         const cyanColor = new Float32Array([0, 1, 1, 1]);
         const redColor = hexToRgb("#f00");
         const greenColor = new Float32Array([0, 1, 0, 1]);
         const world = new World(gl);
+        world.uboMatrices = uboMatrices;
+
         const textures = [];
         const glTextures = [];
         mapData.textures.forEach((url, i) => {
