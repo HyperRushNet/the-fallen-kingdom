@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Math/JS Node Engine</title>
+<style>
+body{margin:0;background:#1e1e1e;color:#fff;font-family:sans-serif;overflow:hidden}
+* { user-select: none; -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; }
+input.numInput { user-select: text; }
+#workspace{position:relative;width:100vw;height:100vh}
+svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.node{position:absolute;background:#2b2b2b;border:1px solid #555;border-radius:8px;padding:8px;min-width:160px;box-shadow:0 2px 10px rgba(0,0,0,0.4);cursor:move}
+.title{font-weight:bold;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.deleteBtn{background:none;border:none;color:#ff4444;font-size:16px;cursor:pointer;padding:0 4px}
+.pin{width:12px;height:12px;border-radius:50%;cursor:crosshair}
+.input,.output{display:flex;align-items:center;margin:4px 0}
+.input .pin{margin-right:6px;background:#00bcd4}
+.output .pin{margin-left:6px;background:#f44336}
+label,input{font-size:13px}
+.result{margin-top:6px;background:#111;padding:4px;border-radius:4px;font-size:13px}
+#runBtn{position:absolute;top:10px;left:10px;background:#4caf50;border:none;border-radius:6px;padding:6px 12px;color:white;cursor:pointer;font-size:14px;z-index:1000}
+#nodeMenu{position:absolute;top:10px;right:10px;z-index:1000;display:flex;align-items:center;gap:5px;background:#333;padding:5px;border-radius:6px}
+#dropdownContainer{position:relative}
+#dropdownBtn{background:#444;color:white;border:1px solid #555;border-radius:4px;padding:4px;font-size:13px;cursor:pointer;min-width:80px;text-align:center}
+#dropdownList{position:absolute;top:100%;right:0;background:#444;border:1px solid #555;border-radius:4px;max-height:200px;overflow-y:auto;z-index:1001;min-width:100%;display:none}
+.dropdown-option{padding:4px 8px;cursor:pointer}
+.dropdown-option:hover{background:#555}
+#nodeMenu button{background:#666;border:none;border-radius:4px;padding:4px 8px;color:white;cursor:pointer;font-size:13px}
+#nodeMenu button:hover{background:#777}
+</style>
+</head>
+<body>
+<button id="runBtn">Run Program</button>
+<div id="nodeMenu">
+  <div id="dropdownContainer">
+    <div id="dropdownBtn">Number</div>
+    <div id="dropdownList"></div>
+  </div>
+  <button id="addNodeBtn">Add Node</button>
+</div>
+<div id="workspace"></div>
+<svg id="connections"></svg>
+<script>
+const workspace=document.getElementById("workspace"),svg=document.getElementById("connections"),runBtn=document.getElementById("runBtn");
+const dropdownBtn=document.getElementById("dropdownBtn"),dropdownList=document.getElementById("dropdownList"),addNodeBtn=document.getElementById("addNodeBtn");
+let currentConnection=null,connections=[],nodes=[],currentNodeType="Number",dropdownOpen=false;
+
+const nodeOptions=[
+  {value:"Number",label:"Number"},
+  {value:"Add",label:"Add"},
+  {value:"Subtract",label:"Subtract"},
+  {value:"Multiply",label:"Multiply"},
+  {value:"Divide",label:"Divide"},
+  {value:"Sin",label:"Sin"},
+  {value:"Cos",label:"Cos"},
+  {value:"Tan",label:"Tan"},
+  {value:"Sqrt",label:"Sqrt"},
+  {value:"Log",label:"Log"},
+  {value:"Abs",label:"Abs"},
+  {value:"Floor",label:"Floor"},
+  {value:"Ceil",label:"Ceil"},
+  {value:"Round",label:"Round"},
+  {value:"<",label:"<"},
+  {value:">",label:">"},
+  {value:"<=",label:"<="},
+  {value:">=",label:">="},
+  {value:"==",label:"=="},
+  {value:"!=",label:"!="},
+  {value:"And",label:"And"},
+  {value:"Or",label:"Or"},
+  {value:"Not",label:"Not"},
+  {value:"If",label:"If"},
+  {value:"Result",label:"Result"}
+];
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// INIT DROPDOWN
+function initDropdown(){
+  nodeOptions.forEach(opt=>{
+    const div=document.createElement("div");
+    div.classList.add("dropdown-option");
+    div.textContent=opt.label;
+    div.dataset.value=opt.value;
+    div.onclick=()=>{
+      dropdownBtn.textContent=opt.label;
+      dropdownList.style.display="none";
+      dropdownOpen=false;
+      currentNodeType=opt.value;
+    };
+    dropdownList.appendChild(div);
+  });
+}
+initDropdown();
+
+dropdownBtn.onclick=(e)=>{
+  e.stopPropagation();
+  dropdownOpen = !dropdownOpen;
+  dropdownList.style.display = dropdownOpen ? "block" : "none";
+};
+
+document.onclick=(e)=>{
+  if(!e.target.closest("#nodeMenu")){
+    dropdownOpen = false;
+    dropdownList.style.display="none";
+  }
+};
+
+// NODE CREATION
+function createNode(x,y,type){
+  const node=document.createElement("div");node.classList.add("node");node.style.left=x+"px";node.style.top=y+"px";
+  const titleText = escapeHtml(type);
+  let html=`<div class="title"><span>${titleText}</span><button class="deleteBtn" title="Delete">×</button></div>`;
+  const mathNodes=["Number","Add","Subtract","Multiply","Divide","Sin","Cos","Tan","Sqrt","Log","Abs","Floor","Ceil","Round"];
+  const boolNodes=["<",">","<=",">=","==","!=","And","Or","Not"];
+  if(type==="Number"){html+=`<input type="number" value="0" class="numInput"><div class="output"><span>Out</span><div class="pin" data-type="output"></div></div>`;}
+  else if(mathNodes.includes(type)){
+    if(["Sin","Cos","Tan","Sqrt","Log","Abs","Floor","Ceil","Round"].includes(type)){html+=`<div class="input"><div class="pin" data-type="input" data-name="in"></div><span>In</span></div>`;}else{html+=`<div class="input"><div class="pin" data-type="input" data-name="a"></div><span>A</span></div><div class="input"><div class="pin" data-type="input" data-name="b"></div><span>B</span></div>`;}
+    html+=`<div class="output"><span>Out</span><div class="pin" data-type="output"></div></div>`;}
+  else if(boolNodes.includes(type)){
+    if(type==="Not"){html+=`<div class="input"><div class="pin" data-type="input" data-name="in"></div><span>In</span></div>`;}else{html+=`<div class="input"><div class="pin" data-type="input" data-name="a"></div><span>A</span></div><div class="input"><div class="pin" data-type="input" data-name="b"></div><span>B</span></div>`;}
+    html+=`<div class="output"><span>Out</span><div class="pin" data-type="output"></div></div>`;}
+  else if(type==="If"){html+=`<div class="input"><div class="pin" data-type="input" data-name="condition"></div><span>Condition</span></div><div class="input"><div class="pin" data-type="input" data-name="true"></div><span>True</span></div><div class="input"><div class="pin" data-type="input" data-name="false"></div><span>False</span></div><div class="output"><span>Out</span><div class="pin" data-type="output"></div></div>`;}
+  else if(type==="Result"){html+=`<div class="input"><div class="pin" data-type="input" data-name="in"></div><span>Value</span></div><div class="result">Result: <span class="resText">?</span></div>`;}
+  node.innerHTML=html;workspace.appendChild(node);makeDraggable(node);enableConnections(node);nodes.push({el:node,type});setupDelete(node);return node;
+}
+
+function setupDelete(node){
+  const deleteBtn = node.querySelector('.deleteBtn');
+  deleteBtn.onclick = (e) => {
+    e.stopPropagation();
+    // Remove connections involving this node's pins
+    connections = connections.filter(c => {
+      if (node.contains(c.from) || node.contains(c.to)) {
+        svg.removeChild(c.line);
+        return false;
+      }
+      return true;
+    });
+    // Remove node from nodes array and DOM
+    const index = nodes.findIndex(n => n.el === node);
+    if (index > -1) nodes.splice(index, 1);
+    workspace.removeChild(node);
+    updateConnections();
+  };
+}
+
+// ADD NODE BUTTON
+addNodeBtn.onclick=()=>{
+  const type=currentNodeType;
+  const x=100+Math.random()*600;
+  const y=100+Math.random()*400;
+  createNode(x,y,type);
+};
+
+// DRAGGING
+function makeDraggable(el){let offsetX,offsetY;el.addEventListener("mousedown",e=>{if(e.target.classList.contains("pin")||e.target.tagName==="INPUT"||e.target.classList.contains("deleteBtn"))return;offsetX=e.offsetX;offsetY=e.offsetY;function move(ev){el.style.left=ev.pageX-offsetX+"px";el.style.top=ev.pageY-offsetY+"px";updateConnections()}function stop(){document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",stop)}document.addEventListener("mousemove",move);document.addEventListener("mouseup",stop)})}
+
+// CONNECTIONS
+function enableConnections(node){node.querySelectorAll(".pin").forEach(pin=>{pin.addEventListener("mousedown",e=>{e.stopPropagation();if(pin.dataset.type==="output"){currentConnection={from:pin,line:createSVGLine(pin)}}})})}
+document.addEventListener("mouseup",e=>{if(currentConnection){const pin=document.elementFromPoint(e.clientX,e.clientY);if(pin&&pin.classList.contains("pin")&&pin.dataset.type==="input"){connections.push({from:currentConnection.from,to:pin,line:currentConnection.line});updateLine(currentConnection.line,currentConnection.from,pin)}else{svg.removeChild(currentConnection.line)}currentConnection=null}})
+document.addEventListener("mousemove",e=>{if(currentConnection){const rect=workspace.getBoundingClientRect();updateLine(currentConnection.line,currentConnection.from,{x:e.clientX-rect.left,y:e.clientY-rect.top})}})
+function createSVGLine(fromPin){const line=document.createElementNS("http://www.w3.org/2000/svg","path");line.setAttribute("stroke","#aaa");line.setAttribute("stroke-width","3");line.setAttribute("fill","none");svg.appendChild(line);updateLine(line,fromPin,fromPin);return line}
+function updateLine(line,fromPin,toPos){const p1=getPinCenter(fromPin);const p2=toPos.x?toPos:getPinCenter(toPos);line.setAttribute("d",`M${p1.x},${p1.y} C${p1.x+80},${p1.y} ${p2.x-80},${p2.y} ${p2.x},${p2.y}`)}
+function getPinCenter(pin){const r=pin.getBoundingClientRect(),wr=workspace.getBoundingClientRect();return{x:r.left-wr.left+r.width/2,y:r.top-wr.top+r.height/2}}
+function updateConnections(){connections.forEach(c=>updateLine(c.line,c.from,c.to))}
+
+// EXECUTION
+function evaluate(){
+  const values = new Map();
+  nodes.forEach(n => {
+    if(n.type === "Number"){
+      const val = parseFloat(n.el.querySelector(".numInput").value) || 0;
+      const outPin = n.el.querySelector('.pin[data-type="output"]');
+      if(outPin) values.set(outPin, val);
+    }
+  });
+  let changed = true;
+  while(changed){
+    changed = false;
+    nodes.forEach(n => {
+      if(n.type === "Number") return;
+      const outs = n.el.querySelectorAll('.pin[data-type="output"]');
+      if(outs.length === 0) return;
+      const outPin = outs[0];
+      if(values.has(outPin)) return;
+      const ins = n.el.querySelectorAll('.pin[data-type="input"]');
+      let allReady = true;
+      let inputVals = {};
+      for(let i=0; i<ins.length; i++){
+        const inPin = ins[i];
+        const c = connections.find(c => c.to === inPin);
+        if(!c || !values.has(c.from)){
+          allReady = false;
+          break;
+        }
+        inputVals[`in${i}`] = values.get(c.from);
+      }
+      if(!allReady) return;
+      let val;
+      const type = n.type;
+      if(["Add","Subtract","Multiply","Divide"].includes(type)){
+        const a = inputVals.in0;
+        const b = inputVals.in1;
+        if(type==="Add") val = a + b;
+        else if(type==="Subtract") val = a - b;
+        else if(type==="Multiply") val = a * b;
+        else if(type==="Divide") val = b !== 0 ? a / b : NaN;
+      } else if(["Sin","Cos","Tan","Sqrt","Log","Abs","Floor","Ceil","Round"].includes(type)){
+        const input = inputVals.in0;
+        if(type==="Sin") val = Math.sin(input);
+        else if(type==="Cos") val = Math.cos(input);
+        else if(type==="Tan") val = Math.tan(input);
+        else if(type==="Sqrt") val = Math.sqrt(input);
+        else if(type==="Log") val = Math.log(input);
+        else if(type==="Abs") val = Math.abs(input);
+        else if(type==="Floor") val = Math.floor(input);
+        else if(type==="Ceil") val = Math.ceil(input);
+        else if(type==="Round") val = Math.round(input);
+      } else if(["<",">","<=", ">=", "==", "!="].includes(type)){
+        const a = inputVals.in0;
+        const b = inputVals.in1;
+        let boolVal;
+        if(type==="<") boolVal = a < b;
+        else if(type===">") boolVal = a > b;
+        else if(type==="<>") boolVal = a <= b;
+        else if(type===">=") boolVal = a >= b;
+        else if(type==="==") boolVal = a === b;
+        else if(type==="!=") boolVal = a !== b;
+        val = boolVal ? 1 : 0;
+      } else if(type === "And"){
+        const a = inputVals.in0;
+        const b = inputVals.in1;
+        val = (a !== 0 && b !== 0) ? 1 : 0;
+      } else if(type === "Or"){
+        const a = inputVals.in0;
+        const b = inputVals.in1;
+        val = (a !== 0 || b !== 0) ? 1 : 0;
+      } else if(type === "Not"){
+        const input = inputVals.in0;
+        val = (input === 0) ? 1 : 0;
+      } else if(type === "If"){
+        const cond = inputVals.in0;
+        const trueVal = inputVals.in1;
+        const falseVal = inputVals.in2;
+        val = (cond !== 0) ? trueVal : falseVal;
+      }
+      if(val !== undefined){
+        values.set(outPin, val);
+        changed = true;
+      }
+    });
+  }
+  nodes.forEach(n=>{
+    if(n.type==="Result"){
+      const inp=n.el.querySelector('.pin[data-type="input"]');
+      const c=connections.find(x=>x.to===inp);
+      const res=n.el.querySelector(".resText");
+      if(c&&values.has(c.from)){
+        const v=values.get(c.from);
+        res.textContent = isNaN(v) ? "NaN" : v.toFixed ? v.toFixed(4) : v;
+      }else{
+        res.textContent="?"
+      }
+    }
+  })
+}
+
+// SAMPLE NODES
+const n1=createNode(100,100,"Number");
+const n2=createNode(100,250,"Number");n2.querySelector(".numInput").value=5;
+const add=createNode(350,150,"Add");
+const mul=createNode(350,300,"Multiply");
+const res=createNode(600,180,"Result");
+
+// RUN BUTTON
+runBtn.onclick=evaluate;
+
+// PREVENT SELECTION ON DRAG
+document.addEventListener('mousedown', e => { if(!e.target.classList.contains('numInput')) e.preventDefault(); });
+</script>
+</body>
+</html>
