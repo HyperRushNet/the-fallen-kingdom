@@ -31,7 +31,8 @@
     "zIndex": 1,
     "angle": 0
   },
-  "textures": [],
+  "textures": ["",
+      "https://upload.wikimedia.org/wikipedia/commons/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg"],
   "platforms": [
     {
       "id": "6nZuizW8hxb6-m0JFncfLJvDx",
@@ -324,6 +325,30 @@
       "targetX": 200,
       "targetY": 101,
       "teleportDelay": 0
+    },
+    {
+      "id": "jump1",
+      "type": "jumpPad",
+      "x": 0,
+      "y": 61,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": 1,
+      "zIndex": 28,
+      "jumpBoost": 600
+    },
+    {
+      "id": "jump2",
+      "type": "jumpPad",
+      "x": -600,
+      "y": 101,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 29,
+      "jumpBoost": 800
     }
   ],
   "decor": []
@@ -370,43 +395,55 @@ const config = {
                 }
                 return axes;
             }
-            getAABB(pos) {
-                const pts = this.getTransformed(pos);
+            getAABB(posX, posY) {
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                for (const p of pts) {
-                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
-                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                for (const p of this.points) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    minX = Math.min(minX, px); minY = Math.min(minY, py);
+                    maxX = Math.max(maxX, px); maxY = Math.max(maxY, py);
                 }
                 return { minX, minY, maxX, maxY };
             }
-            getTransformed(pos) {
-                return this.points.map(p => p.add(pos));
-            }
-            project(axis, pos) {
-                const pts = this.getTransformed(pos);
+            project(axis, posX, posY) {
                 let min = Infinity, max = -Infinity;
-                for (const p of pts) {
-                    const proj = p.dot(axis);
+                for (const p of this.points) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    const proj = px * axis.x + py * axis.y;
                     min = Math.min(min, proj);
                     max = Math.max(max, proj);
                 }
                 return { min, max };
             }
-            static overlap(A, posA, B, posB) {
+            static overlap(A, posAX, posAY, B, posBX, posBY) {
                 const axes = [...A.axes, ...B.axes];
                 let overlap = Infinity, smallestAxis = null;
                 for (const axis of axes) {
-                    if (axis.len() < 1e-6) continue;
-                    const projA = A.project(axis, posA);
-                    const projB = B.project(axis, posB);
+                    if (axis.lenSq() < 1e-6) continue;
+                    const projA = A.project(axis, posAX, posAY);
+                    const projB = B.project(axis, posBX, posBY);
                     const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
                     if (o < 1e-4) return null;
                     if (o < overlap) { overlap = o; smallestAxis = axis; }
                 }
                 if (!smallestAxis) return null;
-                const d = posA.sub(posB);
-                if (d.dot(smallestAxis) < 0) smallestAxis = smallestAxis.scale(-1);
-                return { axis: smallestAxis, overlap };
+                const dX = posAX - posBX;
+                const dY = posAY - posBY;
+                const dLen = Math.hypot(dX, dY);
+                let dirX = 0, dirY = -1;
+                if (dLen > 1e-6) {
+                    dirX = dX / dLen;
+                    dirY = dY / dLen;
+                }
+                let axisX = smallestAxis.x;
+                let axisY = smallestAxis.y;
+                const dirDotAxis = dirX * axisX + dirY * axisY;
+                if (dirDotAxis < 0) {
+                    axisX = -axisX;
+                    axisY = -axisY;
+                }
+                return { axis: { x: axisX, y: axisY }, overlap };
             }
         }
 
@@ -451,7 +488,7 @@ const config = {
         function getProjViewMatrix(width, height, camX, camY, matrix) {
             matrix[0] = 2 / width;
             matrix[1] = 0;
-            matrix[2] = 2 / width;
+            matrix[2] = 0;
             matrix[3] = 0;
             matrix[4] = 0;
             matrix[5] = -2 / height;
@@ -539,31 +576,35 @@ const config = {
                 }
             }
             updateAABB() {
-                const corners = this.localPoints.map(p => p.add(this.pos));
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                for (const p of corners) {
-                    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
-                    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+                const posX = this.pos.x;
+                const posY = this.pos.y;
+                for (const p of this.localPoints) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    minX = Math.min(minX, px); minY = Math.min(minY, py);
+                    maxX = Math.max(maxX, px); maxY = Math.max(maxY, py);
                 }
                 this.aabb = { minX, minY, maxX, maxY };
             }
-            getTransformedPoints(pos) {
-                return this.localPoints.map(p => p.add(pos));
-            }
-            updateLineArray(pos) {
-                const pts = this.getTransformedPoints(pos);
+            updateLineArray(posX, posY) {
                 const la = this.lineArray;
-                la[0] = pts[0].x; la[1] = pts[0].y;
-                la[2] = pts[1].x; la[3] = pts[1].y;
-                la[4] = pts[1].x; la[5] = pts[1].y;
-                la[6] = pts[2].x; la[7] = pts[2].y;
-                la[8] = pts[2].x; la[9] = pts[2].y;
-                la[10] = pts[3].x; la[11] = pts[3].y;
-                la[12] = pts[3].x; la[13] = pts[3].y;
-                la[14] = pts[0].x; la[15] = pts[0].y;
+                for (let i = 0; i < 4; i++) {
+                    const curr = this.localPoints[i];
+                    const next = this.localPoints[(i + 1) % 4];
+                    const cx = curr.x + posX;
+                    const cy = curr.y + posY;
+                    const nx = next.x + posX;
+                    const ny = next.y + posY;
+                    const base = i * 4;
+                    la[base + 0] = cx;
+                    la[base + 1] = cy;
+                    la[base + 2] = nx;
+                    la[base + 3] = ny;
+                }
             }
-            appendDebugLines(arr, lineColor, pos, vel = null, velColor = null, startIdx = 0) {
-                this.updateLineArray(pos);
+            appendDebugLines(arr, lineColor, posX, posY, vel = null, velColor = null, startIdx = 0, world) {
+                this.updateLineArray(posX, posY);
                 const la = this.lineArray;
                 let idx = startIdx;
                 for (let k = 0; k < 8; k++) {
@@ -573,9 +614,9 @@ const config = {
                 }
                 if (vel && vel.len() > 0) {
                     const scale = 0.1;
-                    arr[idx++] = pos.x; arr[idx++] = pos.y; arr[idx++] = 0; arr[idx++] = 0;
+                    arr[idx++] = posX; arr[idx++] = posY; arr[idx++] = 0; arr[idx++] = 0;
                     arr[idx++] = velColor[0]; arr[idx++] = velColor[1]; arr[idx++] = velColor[2]; arr[idx++] = velColor[3];
-                    arr[idx++] = pos.x + vel.x * scale; arr[idx++] = pos.y + vel.y * scale; arr[idx++] = 0; arr[idx++] = 0;
+                    arr[idx++] = posX + vel.x * scale; arr[idx++] = posY + vel.y * scale; arr[idx++] = 0; arr[idx++] = 0;
                     arr[idx++] = velColor[0]; arr[idx++] = velColor[1]; arr[idx++] = velColor[2]; arr[idx++] = velColor[3];
                 }
                 return idx;
@@ -588,6 +629,7 @@ const config = {
                 this.colorArray = hexToRgb(color);
                 this.isStatic = isStatic;
                 this.deadly = false;
+                this.jumpBoost = 0;
                 this.teleportTarget = null;
                 this.teleportDelay = 0;
                 this.lastDirection = 1;
@@ -598,6 +640,8 @@ const config = {
                 this.airJumpCooldownMax = config.airJumpCooldown;
                 this.currentTeleporter = null;
                 this.teleporterAccum = 0;
+                this.justLanded = false;
+                this.landedEntity = null;
                 if (isStatic) this.updateAABB();
             }
             update(dt, world) {
@@ -608,23 +652,29 @@ const config = {
                 }
                 this.oldOnGround = this.onGround;
                 this.onGround = false;
+                this.justLanded = false;
+                this.landedEntity = null;
                 let input_speed;
-                let g_vec;
+                let g_vec_x = 0;
+                let g_vec_y = 0;
                 if (this.dashTimer > 0) {
                     this.dashTimer -= dt;
                     this.isDashing = true;
                     input_speed = 0;
-                    g_vec = new Vec2(0, 0);
+                    g_vec_y = 0;
                 } else {
                     this.isDashing = false;
                     input_speed = world.keys["ArrowLeft"] ? -config.playerSpeed : world.keys["ArrowRight"] ? config.playerSpeed : 0;
-                    g_vec = new Vec2(0, config.gravity * dt);
+                    g_vec_y = config.gravity * dt;
                 }
-                const up = new Vec2(0, -1);
+                const up_x = 0;
+                const up_y = -1;
                 if (this.oldOnGround) {
-                    const tangent = this.groundNormal.perp().norm();
-                    const normalComp = this.vel.dot(this.groundNormal);
-                    this.vel = tangent.scale(input_speed).add(this.groundNormal.scale(normalComp));
+                    const tangent_x = -this.groundNormal.y;
+                    const tangent_y = this.groundNormal.x;
+                    const normalComp = this.vel.x * this.groundNormal.x + this.vel.y * this.groundNormal.y;
+                    this.vel.x = tangent_x * input_speed + this.groundNormal.x * normalComp;
+                    this.vel.y = tangent_y * input_speed + this.groundNormal.y * normalComp;
                 } else {
                     this.vel.x = input_speed;
                 }
@@ -632,47 +682,76 @@ const config = {
                     this.vel.x = this.lastDirection * config.dashSpeed;
                     this.vel.y = 0;
                 }
-                this.vel = this.vel.add(g_vec);
-                const disp = this.vel.scale(dt);
-                const dispLen = disp.len();
+                this.vel.x += g_vec_x;
+                this.vel.y += g_vec_y;
+                const disp_x = this.vel.x * dt;
+                const disp_y = this.vel.y * dt;
+                const dispLen = Math.hypot(disp_x, disp_y);
                 const maxSubLen = 10;
                 const numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
-                const subDisp = disp.scale(1 / numSteps);
-                let currentPos = this.pos.clone();
+                const sub_disp_x = disp_x / numSteps;
+                const sub_disp_y = disp_y / numSteps;
+                let currentPosX = this.pos.x;
+                let currentPosY = this.pos.y;
                 const beta = 0.8;
                 for (let step = 0; step < numSteps; step++) {
-                    let testPos = currentPos.add(subDisp);
+                    let testPosX = currentPosX + sub_disp_x;
+                    let testPosY = currentPosY + sub_disp_y;
                     for (let i = 0; i < 10; i++) {
                         let hasCollision = false;
-                        const testAABB = this.shape.getAABB(testPos);
-                        for (const other of world.getNearby(testPos)) {
+                        const testAABB = this.shape.getAABB(testPosX, testPosY);
+                        for (const other of world.getNearby(testPosX, testPosY)) {
                             if (!other.shape || other === this || other.isDecor) continue;
                             const otherAABB = other.aabb;
                             if (!aabbOverlap(testAABB, otherAABB)) continue;
-                            const res = Polygon.overlap(this.shape, testPos, other.shape, other.pos);
+                            const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-                                    // Ignore collision for teleporters to allow walking through
+
                                 } else {
                                     hasCollision = true;
                                     let axis = res.axis;
-                                    const d = testPos.sub(other.pos);
-                                    const dLen = d.len();
-                                    const dir = dLen > 1e-6 ? d.scale(1 / dLen) : up.clone();
-                                    if (dir.dot(axis) < 0) axis = axis.scale(-1);
+                                    const d_x = testPosX - other.pos.x;
+                                    const d_y = testPosY - other.pos.y;
+                                    const dLen = Math.hypot(d_x, d_y);
+                                    let dir_x = 0;
+                                    let dir_y = -1;
+                                    if (dLen > 1e-6) {
+                                        dir_x = d_x / dLen;
+                                        dir_y = d_y / dLen;
+                                    }
+                                    const dirDotAxis = dir_x * axis.x + dir_y * axis.y;
+                                    let push_x = axis.x;
+                                    let push_y = axis.y;
+                                    if (dirDotAxis < 0) {
+                                        push_x = -push_x;
+                                        push_y = -push_y;
+                                    }
                                     if (other.deadly && this === world.player) {
-                                        this.pos = world.playerStartPos.clone();
+                                        this.pos.set(world.playerStartPos.x, world.playerStartPos.y);
                                         this.vel.set(0, 0);
                                         this.onGround = false;
-                                        currentPos = this.pos.clone();
-                                        testPos = currentPos.clone();
+                                        currentPosX = this.pos.x;
+                                        currentPosY = this.pos.y;
+                                        testPosX = currentPosX;
+                                        testPosY = currentPosY;
                                     } else {
-                                        testPos = testPos.add(axis.scale(beta * res.overlap));
-                                        const vn = this.vel.dot(axis);
-                                        if (vn < 0) this.vel = this.vel.sub(axis.scale(vn));
-                                        if (axis.dot(up) > 0.01) {
+                                        const push_dist = beta * res.overlap;
+                                        testPosX += push_x * push_dist;
+                                        testPosY += push_y * push_dist;
+                                        const vn = this.vel.x * push_x + this.vel.y * push_y;
+                                        if (vn < 0) {
+                                            this.vel.x -= push_x * vn;
+                                            this.vel.y -= push_y * vn;
+                                        }
+                                        if (push_x * up_x + push_y * up_y > 0.01) {
+                                            if (!this.onGround) {
+                                                this.justLanded = true;
+                                                this.landedEntity = other;
+                                            }
                                             this.onGround = true;
-                                            this.groundNormal = axis;
+                                            this.groundNormal.x = push_x;
+                                            this.groundNormal.y = push_y;
                                         }
                                     }
                                 }
@@ -680,11 +759,18 @@ const config = {
                         }
                         if (!hasCollision) break;
                     }
-                    currentPos = testPos;
+                    currentPosX = testPosX;
+                    currentPosY = testPosY;
                 }
-                this.prevPos = this.pos.clone();
-                this.pos = currentPos;
+                this.prevPos.set(this.pos.x, this.pos.y);
+                this.pos.x = currentPosX;
+                this.pos.y = currentPosY;
                 this.updateAABB();
+                if (this.justLanded && this.landedEntity && this.landedEntity.jumpBoost > 0) {
+                    this.vel.y = -this.landedEntity.jumpBoost;
+                    this.airJumpCooldown = 0;
+                    this.onGround = false;
+                }
                 if (this.onGround && !this.oldOnGround) {
                     this.airJumpCooldown = 0;
                 }
@@ -705,14 +791,19 @@ const config = {
                     }
                 }
                 if (this.onGround && !this.isDashing) {
-                    const tangent = this.groundNormal.perp().norm();
-                    this.vel = tangent.scale(input_speed);
-                    const proj = this.vel.dot(up);
+                    const tangent_x = -this.groundNormal.y;
+                    const tangent_y = this.groundNormal.x;
+                    this.vel.x = tangent_x * input_speed;
+                    this.vel.y = tangent_y * input_speed;
+                    const proj = this.vel.x * up_x + this.vel.y * up_y;
                     if (proj > 0) {
-                        this.vel = this.vel.sub(up.scale(proj));
+                        this.vel.x -= up_x * proj;
+                        this.vel.y -= up_y * proj;
                     }
-                    this.pos = this.pos.sub(tangent.scale(g_vec.dot(tangent) * dt));
-                    this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot(up)))) * 180 / Math.PI;
+                    const g_dot_t = g_vec_x * tangent_x + g_vec_y * tangent_y;
+                    this.pos.x -= tangent_x * g_dot_t * dt;
+                    this.pos.y -= tangent_y * g_dot_t * dt;
+                    this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot({x: up_x, y: up_y})))) * 180 / Math.PI;
                 }
                 if (!this.isDashing && input_speed !== 0) {
                     this.lastDirection = input_speed > 0 ? 1 : -1;
@@ -801,11 +892,15 @@ const config = {
                     if (plat.type === "wall") color = "#666";
                     else if (plat.type === "deadly") color = "#f00";
                     else if (plat.type === "teleporter") color = "#00f";
+                    else if (plat.type === "jumpPad") color = "#0f0";
                     const e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, textureIndex);
                     if (plat.type === "deadly") e.deadly = true;
                     if (plat.type === "teleporter") {
                         e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
                         e.teleportDelay = plat.teleportDelay || 0;
+                    }
+                    if (plat.type === "jumpPad") {
+                        e.jumpBoost = plat.jumpBoost || 800;
                     }
                     this.add(e);
                     this.allEntities.push(e);
@@ -833,8 +928,8 @@ const config = {
                 else if (e.isStatic) this.statics.push(e);
                 else this.dynamics.push(e);
             }
-            getHash(pos) {
-                return `${Math.floor(pos.x / this.cellSize)},${Math.floor(pos.y / this.cellSize)}`;
+            getHash(posX, posY) {
+                return `${Math.floor(posX / this.cellSize)},${Math.floor(posY / this.cellSize)}`;
             }
             rebuildSpatialHash() {
                 this.spatialHash.clear();
@@ -855,9 +950,9 @@ const config = {
                     }
                 }
             }
-            getNearby(pos) {
+            getNearby(posX, posY) {
                 const nearby = new Set(this.dynamics);
-                const cx = Math.floor(pos.x / this.cellSize), cy = Math.floor(pos.y / this.cellSize);
+                const cx = Math.floor(posX / this.cellSize), cy = Math.floor(posY / this.cellSize);
                 for (let dx = -2; dx <= 2; dx++) {
                     for (let dy = -2; dy <= 2; dy++) {
                         const h = `${cx + dx},${cy + dy}`;
@@ -869,8 +964,8 @@ const config = {
                     }
                 }
                 return Array.from(nearby).sort((a, b) => {
-                    const da = a.pos.clone().sub(pos).lenSq();
-                    const db = b.pos.clone().sub(pos).lenSq();
+                    const da = (a.pos.x - posX) ** 2 + (a.pos.y - posY) ** 2;
+                    const db = (b.pos.x - posX) ** 2 + (b.pos.y - posY) ** 2;
                     return da - db;
                 });
             }
@@ -908,7 +1003,7 @@ const config = {
                     e.update(dt, this);
                     if (e.pos.x !== e.prevPos.x || e.pos.y !== e.prevPos.y) moved = true;
                 }
-                // Teleporter logic
+
                 if (this.player) {
                     let currentTele = null;
                     const playerAABB = this.player.aabb;
@@ -920,7 +1015,7 @@ const config = {
                     }
                     if (currentTele) {
                         if (currentTele.teleportDelay === 0) {
-                            // immediate teleport
+
                             this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
                             this.player.vel.set(0, 0);
                             this.player.onGround = false;
@@ -986,12 +1081,13 @@ const config = {
                 const whiteColor = new Float32Array([1, 1, 1, 1]);
                 for (const e of visible) {
                     const interpPos = this.getInterpolatedPosition(e, renderAlpha);
-                    let renderPos = interpPos.clone();
+                    let renderPosX = interpPos.x;
+                    let renderPosY = interpPos.y;
                     if (e.isDecor) {
                         const offsetX = camX * (1 - e.parallaxSpeed);
                         const offsetY = camY * (1 - e.parallaxSpeed);
-                        renderPos.x += offsetX;
-                        renderPos.y += offsetY;
+                        renderPosX += offsetX;
+                        renderPosY += offsetY;
                     }
                     let thisTex = e.textureIndex ?? -1;
                     let effectiveTex = -1;
@@ -1006,14 +1102,15 @@ const config = {
                         }
                     }
                     let col = effectiveTex >= 0 ? whiteColor : e.colorArray;
-                    const points = e.shape.getTransformed(renderPos);
                     const baseVert = vertIdx / 8;
                     const texCoords = isVideoTexture ? this.reusableFixedTex : this.reusableStandardTex; 
                     for (let j = 0; j < 4; j++) {
-                        const p = points[j];
+                        const lp = e.shape.points[j];
+                        const px = lp.x + renderPosX;
+                        const py = lp.y + renderPosY;
                         const tx = texCoords[j * 2], ty = texCoords[j * 2 + 1];
-                        this.vertData[vertIdx++] = p.x;
-                        this.vertData[vertIdx++] = p.y;
+                        this.vertData[vertIdx++] = px;
+                        this.vertData[vertIdx++] = py;
                         this.vertData[vertIdx++] = tx;
                         this.vertData[vertIdx++] = ty;
                         this.vertData[vertIdx++] = col[0];
@@ -1057,18 +1154,19 @@ const config = {
                     let debugVertIdx = 0;
                     for (const e of visible) {
                         const interpPos = this.getInterpolatedPosition(e, renderAlpha);
-                        let debugPos = interpPos.clone();
+                        let debugPosX = interpPos.x;
+                        let debugPosY = interpPos.y;
                         if (e.isDecor) {
                             const offsetX = camX * (1 - e.parallaxSpeed);
                             const offsetY = camY * (1 - e.parallaxSpeed);
-                            debugPos.x += offsetX;
-                            debugPos.y += offsetY;
+                            debugPosX += offsetX;
+                            debugPosY += offsetY;
                         }
                         const interpVel = this.getInterpolatedVel(e, renderAlpha);
                         if (e.isDecor) {
-                            debugVertIdx = e.appendDebugLines(this.debugVertData, cyanColor, debugPos, null, null, debugVertIdx);
+                            debugVertIdx = e.appendDebugLines(this.debugVertData, cyanColor, debugPosX, debugPosY, null, null, debugVertIdx, this);
                         } else {
-                            debugVertIdx = e.appendDebugLines(this.debugVertData, redColor, debugPos, interpVel, greenColor, debugVertIdx);
+                            debugVertIdx = e.appendDebugLines(this.debugVertData, redColor, debugPosX, debugPosY, interpVel, greenColor, debugVertIdx, this);
                         }
                     }
                     if (debugVertIdx > 0) {
@@ -1216,8 +1314,8 @@ const config = {
         let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
         let lastDebugTime = lastTime;
         let accumulator = 0;
-        const fixedDT = 1 / 60;
-        const maxAccumulator = fixedDT * 3;
+        const fixedDT = 1 / 120;
+        const maxAccumulator = fixedDT * 2;
         let camX = 0, camY = 0, prevCamX = 0, prevCamY = 0;
         const cameraSmoothing = 0.1;
         function loop(currentTime) {
@@ -1228,7 +1326,7 @@ const config = {
                 lastFPSTime = currentTime;
             }
 
-            const delta = Math.min((currentTime - lastTime) / 1000, 0.0333);
+            const delta = Math.min((currentTime - lastTime) / 1000, fixedDT * 2);
             lastTime = currentTime;
             accumulator += delta;
             while (accumulator >= fixedDT) {
