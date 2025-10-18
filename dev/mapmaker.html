@@ -623,7 +623,14 @@ function updateHierarchy() {
   objects.forEach((o, index) => {
     const item = document.createElement("div");
     item.className = `object-item ${selected === o ? 'selected' : ''}`;
-    const iconClass = o.type === 'platform' ? 'fas fa-square' : o.type === 'wall' ? 'fas fa-th' : 'fas fa-star';
+    const iconMap = {
+      'platform': 'fas fa-square',
+      'wall': 'fas fa-th',
+      'deadly': 'fas fa-skull',
+      'teleporter': 'fas fa-exchange-alt',
+      'decor': 'fas fa-star'
+    };
+    const iconClass = iconMap[o.type] || 'fas fa-cube';
     item.innerHTML = `<span>${o.type.toUpperCase()} ${index + 1}</span><i class="${iconClass} type-icon"></i>`;
     item.addEventListener("click", () => selectObject(o));
     list.appendChild(item);
@@ -703,6 +710,35 @@ function updateInspector() {
   }
   // Object properties
   const oldType = selected.type;
+  let extraTeleportHTML = '';
+  if (selected.type === 'teleporter') {
+    extraTeleportHTML = `
+      <div class="property-group">
+        <h3>Teleport</h3>
+        <div class="property-row">
+          <label>Target X</label>
+          <input type="number" id="target-x" value="${selected.targetX || 0}">
+        </div>
+        <div class="property-row">
+          <label>Target Y</label>
+          <input type="number" id="target-y" value="${selected.targetY || 0}">
+        </div>
+        <div class="property-row">
+          <label>Delay (s)</label>
+          <input type="number" id="teleport-delay" step="0.1" value="${selected.teleportDelay || 0}">
+        </div>
+      </div>
+    `;
+  }
+  let extraParallaxHTML = '';
+  if (selected.type === 'decor') {
+    extraParallaxHTML = `
+      <div class="property-row">
+        <label>Parallax</label>
+        <input type="number" id="parallax" step="0.1" min="0" max="1" value="${selected.parallaxSpeed || 1}">
+      </div>
+    `;
+  }
   props.innerHTML = `
     <div class="property-group">
       <h3>Transform</h3>
@@ -737,6 +773,8 @@ function updateInspector() {
         <select id="type">
           <option value="platform" ${selected.type === 'platform' ? 'selected' : ''}>Platform</option>
           <option value="wall" ${selected.type === 'wall' ? 'selected' : ''}>Wall</option>
+          <option value="deadly" ${selected.type === 'deadly' ? 'selected' : ''}>Deadly</option>
+          <option value="teleporter" ${selected.type === 'teleporter' ? 'selected' : ''}>Teleporter</option>
           <option value="decor" ${selected.type === 'decor' ? 'selected' : ''}>Decor</option>
         </select>
       </div>
@@ -744,12 +782,7 @@ function updateInspector() {
         <label>Z-Index</label>
         <input type="number" id="z-index" value="${selected.zIndex || 0}">
       </div>
-      ${selected.type === 'decor' ? `
-      <div class="property-row">
-        <label>Parallax</label>
-        <input type="number" id="parallax" step="0.1" min="0" max="1" value="${selected.parallaxSpeed || 1}">
-      </div>
-      ` : ''}
+      ${extraParallaxHTML}
     </div>
     <div class="property-group">
       <h3>Texture</h3>
@@ -758,6 +791,7 @@ function updateInspector() {
         <input type="text" id="texture-url" value="${selected.texture || ''}" placeholder="Enter URL">
       </div>
     </div>
+    ${extraTeleportHTML}
     <div id="layer-controls">
       <button id="to-front"><i class="fas fa-arrow-up"></i></button>
       <button id="to-back"><i class="fas fa-arrow-down"></i></button>
@@ -769,7 +803,7 @@ function updateInspector() {
     </div>
   `;
   // Event listeners
-  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url'].forEach(id => {
+  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("input", () => { applyInspectorChanges(); saveState(); });
   });
@@ -780,6 +814,11 @@ function updateInspector() {
       if (newType !== oldType) {
         selected.type = newType;
         if (newType === 'decor' && selected.parallaxSpeed === undefined) selected.parallaxSpeed = 1;
+        if (newType === 'teleporter') {
+          if (selected.targetX === undefined) selected.targetX = 0;
+          if (selected.targetY === undefined) selected.targetY = 0;
+          if (selected.teleportDelay === undefined) selected.teleportDelay = 0;
+        }
         updateInspector();
         saveState();
       }
@@ -804,6 +843,12 @@ function applyInspectorChanges() {
   selected.zIndex = parseInt(document.getElementById("z-index").value) || 0;
   const parallaxEl = document.getElementById("parallax");
   if (parallaxEl) selected.parallaxSpeed = parseFloat(parallaxEl.value) || 1;
+  const targetXEl = document.getElementById("target-x");
+  if (targetXEl) selected.targetX = parseInt(targetXEl.value) || 0;
+  const targetYEl = document.getElementById("target-y");
+  if (targetYEl) selected.targetY = parseInt(targetYEl.value) || 0;
+  const delayEl = document.getElementById("teleport-delay");
+  if (delayEl) selected.teleportDelay = parseFloat(delayEl.value) || 0;
   selected.texture = document.getElementById("texture-url").value || null;
   if (selected.type !== 'decor') delete selected.parallaxSpeed;
   draw();
@@ -857,7 +902,16 @@ function draw() {
         else { ctx.fillStyle = "#888"; ctx.fillRect(-w / 2, -h / 2, w, h); }
       }
     } else {
-      ctx.fillStyle = o.type === "platform" ? "#654321" : o.type === "wall" ? "#444" : "#880088";
+      let color;
+      switch (o.type) {
+        case "platform": color = "#654321"; break;
+        case "wall": color = "#444"; break;
+        case "deadly": color = "#f00"; break;
+        case "teleporter": color = "#00f"; break;
+        case "decor": color = "#880088"; break;
+        default: color = "#654321";
+      }
+      ctx.fillStyle = color;
       ctx.fillRect(-w / 2, -h / 2, w, h);
     }
 
@@ -868,7 +922,16 @@ function draw() {
     }
 
     if (debugMode) {
-      ctx.strokeStyle = o.type === "platform" ? "yellow" : o.type === "wall" ? "red" : "purple";
+      let strokeColor;
+      switch (o.type) {
+        case "platform": strokeColor = "yellow"; break;
+        case "wall": strokeColor = "red"; break;
+        case "deadly": strokeColor = "red"; break;
+        case "teleporter": strokeColor = "blue"; break;
+        case "decor": strokeColor = "purple"; break;
+        default: strokeColor = "yellow";
+      }
+      ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1 / scale;
       ctx.strokeRect(-w / 2, -h / 2, w, h);
     }
@@ -915,20 +978,27 @@ function draw() {
 async function updateJSON() {
   const textures = [];
   objects.forEach(o => { if (o.texture && !textures.includes(o.texture)) textures.push(o.texture); });
-  const platforms = objects.filter(o => o.type === "platform" || o.type === "wall").map(o => ({
-    id: o.id || generateId(),
-    type: o.type,
-    x: Math.round(o.x),
-    y: Math.round(o.y),
-    w: Math.round(o.w),
-    h: Math.round(o.h),
-    angle: Math.round(o.angle || 0),
-    textureId: o.texture ? textures.indexOf(o.texture) : null,
-    zIndex: o.zIndex || 0
-  }));
+  const platforms = objects.filter(o => o.type !== "decor").map(o => {
+    let platObj = {
+      id: o.id || generateId(),
+      type: o.type,
+      x: Math.round(o.x),
+      y: Math.round(o.y),
+      w: Math.round(o.w),
+      h: Math.round(o.h),
+      angle: Math.round(o.angle || 0),
+      textureId: o.texture ? textures.indexOf(o.texture) : null,
+      zIndex: o.zIndex || 0
+    };
+    if (o.type === 'teleporter') {
+      platObj.targetX = o.targetX || 0;
+      platObj.targetY = o.targetY || 0;
+      platObj.teleportDelay = o.teleportDelay || 0;
+    }
+    return platObj;
+  });
   const decor = objects.filter(o => o.type === "decor").map(o => ({
     id: o.id || generateId(),
-    type: "decor",
     x: Math.round(o.x),
     y: Math.round(o.y),
     w: Math.round(o.w),
@@ -1208,6 +1278,11 @@ window.addEventListener("keydown", e => {
     if (e.key === "v" && clipboard) {
       const newObj = { ...clipboard, id: generateId(), x: (clipboard.x || player.x) + 20, y: (clipboard.y || player.y) + 20, zIndex: getMaxZIndex() + 1 };
       if (newObj.type === 'decor' && newObj.parallaxSpeed === undefined) newObj.parallaxSpeed = 1;
+      if (newObj.type === 'teleporter') {
+        if (newObj.targetX === undefined) newObj.targetX = 0;
+        if (newObj.targetY === undefined) newObj.targetY = 0;
+        if (newObj.teleportDelay === undefined) newObj.teleportDelay = 0;
+      }
       objects.push(newObj);
       selectObject(newObj);
       saveState();
@@ -1269,7 +1344,15 @@ document.getElementById("load-json").addEventListener("click", () => {
         angle: data.playerStart.angle || 0
       };
       objects = [];
-      (data.platforms || []).forEach(p => objects.push({ ...p, texture: data.textures[p.textureId] || null }));
+      (data.platforms || []).forEach(p => {
+        const obj = { ...p, texture: data.textures[p.textureId] || null };
+        if (p.type === 'teleporter') {
+          obj.targetX = p.targetX || 0;
+          obj.targetY = p.targetY || 0;
+          obj.teleportDelay = p.teleportDelay || 0;
+        }
+        objects.push(obj);
+      });
       (data.decor || []).forEach(d => objects.push({ ...d, texture: data.textures[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
       selected = null;
       history = [];
@@ -1360,7 +1443,15 @@ openDB().then(async () => {
       angle: saved.playerStart.angle || 0
     };
     objects = [];
-    (saved.platforms || []).forEach(p => objects.push({ ...p, texture: saved.textures?.[p.textureId] || null }));
+    (saved.platforms || []).forEach(p => {
+      const obj = { ...p, texture: saved.textures?.[p.textureId] || null };
+      if (p.type === 'teleporter') {
+        obj.targetX = p.targetX || 0;
+        obj.targetY = p.targetY || 0;
+        obj.teleportDelay = p.teleportDelay || 0;
+      }
+      objects.push(obj);
+    });
     (saved.decor || []).forEach(d => objects.push({ ...d, texture: saved.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
   }
   updateHierarchy();
