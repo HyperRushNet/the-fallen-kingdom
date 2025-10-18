@@ -309,7 +309,7 @@
       "zIndex": 26,
       "targetX": -300,
       "targetY": 200,
-      "teleportDelay": 2
+      "teleportDelay": 0.2
     },
     {
       "id": "tele2",
@@ -530,8 +530,6 @@ const config = {
                 this.updateAABB();
                 this.lineArray = new Float32Array(16);
                 this.colorArray = hexToRgb("#4af");
-                this.isTeleporter = false;
-                this.animationTime = 0;
                 if (!isDecor) {
                     this.vel = new Vec2(0, 0);
                     this.onGround = false;
@@ -808,7 +806,6 @@ const config = {
                     if (plat.type === "teleporter") {
                         e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
                         e.teleportDelay = plat.teleportDelay || 0;
-                        e.isTeleporter = true;
                     }
                     this.add(e);
                     this.allEntities.push(e);
@@ -922,7 +919,6 @@ const config = {
                         }
                     }
                     if (currentTele) {
-                        currentTele.animationTime += dt;
                         if (currentTele.teleportDelay === 0) {
                             // immediate teleport
                             this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
@@ -947,9 +943,6 @@ const config = {
                             }
                         }
                     } else {
-                        if (this.player.currentTeleporter) {
-                            this.player.currentTeleporter.animationTime = 0;
-                        }
                         this.player.currentTeleporter = null;
                         this.player.teleporterAccum = 0;
                     }
@@ -1013,14 +1006,6 @@ const config = {
                         }
                     }
                     let col = effectiveTex >= 0 ? whiteColor : e.colorArray;
-                    if (e.isTeleporter && e.animationTime > 0) {
-                        const pulse = (Math.sin(e.animationTime * 10) + 1) / 2;
-                        col = new Float32Array(4);
-                        col[0] = e.colorArray[0] + (1 - e.colorArray[0]) * pulse;
-                        col[1] = e.colorArray[1] + (1 - e.colorArray[1]) * pulse;
-                        col[2] = e.colorArray[2] + (1 - e.colorArray[2]) * pulse;
-                        col[3] = 1;
-                    }
                     const points = e.shape.getTransformed(renderPos);
                     const baseVert = vertIdx / 8;
                     const texCoords = isVideoTexture ? this.reusableFixedTex : this.reusableStandardTex; 
