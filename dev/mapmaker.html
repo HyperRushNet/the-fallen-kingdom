@@ -448,7 +448,7 @@ button.delete-btn:hover {
 </div>
 
 <script>
-// IndexedDB setup
+
 let db;
 const DB_NAME = 'FKMapEditor';
 const DB_VERSION = 1;
@@ -489,7 +489,6 @@ async function loadFromDB() {
   });
 }
 
-// History for undo/redo
 let history = [];
 let historyIndex = -1;
 function saveState() {
@@ -507,7 +506,6 @@ function saveState() {
   }
 }
 
-// UI Elements
 let isHelpOpen = false;
 const helpToggle = document.getElementById("help-toggle");
 const helpContent = document.getElementById("help-content");
@@ -521,21 +519,18 @@ function updateStatus() {
   document.getElementById("status-icon").querySelector("i").style.display = paused ? "inline" : "none";
 }
 
-// Pause on focus in sidebar/hierarchy
 const sidebarElements = document.querySelectorAll('#hierarchy input, #hierarchy select, #hierarchy button, #inspector input, #inspector select, #inspector button');
 sidebarElements.forEach(el => {
   el.addEventListener('focusin', () => { paused = true; updateStatus(); });
   el.addEventListener('focusout', () => { paused = false; updateStatus(); });
 });
 
-// Pause on hover over UI elements
 const uiElements = document.querySelectorAll('#toolbar, #hierarchy, #inspector, #help-toggle, #help-content');
 uiElements.forEach(el => {
   el.addEventListener('mouseenter', () => { paused = true; updateStatus(); });
   el.addEventListener('mouseleave', () => { paused = false; updateStatus(); });
 });
 
-// Canvas setup
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -544,22 +539,18 @@ let canvasHeight = window.innerHeight - 40;
 canvas.width = canvasWidth;
 canvas.height = canvasHeight;
 
-// Camera and view state
 let camX = 0, camY = 0, isPanning = false, panStartX = 0, panStartY = 0;
 let scale = 1, zoomSpeed = 0.1;
 let debugMode = false;
 let lastTouchDist = 0;
 
-// Game state
 let objects = [], selected = null, dragging = false, dragOffsetX = 0, dragOffsetY = 0;
 let player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1, angle: 0};
 let clipboard = null;
 
-// Media caches
 const imageCache = new Map();
 const videoCache = new Map();
 
-// VideoManager
 class VideoManager {
   constructor() {
     this.activeVideos = new Set();
@@ -607,7 +598,6 @@ class VideoManager {
 }
 const videoManager = new VideoManager();
 
-// ID generator
 function generateId() {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let part1 = "", part2 = "";
@@ -616,7 +606,6 @@ function generateId() {
   return part1 + "-" + part2;
 }
 
-// Hierarchy update
 function updateHierarchy() {
   const list = document.getElementById("objects-list");
   list.innerHTML = "";
@@ -628,6 +617,7 @@ function updateHierarchy() {
       'wall': 'fas fa-th',
       'deadly': 'fas fa-skull',
       'teleporter': 'fas fa-exchange-alt',
+      'jumpPad': 'fas fa-arrow-up',
       'decor': 'fas fa-star'
     };
     const iconClass = iconMap[o.type] || 'fas fa-cube';
@@ -635,7 +625,7 @@ function updateHierarchy() {
     item.addEventListener("click", () => selectObject(o));
     list.appendChild(item);
   });
-  // Add player
+
   const playerItem = document.createElement("div");
   playerItem.className = `object-item ${selected === 'player' ? 'selected' : ''}`;
   playerItem.innerHTML = '<span>PLAYER</span><i class="fas fa-user type-icon"></i>';
@@ -643,14 +633,12 @@ function updateHierarchy() {
   list.appendChild(playerItem);
 }
 
-// Select object
 function selectObject(obj) {
   selected = obj === 'player' ? 'player' : obj;
   updateHierarchy();
   updateInspector();
 }
 
-// Update Inspector
 function updateInspector() {
   const noSel = document.getElementById("no-selection");
   const props = document.getElementById("properties");
@@ -708,7 +696,7 @@ function updateInspector() {
     });
     return;
   }
-  // Object properties
+
   const oldType = selected.type;
   let extraTeleportHTML = '';
   if (selected.type === 'teleporter') {
@@ -726,6 +714,18 @@ function updateInspector() {
         <div class="property-row">
           <label>Delay (s)</label>
           <input type="number" id="teleport-delay" step="0.1" value="${selected.teleportDelay || 0}">
+        </div>
+      </div>
+    `;
+  }
+  let extraJumpHTML = '';
+  if (selected.type === 'jumpPad') {
+    extraJumpHTML = `
+      <div class="property-group">
+        <h3>Jump Pad</h3>
+        <div class="property-row">
+          <label>Boost</label>
+          <input type="number" id="jump-boost" value="${selected.jumpBoost || 800}">
         </div>
       </div>
     `;
@@ -775,6 +775,7 @@ function updateInspector() {
           <option value="wall" ${selected.type === 'wall' ? 'selected' : ''}>Wall</option>
           <option value="deadly" ${selected.type === 'deadly' ? 'selected' : ''}>Deadly</option>
           <option value="teleporter" ${selected.type === 'teleporter' ? 'selected' : ''}>Teleporter</option>
+          <option value="jumpPad" ${selected.type === 'jumpPad' ? 'selected' : ''}>Jump Pad</option>
           <option value="decor" ${selected.type === 'decor' ? 'selected' : ''}>Decor</option>
         </select>
       </div>
@@ -792,6 +793,7 @@ function updateInspector() {
       </div>
     </div>
     ${extraTeleportHTML}
+    ${extraJumpHTML}
     <div id="layer-controls">
       <button id="to-front"><i class="fas fa-arrow-up"></i></button>
       <button id="to-back"><i class="fas fa-arrow-down"></i></button>
@@ -802,8 +804,8 @@ function updateInspector() {
       <button class="delete-btn" id="delete-obj"><i class="fas fa-trash"></i> Delete</button>
     </div>
   `;
-  // Event listeners
-  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay'].forEach(id => {
+
+  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay', 'jump-boost'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("input", () => { applyInspectorChanges(); saveState(); });
   });
@@ -819,6 +821,9 @@ function updateInspector() {
           if (selected.targetY === undefined) selected.targetY = 0;
           if (selected.teleportDelay === undefined) selected.teleportDelay = 0;
         }
+        if (newType === 'jumpPad') {
+          if (selected.jumpBoost === undefined) selected.jumpBoost = 800;
+        }
         updateInspector();
         saveState();
       }
@@ -832,7 +837,6 @@ function updateInspector() {
   document.getElementById("delete-obj").addEventListener("click", () => { objects = objects.filter(o => o !== selected); selected = null; updateHierarchy(); updateInspector(); draw(); updateJSON(); saveState(); });
 }
 
-// Apply changes from inspector
 function applyInspectorChanges() {
   if (!selected || selected === 'player') return;
   selected.x = parseInt(document.getElementById("pos-x").value) || 0;
@@ -849,6 +853,8 @@ function applyInspectorChanges() {
   if (targetYEl) selected.targetY = parseInt(targetYEl.value) || 0;
   const delayEl = document.getElementById("teleport-delay");
   if (delayEl) selected.teleportDelay = parseFloat(delayEl.value) || 0;
+  const boostEl = document.getElementById("jump-boost");
+  if (boostEl) selected.jumpBoost = parseInt(boostEl.value) || 800;
   selected.texture = document.getElementById("texture-url").value || null;
   if (selected.type !== 'decor') delete selected.parallaxSpeed;
   draw();
@@ -856,7 +862,6 @@ function applyInspectorChanges() {
   updateHierarchy();
 }
 
-// Draw function
 function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -908,6 +913,7 @@ function draw() {
         case "wall": color = "#444"; break;
         case "deadly": color = "#f00"; break;
         case "teleporter": color = "#00f"; break;
+        case "jumpPad": color = "#0f0"; break;
         case "decor": color = "#880088"; break;
         default: color = "#654321";
       }
@@ -915,7 +921,6 @@ function draw() {
       ctx.fillRect(-w / 2, -h / 2, w, h);
     }
 
-    // Selection overlay
     if (o === selected) {
       ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
       ctx.fillRect(-w / 2, -h / 2, w, h);
@@ -928,6 +933,7 @@ function draw() {
         case "wall": strokeColor = "red"; break;
         case "deadly": strokeColor = "red"; break;
         case "teleporter": strokeColor = "blue"; break;
+        case "jumpPad": strokeColor = "lime"; break;
         case "decor": strokeColor = "purple"; break;
         default: strokeColor = "yellow";
       }
@@ -939,7 +945,6 @@ function draw() {
     ctx.restore();
   });
 
-  // Player
   const pw = Math.round(player.w);
   const ph = Math.round(player.h);
   const px = Math.round(player.x);
@@ -952,7 +957,6 @@ function draw() {
   ctx.fillStyle = "lime";
   ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
 
-  // Player selection overlay
   if (selected === 'player') {
     ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
     ctx.fillRect(-pw / 2, -ph / 2, pw, ph);
@@ -974,7 +978,6 @@ function draw() {
   ctx.restore();
 }
 
-// Update JSON
 async function updateJSON() {
   const textures = [];
   objects.forEach(o => { if (o.texture && !textures.includes(o.texture)) textures.push(o.texture); });
@@ -994,6 +997,9 @@ async function updateJSON() {
       platObj.targetX = o.targetX || 0;
       platObj.targetY = o.targetY || 0;
       platObj.teleportDelay = o.teleportDelay || 0;
+    }
+    if (o.type === 'jumpPad') {
+      platObj.jumpBoost = o.jumpBoost || 800;
     }
     return platObj;
   });
@@ -1025,7 +1031,6 @@ async function updateJSON() {
   await saveToDB(json);
 }
 
-// Point in rotated rect
 function pointInRotatedRect(px, py, o) {
   const rad = -(o.angle || 0) * Math.PI / 180;
   const dx = px - o.x;
@@ -1035,7 +1040,6 @@ function pointInRotatedRect(px, py, o) {
   return localX >= -o.w / 2 && localX <= o.w / 2 && localY >= -o.h / 2 && localY <= o.h / 2;
 }
 
-// Get event coordinates (world)
 function getEventCoords(e) {
   const rect = canvas.getBoundingClientRect();
   let clientX, clientY;
@@ -1052,7 +1056,6 @@ function getEventCoords(e) {
   };
 }
 
-// Touch events for mobile
 canvas.addEventListener("touchstart", e => {
   if (paused) return;
   e.preventDefault();
@@ -1060,7 +1063,7 @@ canvas.addEventListener("touchstart", e => {
   const x = coords.x;
   const y = coords.y;
   if (e.touches.length === 2) {
-    // Pinch zoom
+
     const touch1 = e.touches[0];
     const touch2 = e.touches[1];
     lastTouchDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
@@ -1107,7 +1110,7 @@ canvas.addEventListener("touchmove", e => {
   const x = coords.x;
   const y = coords.y;
   if (e.touches.length === 2) {
-    // Pinch zoom
+
     const touch1 = e.touches[0];
     const touch2 = e.touches[1];
     const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
@@ -1150,7 +1153,6 @@ canvas.addEventListener("touchend", e => {
   if (selected && selected !== 'player') saveState();
 });
 
-// Mouse events (for desktop)
 canvas.addEventListener("mousedown", e => {
   if (paused) return;
   const coords = getEventCoords(e);
@@ -1230,7 +1232,6 @@ canvas.addEventListener("wheel", e => {
   draw();
 });
 
-// Keyboard
 window.addEventListener("keydown", e => {
   if (paused) return;
   if (e.ctrlKey) {
@@ -1283,6 +1284,9 @@ window.addEventListener("keydown", e => {
         if (newObj.targetY === undefined) newObj.targetY = 0;
         if (newObj.teleportDelay === undefined) newObj.teleportDelay = 0;
       }
+      if (newObj.type === 'jumpPad') {
+        if (newObj.jumpBoost === undefined) newObj.jumpBoost = 800;
+      }
       objects.push(newObj);
       selectObject(newObj);
       saveState();
@@ -1329,7 +1333,6 @@ window.addEventListener("keydown", e => {
   }
 });
 
-// Toolbar buttons
 document.getElementById("load-json").addEventListener("click", () => {
   const jsonIn = prompt("Paste JSON:");
   if (jsonIn) {
@@ -1350,6 +1353,9 @@ document.getElementById("load-json").addEventListener("click", () => {
           obj.targetX = p.targetX || 0;
           obj.targetY = p.targetY || 0;
           obj.teleportDelay = p.teleportDelay || 0;
+        }
+        if (p.type === 'jumpPad') {
+          obj.jumpBoost = p.jumpBoost || 800;
         }
         objects.push(obj);
       });
@@ -1410,27 +1416,24 @@ document.getElementById("copy-json").addEventListener("click", () => {
   alert("Copied!");
 });
 
-// Layer helpers
 function getMaxZIndex() { return objects.length > 0 ? Math.max(...objects.map(o => o.zIndex || 0)) : 0; }
 function getMinZIndex() { return objects.length > 0 ? Math.min(...objects.map(o => o.zIndex || 0)) : 0; }
 
-// Animation loop
 function animate() {
   draw();
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 
-// Resize
 window.addEventListener("resize", () => {
   canvasWidth = window.innerWidth - 550;
   canvasHeight = window.innerHeight - 40;
+  updateJSON();
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   draw();
 });
 
-// Init DB and load
 openDB().then(async () => {
   const saved = await loadFromDB();
   if (saved) {
@@ -1449,6 +1452,9 @@ openDB().then(async () => {
         obj.targetX = p.targetX || 0;
         obj.targetY = p.targetY || 0;
         obj.teleportDelay = p.teleportDelay || 0;
+      }
+      if (p.type === 'jumpPad') {
+        obj.jumpBoost = p.jumpBoost || 800;
       }
       objects.push(obj);
     });
