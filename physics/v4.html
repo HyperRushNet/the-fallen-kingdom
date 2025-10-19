@@ -33,8 +33,7 @@
   },
   "textures": [
     "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg/1024px-Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
-    "https://corsproxy.io/https://img.freepik.com/free-photo/close-up-rope-texture-composition_23-2149016495.jpg?w=360",
-    "https://cdn.pixabay.com/photo/2020/03/22/06/57/game-background-4956017_1280.jpg"
+    "https://corsproxy.io/https://img.freepik.com/free-photo/close-up-rope-texture-composition_23-2149016495.jpg?w=360"
   ],
   "platforms": [
     {
@@ -323,21 +322,21 @@
       "angle": 0,
       "textureId": 0,
       "zIndex": 1
+    },
+    {
+      "id": "fBRUf6sGfY0Z-WRPHD9RLfEVn",
+      "type": "jumpPad",
+      "x": 1285,
+      "y": 61,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 1,
+      "jumpBoost": 5000
     }
   ],
-  "decor": [
-    {
-      "id": "N284a7ThDn6X-Q3N9W59JsZzb",
-      "x": -193,
-      "y": 331,
-      "w": 6000,
-      "h": 3000,
-      "angle": 0,
-      "textureId": 2,
-      "zIndex": -1,
-      "parallaxSpeed": 0.5
-    }
-  ]
+  "decor": []
 };
 
 const config = {
@@ -346,7 +345,9 @@ const config = {
     jumpHeight: 600,
     airJumpCooldown: 1.5,
     dashDuration: 0.2,
-    dashSpeed: 800
+    dashSpeed: 800,
+    useDynamicSubsteps: true,
+    maxSubLen: 10
 };
 
         class Vec2 {
@@ -687,9 +688,15 @@ const config = {
                 this.vel.y += g_vec_y;
                 const disp_x = this.vel.x * dt;
                 const disp_y = this.vel.y * dt;
-                const dispLen = Math.hypot(disp_x, disp_y);
+                let numSteps;
+                if (config.useDynamicSubsteps) {
+                    const dispLen = Math.hypot(disp_x, disp_y);
+                    const maxSubLen = config.maxSubLen;
+                    numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
+                } else {
+                    numSteps = 1;
+                }
                 const maxSubLen = 10;
-                const numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
                 const sub_disp_x = disp_x / numSteps;
                 const sub_disp_y = disp_y / numSteps;
                 let currentPosX = this.pos.x;
@@ -708,7 +715,7 @@ const config = {
                             const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-                                    // Ignore collision for teleporters to allow walking through
+
                                 } else {
                                     hasCollision = true;
                                     let axis = res.axis;
@@ -1014,7 +1021,7 @@ const config = {
                     e.update(dt, this);
                     if (e.pos.x !== e.prevPos.x || e.pos.y !== e.prevPos.y) moved = true;
                 }
-                // Teleporter logic
+
                 if (this.player) {
                     let currentTele = null;
                     const playerAABB = this.player.aabb;
@@ -1026,7 +1033,7 @@ const config = {
                     }
                     if (currentTele) {
                         if (currentTele.teleportDelay === 0) {
-                            // immediate teleport
+
                             this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
                             this.player.vel.set(0, 0);
                             this.player.onGround = false;
