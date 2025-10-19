@@ -8,13 +8,13 @@
     <title>Game Engine</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { overflow: hidden; background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; }
+        body { overflow: hidden; background: #0a0a0a; color: #b0d0ff; font-family: 'Courier New', monospace; }
         canvas { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); display: block; width: 100vw; height: 100vh; }
         #debug {
-            position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.85);
-            padding: 12px; border: 1px solid #00ff41; border-radius: 8px;
+            position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.4);
+            padding: 12px; border: 1px dashed #b0d0ff; border-radius: 8px;
             width: 260px; font-size: 11px; line-height: 1.1;
-            box-shadow: 0 4px 15px rgba(0, 255, 65, 0.1); backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); backdrop-filter: blur(8px);
         }
     </style>
 </head>
@@ -24,17 +24,14 @@
     <script>
         const mapData = {
   "playerStart": {
-    "x": 0,
-    "y": 0,
+    "x": -119,
+    "y": 1050,
     "w": 50,
     "h": 100,
     "zIndex": 1,
     "angle": 0
   },
-  "textures": [
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Grey_rough_granite_rock_seamless_stone_surface_texture.jpg/1024px-Grey_rough_granite_rock_seamless_stone_surface_texture.jpg",
-    "https://corsproxy.io/https://img.freepik.com/free-photo/close-up-rope-texture-composition_23-2149016495.jpg?w=360"
-  ],
+  "textures": [],
   "platforms": [
     {
       "id": "6nZuizW8hxb6-m0JFncfLJvDx",
@@ -95,9 +92,9 @@
       "id": "Tt1L7zgf67Ba-qI3mYMxRomVz",
       "type": "platform",
       "x": -1315,
-      "y": 61,
+      "y": 71,
       "w": 100,
-      "h": 20,
+      "h": 40,
       "angle": 0,
       "textureId": null,
       "zIndex": 1
@@ -117,9 +114,9 @@
       "id": "LnKK92pQqrR4-WAYcIK6o0CrO",
       "type": "platform",
       "x": -1615,
-      "y": 267,
+      "y": 277,
       "w": 100,
-      "h": 20,
+      "h": 40,
       "angle": 0,
       "textureId": null,
       "zIndex": 1
@@ -128,9 +125,9 @@
       "id": "tiw5l0HEWmNb-xkHm9MMVxoBA",
       "type": "platform",
       "x": -1315,
-      "y": 525,
+      "y": 457,
       "w": 100,
-      "h": 20,
+      "h": 40,
       "angle": 0,
       "textureId": null,
       "zIndex": 1
@@ -141,7 +138,7 @@
       "x": -1615,
       "y": 630,
       "w": 100,
-      "h": 20,
+      "h": 21,
       "angle": 0,
       "textureId": null,
       "zIndex": 1
@@ -154,7 +151,7 @@
       "w": 1000,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -165,7 +162,7 @@
       "w": 50,
       "h": 100,
       "angle": 90,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -176,7 +173,7 @@
       "w": 500,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -187,18 +184,18 @@
       "w": 50,
       "h": 100,
       "angle": 90,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
       "id": "9xYEm7NYJ2C8-PtGP83JMkIup",
       "type": "platform",
-      "x": -216,
+      "x": 34,
       "y": 1151,
-      "w": 500,
+      "w": 1000,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -209,7 +206,7 @@
       "w": 500,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -220,7 +217,7 @@
       "w": 400,
       "h": 100,
       "angle": -30,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -231,7 +228,7 @@
       "w": 500,
       "h": 100,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -242,7 +239,7 @@
       "w": 400,
       "h": 100,
       "angle": 20,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -282,22 +279,11 @@
     {
       "id": "ycTCDYB6odM0-zNoKsGoJTRyr",
       "type": "platform",
-      "x": -1308,
-      "y": 120,
-      "w": 150,
+      "x": -1311,
+      "y": 115,
+      "w": 116,
       "h": 10,
-      "angle": 45,
-      "textureId": 1,
-      "zIndex": 1
-    },
-    {
-      "id": "PSgD3zk96D1l-1EnPMzouRAFx",
-      "type": "platform",
-      "x": -1622,
-      "y": 326,
-      "w": 150,
-      "h": 10,
-      "angle": -45,
+      "angle": 30,
       "textureId": null,
       "zIndex": 1
     },
@@ -309,7 +295,7 @@
       "w": 474,
       "h": 330,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
@@ -320,20 +306,85 @@
       "w": 200,
       "h": 330,
       "angle": 0,
-      "textureId": 0,
+      "textureId": null,
       "zIndex": 1
     },
     {
-      "id": "fBRUf6sGfY0Z-WRPHD9RLfEVn",
-      "type": "jumpPad",
-      "x": 1285,
-      "y": 61,
-      "w": 100,
+      "id": "QgOB6NK09YBe-6C0nSWir9dPH",
+      "type": "platform",
+      "x": -1619,
+      "y": 322,
+      "w": 116,
+      "h": 10,
+      "angle": -30,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "Pv9FpijKeZMG-mqntsk3CwftP",
+      "type": "platform",
+      "x": -1311,
+      "y": 502,
+      "w": 116,
+      "h": 10,
+      "angle": 30,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "tMBnCpknroFJ-PVsLWRyg6z8d",
+      "type": "platform",
+      "x": -1595,
+      "y": 721,
+      "w": 161,
       "h": 20,
+      "angle": 90,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "wg3uiAJODzkn-5yJ4wSZEceNE",
+      "type": "platform",
+      "x": -418,
+      "y": 273,
+      "w": 150,
+      "h": 244,
       "angle": 0,
       "textureId": null,
-      "zIndex": 1,
-      "jumpBoost": 5000
+      "zIndex": 1
+    },
+    {
+      "id": "5G7iO2PgSFRT-SmgiVi4auxOp",
+      "type": "platform",
+      "x": -107,
+      "y": 223,
+      "w": 472,
+      "h": 144,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "j10TRmLPSoe8-pGTcSMHSEHow",
+      "type": "platform",
+      "x": 586,
+      "y": 566,
+      "w": 300,
+      "h": 100,
+      "angle": 40,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "QDmOtLZY7FzE-mz1wO0cOjhoF",
+      "type": "platform",
+      "x": 484,
+      "y": 1065,
+      "w": 75,
+      "h": 100,
+      "angle": 90,
+      "textureId": null,
+      "zIndex": 2
     }
   ],
   "decor": []
@@ -347,7 +398,7 @@ const config = {
     dashDuration: 0.2,
     dashSpeed: 800,
     useDynamicSubsteps: true,
-    maxSubLen: 10
+    maxSubLen: 5
 };
 
         class Vec2 {
@@ -411,7 +462,7 @@ const config = {
                     const projA = A.project(axis, posAX, posAY);
                     const projB = B.project(axis, posBX, posBY);
                     const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
-                    if (o < 1e-4) return null;
+                    if (o < 1e-6) return null;
                     if (o < overlap) { overlap = o; smallestAxis = axis; }
                 }
                 if (!smallestAxis) return null;
@@ -696,18 +747,18 @@ const config = {
                 } else {
                     numSteps = 1;
                 }
-                const maxSubLen = 10;
                 const sub_disp_x = disp_x / numSteps;
                 const sub_disp_y = disp_y / numSteps;
                 let currentPosX = this.pos.x;
                 let currentPosY = this.pos.y;
-                const beta = 0.8;
+                const beta = 0.5;
                 for (let step = 0; step < numSteps; step++) {
                     let testPosX = currentPosX + sub_disp_x;
                     let testPosY = currentPosY + sub_disp_y;
-                    for (let i = 0; i < 10; i++) {
-                        let hasCollision = false;
-                        const testAABB = this.shape.getAABB(testPosX, testPosY);
+                    for (let i = 0; i < 20; i++) {
+                        let deadlyCollision = false;
+                        let collisions = [];
+                        let testAABB = this.shape.getAABB(testPosX, testPosY);
                         for (const other of world.getNearby(testPosX, testPosY)) {
                             if (!other.shape || other === this || other.isDecor) continue;
                             const otherAABB = other.aabb;
@@ -715,9 +766,10 @@ const config = {
                             const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-
+                                    // Skip push for teleporter
+                                } else if (other.deadly && this === world.player) {
+                                    deadlyCollision = true;
                                 } else {
-                                    hasCollision = true;
                                     let axis = res.axis;
                                     const d_x = testPosX - other.pos.x;
                                     const d_y = testPosY - other.pos.y;
@@ -735,37 +787,100 @@ const config = {
                                         push_x = -push_x;
                                         push_y = -push_y;
                                     }
-                                    if (other.deadly && this === world.player) {
-                                        this.pos.set(world.playerStartPos.x, world.playerStartPos.y);
-                                        this.vel.set(0, 0);
-                                        this.onGround = false;
-                                        currentPosX = this.pos.x;
-                                        currentPosY = this.pos.y;
-                                        testPosX = currentPosX;
-                                        testPosY = currentPosY;
-                                    } else {
-                                        const push_dist = beta * res.overlap;
-                                        testPosX += push_x * push_dist;
-                                        testPosY += push_y * push_dist;
-                                        const vn = this.vel.x * push_x + this.vel.y * push_y;
-                                        if (vn < 0) {
-                                            this.vel.x -= push_x * vn;
-                                            this.vel.y -= push_y * vn;
-                                        }
-                                        if (push_x * up_x + push_y * up_y > 0.01) {
-                                            if (!this.onGround) {
-                                                this.justLanded = true;
-                                                this.landedEntity = other;
-                                            }
-                                            this.onGround = true;
-                                            this.groundNormal.x = push_x;
-                                            this.groundNormal.y = push_y;
-                                        }
-                                    }
+                                    collisions.push({ push_x, push_y, overlap: res.overlap, other });
                                 }
                             }
                         }
-                        if (!hasCollision) break;
+                        if (deadlyCollision) {
+                            this.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                            this.vel.set(0, 0);
+                            this.onGround = false;
+                            currentPosX = this.pos.x;
+                            currentPosY = this.pos.y;
+                            testPosX = currentPosX;
+                            testPosY = currentPosY;
+                            this.updateAABB();
+                            break;
+                        }
+                        if (collisions.length === 0) break;
+                        // Sort collisions by overlap descending for sequential resolution
+                        collisions.sort((a, b) => b.overlap - a.overlap);
+                        let has_ground = false;
+                        let maxGroundOverlap = -Infinity;
+                        let bestGround = null;
+                        let ground_normal_x = 0;
+                        let ground_normal_y = 0;
+                        const was_on_ground = this.onGround;
+                        for (const col of collisions) {
+                            const push_dist = beta * col.overlap;
+                            testPosX += col.push_x * push_dist;
+                            testPosY += col.push_y * push_dist;
+                            const vn = this.vel.x * col.push_x + this.vel.y * col.push_y;
+                            if (vn < 0) {
+                                this.vel.x -= col.push_x * vn;
+                                this.vel.y -= col.push_y * vn;
+                            }
+                            const upward = col.push_x * up_x + col.push_y * up_y;
+                            if (upward > 0.01) {
+                                has_ground = true;
+                                if (col.overlap > maxGroundOverlap) {
+                                    maxGroundOverlap = col.overlap;
+                                    bestGround = col.other;
+                                    ground_normal_x = col.push_x;
+                                    ground_normal_y = col.push_y;
+                                }
+                            }
+                        }
+                        this.onGround = has_ground;
+                        if (has_ground && !was_on_ground) {
+                            this.justLanded = true;
+                            this.landedEntity = bestGround;
+                            this.groundNormal.set(ground_normal_x, ground_normal_y);
+                        }
+                        // Escape stuck: na alle pushes, check of nog overlaps; zo ja, nudge uit kleinste
+                        let remainingCollisions = [];
+                        testAABB = this.shape.getAABB(testPosX, testPosY);
+                        for (const other of world.getNearby(testPosX, testPosY)) {
+                            if (!other.shape || other === this || other.isDecor) continue;
+                            const otherAABB = other.aabb;
+                            if (!aabbOverlap(testAABB, otherAABB)) continue;
+                            const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
+                            if (res) {
+                                if (other.teleportTarget && this === world.player) {
+                                    // Skip voor teleporter
+                                } else if (other.deadly && this === world.player) {
+                                    // Deadly skip, maar handel als voorheen
+                                } else {
+                                    let axis = res.axis;
+                                    const d_x = testPosX - other.pos.x;
+                                    const d_y = testPosY - other.pos.y;
+                                    const dLen = Math.hypot(d_x, d_y);
+                                    let dir_x = 0;
+                                    let dir_y = -1;
+                                    if (dLen > 1e-6) {
+                                        dir_x = d_x / dLen;
+                                        dir_y = d_y / dLen;
+                                    }
+                                    const dirDotAxis = dir_x * axis.x + dir_y * axis.y;
+                                    let push_x = axis.x;
+                                    let push_y = axis.y;
+                                    if (dirDotAxis < 0) {
+                                        push_x = -push_x;
+                                        push_y = -push_y;
+                                    }
+                                    remainingCollisions.push({ push_x, push_y, overlap: res.overlap, other });
+                                }
+                            }
+                        }
+                        if (remainingCollisions.length > 0) {
+                            // Sort op kleinste overlap eerst (om makkelijkste uitweg te kiezen)
+                            remainingCollisions.sort((a, b) => a.overlap - b.overlap);
+                            const col = remainingCollisions[0];
+                            const push_dist = col.overlap;  // Volledig pushen om te ontsnappen (geen beta)
+                            testPosX += col.push_x * push_dist;
+                            testPosY += col.push_y * push_dist;
+                            // Geen extra vel reflect hier, om jitter te vermijden
+                        }
                     }
                     currentPosX = testPosX;
                     currentPosY = testPosY;
