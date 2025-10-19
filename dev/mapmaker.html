@@ -620,8 +620,9 @@ function updateHierarchy() {
       'jumpPad': 'fas fa-arrow-up',
       'decor': 'fas fa-star'
     };
-    const iconClass = iconMap[o.type] || 'fas fa-cube';
-    item.innerHTML = `<span>${o.type.toUpperCase()} ${index + 1}</span><i class="${iconClass} type-icon"></i>`;
+    const objType = o.type || 'unknown';
+    const iconClass = iconMap[objType] || 'fas fa-cube';
+    item.innerHTML = `<span>${objType.toUpperCase()} ${index + 1}</span><i class="${iconClass} type-icon"></i>`;
     item.addEventListener("click", () => selectObject(o));
     list.appendChild(item);
   });
@@ -697,7 +698,7 @@ function updateInspector() {
     return;
   }
 
-  const oldType = selected.type;
+  const oldType = selected.type || 'platform';
   let extraTeleportHTML = '';
   if (selected.type === 'teleporter') {
     extraTeleportHTML = `
@@ -771,12 +772,12 @@ function updateInspector() {
       <div class="property-row">
         <label>Type</label>
         <select id="type">
-          <option value="platform" ${selected.type === 'platform' ? 'selected' : ''}>Platform</option>
-          <option value="wall" ${selected.type === 'wall' ? 'selected' : ''}>Wall</option>
-          <option value="deadly" ${selected.type === 'deadly' ? 'selected' : ''}>Deadly</option>
-          <option value="teleporter" ${selected.type === 'teleporter' ? 'selected' : ''}>Teleporter</option>
-          <option value="jumpPad" ${selected.type === 'jumpPad' ? 'selected' : ''}>Jump Pad</option>
-          <option value="decor" ${selected.type === 'decor' ? 'selected' : ''}>Decor</option>
+          <option value="platform" ${oldType === 'platform' ? 'selected' : ''}>Platform</option>
+          <option value="wall" ${oldType === 'wall' ? 'selected' : ''}>Wall</option>
+          <option value="deadly" ${oldType === 'deadly' ? 'selected' : ''}>Deadly</option>
+          <option value="teleporter" ${oldType === 'teleporter' ? 'selected' : ''}>Teleporter</option>
+          <option value="jumpPad" ${oldType === 'jumpPad' ? 'selected' : ''}>Jump Pad</option>
+          <option value="decor" ${oldType === 'decor' ? 'selected' : ''}>Decor</option>
         </select>
       </div>
       <div class="property-row">
@@ -908,7 +909,8 @@ function draw() {
       }
     } else {
       let color;
-      switch (o.type) {
+      const objType = o.type || 'platform';
+      switch (objType) {
         case "platform": color = "#654321"; break;
         case "wall": color = "#444"; break;
         case "deadly": color = "#f00"; break;
@@ -928,7 +930,8 @@ function draw() {
 
     if (debugMode) {
       let strokeColor;
-      switch (o.type) {
+      const objType = o.type || 'platform';
+      switch (objType) {
         case "platform": strokeColor = "yellow"; break;
         case "wall": strokeColor = "red"; break;
         case "deadly": strokeColor = "red"; break;
@@ -984,7 +987,7 @@ async function updateJSON() {
   const platforms = objects.filter(o => o.type !== "decor").map(o => {
     let platObj = {
       id: o.id || generateId(),
-      type: o.type,
+      type: o.type || 'platform',
       x: Math.round(o.x),
       y: Math.round(o.y),
       w: Math.round(o.w),
@@ -1278,6 +1281,7 @@ window.addEventListener("keydown", e => {
     }
     if (e.key === "v" && clipboard) {
       const newObj = { ...clipboard, id: generateId(), x: (clipboard.x || player.x) + 20, y: (clipboard.y || player.y) + 20, zIndex: getMaxZIndex() + 1 };
+      if (!newObj.type) newObj.type = 'platform';
       if (newObj.type === 'decor' && newObj.parallaxSpeed === undefined) newObj.parallaxSpeed = 1;
       if (newObj.type === 'teleporter') {
         if (newObj.targetX === undefined) newObj.targetX = 0;
@@ -1348,7 +1352,11 @@ document.getElementById("load-json").addEventListener("click", () => {
       };
       objects = [];
       (data.platforms || []).forEach(p => {
-        const obj = { ...p, texture: data.textures[p.textureId] || null };
+        const obj = { 
+          ...p, 
+          type: p.type || 'platform',
+          texture: data.textures[p.textureId] || null 
+        };
         if (p.type === 'teleporter') {
           obj.targetX = p.targetX || 0;
           obj.targetY = p.targetY || 0;
@@ -1359,7 +1367,15 @@ document.getElementById("load-json").addEventListener("click", () => {
         }
         objects.push(obj);
       });
-      (data.decor || []).forEach(d => objects.push({ ...d, texture: data.textures[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
+      (data.decor || []).forEach(d => {
+        const obj = { 
+          ...d, 
+          type: 'decor',
+          texture: data.textures[d.textureId] || null, 
+          parallaxSpeed: d.parallaxSpeed || 1 
+        };
+        objects.push(obj);
+      });
       selected = null;
       history = [];
       historyIndex = -1;
@@ -1447,7 +1463,11 @@ openDB().then(async () => {
     };
     objects = [];
     (saved.platforms || []).forEach(p => {
-      const obj = { ...p, texture: saved.textures?.[p.textureId] || null };
+      const obj = { 
+        ...p, 
+        type: p.type || 'platform',
+        texture: saved.textures?.[p.textureId] || null 
+      };
       if (p.type === 'teleporter') {
         obj.targetX = p.targetX || 0;
         obj.targetY = p.targetY || 0;
@@ -1458,7 +1478,15 @@ openDB().then(async () => {
       }
       objects.push(obj);
     });
-    (saved.decor || []).forEach(d => objects.push({ ...d, texture: saved.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 }));
+    (saved.decor || []).forEach(d => {
+      const obj = { 
+        ...d, 
+        type: 'decor',
+        texture: saved.textures?.[d.textureId] || null, 
+        parallaxSpeed: d.parallaxSpeed || 1 
+      };
+      objects.push(obj);
+    });
   }
   updateHierarchy();
   updateInspector();
