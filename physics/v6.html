@@ -1861,7 +1861,8 @@
                 this.saveProgress().catch(console.error);
             }
             updateInventoryUI() {
-                populateGrid('inventoryGrid', this.inventory, config.maxPlayerSlots, 'player');
+                updateSlots('inventoryGrid', this.inventory, 'player');
+                updateSlots('playerGridInChest', this.inventory, 'player');
             }
             getVisible(camX, camY, width, height) {
                 const pad = 20;
@@ -2100,7 +2101,8 @@
             div.className = 'item';
             div.draggable = true;
             div.dataset.item = item;
-            div.dataset.slot = slotIdx;
+            div.dataset.inventoryType = invType;
+            div.dataset.slotIndex = slotIdx.toString();
             const img = document.createElement('img');
             img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
             img.alt = item;
@@ -2111,12 +2113,43 @@
             div.appendChild(img);
             div.appendChild(tooltip);
             div.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', item);
-                e.dataTransfer.setData('sourceInventory', invType);
-                e.dataTransfer.setData('sourceSlot', slotIdx.toString());
+                const currentItem = e.target.dataset.item;
+                const sourceInv = e.target.dataset.inventoryType;
+                const sourceSlot = parseInt(e.target.dataset.slotIndex);
+                e.dataTransfer.setData('text/plain', currentItem);
+                e.dataTransfer.setData('sourceInventory', sourceInv);
+                e.dataTransfer.setData('sourceSlot', sourceSlot.toString());
                 e.dataTransfer.effectAllowed = 'move';
             });
             return div;
+        }
+
+        function updateSlots(gridId, itemsArray, invType) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            for (let i = 0; i < itemsArray.length; i++) {
+                const slot = grid.children[i];
+                if (!slot) continue;
+                const item = itemsArray[i];
+                let itemDiv = slot.querySelector('.item');
+                if (item && !itemDiv) {
+                    itemDiv = createItemDiv(item, i, invType);
+                    slot.appendChild(itemDiv);
+                    slot.classList.add('has-item');
+                } else if (!item && itemDiv) {
+                    itemDiv.remove();
+                    slot.classList.remove('has-item');
+                    itemDiv = null;
+                } else if (item && itemDiv) {
+                    itemDiv.dataset.item = item;
+                    itemDiv.dataset.inventoryType = invType;
+                    itemDiv.dataset.slotIndex = i.toString();
+                    const tooltip = itemDiv.querySelector('.tooltip');
+                    tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+                    const img = itemDiv.querySelector('img');
+                    img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                }
+            }
         }
 
         function handleDrop(e) {
@@ -2153,8 +2186,10 @@
                     return;
                 }
             }
-            populateChestUI();
             world.updateInventoryUI();
+            if (currentOpenChest) {
+                updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            }
             world.saveProgress().catch(console.error);
         }
 
@@ -2169,21 +2204,45 @@
                 slot.className = 'slot';
                 slot.dataset.slot = i;
                 slot.dataset.inventory = invType;
-                if (itemsArray[i]) {
-                    const itemDiv = createItemDiv(itemsArray[i], i, invType);
-                    slot.appendChild(itemDiv);
-                    slot.classList.add('has-item');
-                }
                 slot.addEventListener('dragover', (e) => e.preventDefault());
                 slot.addEventListener('drop', handleDrop);
                 grid.appendChild(slot);
             }
         }
 
+        function initUIGrids() {
+            populateGrid('inventoryGrid', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('playerGridInChest', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('chestGrid', new Array(config.maxChestSlots).fill(null), config.maxChestSlots, 'chest');
+        }
+
         function populateChestUI() {
             if (!currentOpenChest) return;
-            populateGrid('chestGrid', currentOpenChest.items, config.maxChestSlots, 'chest');
-            populateGrid('playerGridInChest', world.inventory, config.maxPlayerSlots, 'player');
+            updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        }
+
+        function waitForTextures(textures) {
+            return Promise.all(textures.map(texObj => {
+                if (texObj instanceof HTMLImageElement) {
+                    if (texObj.complete && texObj.naturalWidth > 0) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        texObj.onload = () => resolve();
+                        texObj.onerror = reject;
+                    });
+                } else if (texObj && texObj.video) {
+                    return new Promise((resolve, reject) => {
+                        const onReady = () => {
+                            texObj.isReady = true;
+                            resolve();
+                        };
+                        texObj.video.addEventListener('canplay', onReady, {once: true});
+                        texObj.video.addEventListener('error', reject, {once: true});
+                        if (texObj.video.readyState >= 2) onReady();
+                    });
+                }
+                return Promise.resolve();
+            }));
         }
 
         const canvas = document.getElementById("game");
@@ -2296,6 +2355,8 @@
             glTextures.push(tex);
         });
 
+        initUIGrids();
+
         closeChestBtn.addEventListener('click', () => {
             if (currentOpenChest) {
                 const chest = currentOpenChest;
@@ -2386,9 +2447,16 @@
             world.saveProgress().catch(console.error);
         });
 
+        world.updateInventoryUI = () => {
+            updateSlots('inventoryGrid', world.inventory, 'player');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        };
+
         async function initializeGame() {
             await world.initDB();
+            await waitForTextures(textures);
             await world.loadMap(mapData, textures);
+            world.updateInventoryUI();
         }
         initializeGame().catch(console.error);
 
