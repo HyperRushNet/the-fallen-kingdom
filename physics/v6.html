@@ -1701,6 +1701,10 @@
                     position: { x: this.player.pos.x, y: this.player.pos.y },
                     inventory: this.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null),
                     respawnPos: { x: this.currentRespawnPos.x, y: this.currentRespawnPos.y },
+                    chests: this.chests.map(c => ({
+                        id: c.id,
+                        items: c.items.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null)
+                    })),
                     lastUpdate: Date.now()
                 };
                 const tx = this.db.transaction('progress', 'readwrite');
@@ -1717,6 +1721,14 @@
                         const saved = req.result;
                         if (saved) {
                             saved.inventory = saved.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null);
+                            if (saved.chests) {
+                                saved.chests.forEach(schest => {
+                                    const chest = this.chests.find(c => c.id === schest.id);
+                                    if (chest) {
+                                        chest.items = schest.items.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null);
+                                    }
+                                });
+                            }
                         }
                         resolve(saved || null);
                     };
@@ -1747,10 +1759,13 @@
                     else if (plat.type === "chest") {
                         const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
                         const chestItems = new Array(config.maxChestSlots).fill(null);
-                        plat.items.slice(0, config.maxChestSlots).forEach((item, idx) => {
-                            chestItems[idx] = item;
-                        });
+                        if (plat.items) {
+                            plat.items.slice(0, config.maxChestSlots).forEach((item, idx) => {
+                                chestItems[idx] = item;
+                            });
+                        }
                         const chest = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius);
+                        chest.id = plat.id;
                         this.add(chest);
                         this.chests.push(chest);
                         this.allEntities.push(chest);
@@ -1761,6 +1776,7 @@
                         const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
                         const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
                         const respawnBox = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY);
+                        respawnBox.id = plat.id;
                         respawnBox.passThrough = passThrough;
                         this.add(respawnBox);
                         this.respawnBoxes.push(respawnBox);
@@ -2534,6 +2550,17 @@
                 world.updateInventoryUI();
                 world.currentRespawnPos = world.playerStartPos.clone();
                 world.respawnBoxes.forEach(box => box.setActive(false));
+                // Reset chests to initial
+                const initialChestsData = mapData.platforms.filter(plat => plat.type === "chest").map(plat => ({
+                    id: plat.id,
+                    items: (plat.items || []).slice(0, config.maxChestSlots).concat(new Array(Math.max(0, config.maxChestSlots - (plat.items || []).length)).fill(null))
+                }));
+                world.chests.forEach(chest => {
+                    const initial = initialChestsData.find(ic => ic.id === chest.id);
+                    if (initial) {
+                        chest.items = initial.items.slice();
+                    }
+                });
                 if (inventoryOpen) {
                     inventoryOpen = false;
                     inventoryDiv.style.display = 'none';
