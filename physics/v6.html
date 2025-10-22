@@ -285,7 +285,11 @@
             respawnDetectionRadius: 1200,
             fadeDuration: 1,
             mostlyDarkPercentage: 0.8,
-            autoSaveInterval: 5000
+            autoSaveInterval: 5000,
+            enableCheats: false,
+            resetToStartEnabled: false,
+            godModeEnabled: false,
+            infiniteJumpsEnabled: false
         };
 
         const mapData = {
@@ -407,7 +411,7 @@
       "h": 100,
       "angle": 0,
       "textureId": null,
-      "zIndex": 10
+      "zIndex": 1
     },
     {
       "id": "MS1PZMAEiRFM-dZFkoEtwGk7j",
@@ -528,7 +532,7 @@
       "h": 200,
       "angle": 0,
       "textureId": null,
-      "zIndex": 21
+      "zIndex": 1
     },
     {
       "id": "wFUMitBwRH8N-jaQEV6NVDoea",
@@ -892,6 +896,28 @@
       "angle": 0,
       "textureId": null,
       "zIndex": 60
+    },
+    {
+      "id": "PUWunsdRlN0O-JKgeIBhYmDtE",
+      "type": "platform",
+      "x": 4810,
+      "y": 350,
+      "w": 100,
+      "h": 800,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 1
+    },
+    {
+      "id": "bUCHEPHsDCZW-Ox8b1I5c4cng",
+      "type": "platform",
+      "x": 5010,
+      "y": 350,
+      "w": 100,
+      "h": 800,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 62
     }
   ],
   "decor": [
@@ -1284,7 +1310,9 @@
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
                                 } else if (other.deadly && this === world.player) {
-                                    deadlyCollision = true;
+                                    if (!config.godModeEnabled) {
+                                        deadlyCollision = true;
+                                    }
                                 } else if (other.passThrough && this === world.player) {
                                 } else {
                                     let axis = res.axis;
@@ -1309,6 +1337,10 @@
                             }
                         }
                         if (deadlyCollision) {
+                            if (config.godModeEnabled) {
+                                // God mode: ignore death
+                                break;
+                            }
                             this.isDying = true;
                             this.vel.set(0, 0);
                             const fadeDuration = config.fadeDuration;
@@ -1426,9 +1458,11 @@
                     let doJump = false;
                     if (this.oldOnGround) {
                         doJump = true;
-                    } else if (this.airJumpCooldown <= 0) {
+                    } else if ((this.airJumpCooldown <= 0) || config.infiniteJumpsEnabled) {
                         doJump = true;
-                        this.airJumpCooldown = this.airJumpCooldownMax;
+                        if (!config.infiniteJumpsEnabled) {
+                            this.airJumpCooldown = this.airJumpCooldownMax;
+                        }
                     }
                     if (doJump) {
                         if (this.isDashing) {
@@ -2378,6 +2412,16 @@
             const wasPressed = world.keys[e.code];
             world.keys[e.code] = true;
             if (!wasPressed) {
+                if (config.enableCheats && config.resetToStartEnabled && e.ctrlKey && e.code === "KeyS") {
+                    if (world.player) {
+                        world.player.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                        world.player.vel.set(0, 0);
+                        world.player.onGround = false;
+                        world.player.isDying = false;
+                        world.player.updateAABB();
+                        console.log("Dev cheat: Reset to start position");
+                    }
+                }
                 if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
                     if (world.player.dashTimer <= 0) {
                         world.player.dashTimer = config.dashDuration;
@@ -2447,7 +2491,8 @@
                     const interpPos = world.getInterpolatedPosition(world.player, 0);
                     const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
                     const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
-                    debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\ndashing: ${world.player.isDashing}\nairJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}\nkeys: ${activeKeys}\nfps: ${fps}\n${chestInfo}\n${respawnInfo}`;
+                    const cheatsInfo = `Cheats: ${config.enableCheats ? 'ON' : 'OFF'} (God:${config.godModeEnabled}, InfJump:${config.infiniteJumpsEnabled}, ResetStart:${config.resetToStartEnabled})`;
+                    debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\ndashing: ${world.player.isDashing}\nairJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}\nkeys: ${activeKeys}\nfps: ${fps}\n${chestInfo}\n${respawnInfo}\n${cheatsInfo}`;
                     lastDebugTime = currentTime;
                 }
             }
