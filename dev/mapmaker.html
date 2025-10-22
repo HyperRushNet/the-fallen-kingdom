@@ -223,6 +223,18 @@ body {
   font-size: 11px;
 }
 
+.property-row textarea {
+  flex: 1;
+  background: var(--dark);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  resize: vertical;
+  min-height: 60px;
+}
+
 .property-row button {
   background: var(--dark);
   color: var(--text);
@@ -618,6 +630,8 @@ function updateHierarchy() {
       'deadly': 'fas fa-skull',
       'teleporter': 'fas fa-exchange-alt',
       'jumpPad': 'fas fa-arrow-up',
+      'chest': 'fas fa-box',
+      'respawn': 'fas fa-home',
       'decor': 'fas fa-star'
     };
     const objType = o.type || 'unknown';
@@ -731,6 +745,46 @@ function updateInspector() {
       </div>
     `;
   }
+  let extraChestHTML = '';
+  if (selected.type === 'chest') {
+    extraChestHTML = `
+      <div class="property-group">
+        <h3>Chest</h3>
+        <div class="property-row">
+          <label>Detection Radius</label>
+          <input type="number" id="chest-radius" value="${selected.detectionRadius || 100}">
+        </div>
+        <div class="property-row">
+          <label>Items (comma-separated)</label>
+          <textarea id="chest-items" placeholder="item1,item2,...">${(selected.items || []).join(',')}</textarea>
+        </div>
+      </div>
+    `;
+  }
+  let extraRespawnHTML = '';
+  if (selected.type === 'respawn') {
+    extraRespawnHTML = `
+      <div class="property-group">
+        <h3>Respawn</h3>
+        <div class="property-row">
+          <label>Detection Radius</label>
+          <input type="number" id="respawn-radius" value="${selected.detectionRadius || 1200}">
+        </div>
+        <div class="property-row">
+          <label>Pass Through</label>
+          <input type="checkbox" id="respawn-passthrough" ${selected.passThrough ? 'checked' : ''}>
+        </div>
+        <div class="property-row">
+          <label>Respawn X</label>
+          <input type="number" id="respawn-x" value="${selected.respawnX !== undefined ? selected.respawnX : selected.x}">
+        </div>
+        <div class="property-row">
+          <label>Respawn Y</label>
+          <input type="number" id="respawn-y" value="${selected.respawnY !== undefined ? selected.respawnY : selected.y}">
+        </div>
+      </div>
+    `;
+  }
   let extraParallaxHTML = '';
   if (selected.type === 'decor') {
     extraParallaxHTML = `
@@ -777,6 +831,8 @@ function updateInspector() {
           <option value="deadly" ${oldType === 'deadly' ? 'selected' : ''}>Deadly</option>
           <option value="teleporter" ${oldType === 'teleporter' ? 'selected' : ''}>Teleporter</option>
           <option value="jumpPad" ${oldType === 'jumpPad' ? 'selected' : ''}>Jump Pad</option>
+          <option value="chest" ${oldType === 'chest' ? 'selected' : ''}>Chest</option>
+          <option value="respawn" ${oldType === 'respawn' ? 'selected' : ''}>Respawn</option>
           <option value="decor" ${oldType === 'decor' ? 'selected' : ''}>Decor</option>
         </select>
       </div>
@@ -795,6 +851,8 @@ function updateInspector() {
     </div>
     ${extraTeleportHTML}
     ${extraJumpHTML}
+    ${extraChestHTML}
+    ${extraRespawnHTML}
     <div id="layer-controls">
       <button id="to-front"><i class="fas fa-arrow-up"></i></button>
       <button id="to-back"><i class="fas fa-arrow-down"></i></button>
@@ -806,10 +864,14 @@ function updateInspector() {
     </div>
   `;
 
-  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay', 'jump-boost'].forEach(id => {
+  ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay', 'jump-boost', 'chest-radius', 'respawn-radius', 'respawn-x', 'respawn-y'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("input", () => { applyInspectorChanges(); saveState(); });
   });
+  const chestItemsEl = document.getElementById("chest-items");
+  if (chestItemsEl) chestItemsEl.addEventListener("input", () => { applyInspectorChanges(); saveState(); });
+  const respawnPassEl = document.getElementById("respawn-passthrough");
+  if (respawnPassEl) respawnPassEl.addEventListener("change", () => { applyInspectorChanges(); saveState(); });
   const typeEl = document.getElementById("type");
   if (typeEl) {
     typeEl.addEventListener("change", (e) => {
@@ -824,6 +886,16 @@ function updateInspector() {
         }
         if (newType === 'jumpPad') {
           if (selected.jumpBoost === undefined) selected.jumpBoost = 800;
+        }
+        if (newType === 'chest') {
+          if (selected.detectionRadius === undefined) selected.detectionRadius = 100;
+          if (selected.items === undefined) selected.items = [];
+        }
+        if (newType === 'respawn') {
+          if (selected.detectionRadius === undefined) selected.detectionRadius = 1200;
+          if (selected.passThrough === undefined) selected.passThrough = false;
+          if (selected.respawnX === undefined) selected.respawnX = selected.x;
+          if (selected.respawnY === undefined) selected.respawnY = selected.y;
         }
         updateInspector();
         saveState();
@@ -856,6 +928,18 @@ function applyInspectorChanges() {
   if (delayEl) selected.teleportDelay = parseFloat(delayEl.value) || 0;
   const boostEl = document.getElementById("jump-boost");
   if (boostEl) selected.jumpBoost = parseInt(boostEl.value) || 800;
+  const chestRadiusEl = document.getElementById("chest-radius");
+  if (chestRadiusEl) selected.detectionRadius = parseInt(chestRadiusEl.value) || 100;
+  const chestItemsEl = document.getElementById("chest-items");
+  if (chestItemsEl) selected.items = chestItemsEl.value.split(',').map(s => s.trim()).filter(s => s);
+  const respawnRadiusEl = document.getElementById("respawn-radius");
+  if (respawnRadiusEl) selected.detectionRadius = parseInt(respawnRadiusEl.value) || 1200;
+  const respawnPassEl = document.getElementById("respawn-passthrough");
+  if (respawnPassEl) selected.passThrough = respawnPassEl.checked;
+  const respawnXEl = document.getElementById("respawn-x");
+  if (respawnXEl) selected.respawnX = parseInt(respawnXEl.value) || selected.x;
+  const respawnYEl = document.getElementById("respawn-y");
+  if (respawnYEl) selected.respawnY = parseInt(respawnYEl.value) || selected.y;
   selected.texture = document.getElementById("texture-url").value || null;
   if (selected.type !== 'decor') delete selected.parallaxSpeed;
   draw();
@@ -916,6 +1000,8 @@ function draw() {
         case "deadly": color = "#f00"; break;
         case "teleporter": color = "#00f"; break;
         case "jumpPad": color = "#0f0"; break;
+        case "chest": color = "#8B4513"; break;
+        case "respawn": color = "#FFD700"; break;
         case "decor": color = "#880088"; break;
         default: color = "#654321";
       }
@@ -937,6 +1023,8 @@ function draw() {
         case "deadly": strokeColor = "red"; break;
         case "teleporter": strokeColor = "blue"; break;
         case "jumpPad": strokeColor = "lime"; break;
+        case "chest": strokeColor = "brown"; break;
+        case "respawn": strokeColor = "gold"; break;
         case "decor": strokeColor = "purple"; break;
         default: strokeColor = "yellow";
       }
@@ -1003,6 +1091,16 @@ async function updateJSON() {
     }
     if (o.type === 'jumpPad') {
       platObj.jumpBoost = o.jumpBoost || 800;
+    }
+    if (o.type === 'chest') {
+      platObj.detectionRadius = o.detectionRadius || 100;
+      platObj.items = o.items || [];
+    }
+    if (o.type === 'respawn') {
+      platObj.detectionRadius = o.detectionRadius || 1200;
+      platObj.passThrough = o.passThrough || false;
+      platObj.respawnX = o.respawnX !== undefined ? o.respawnX : o.x;
+      platObj.respawnY = o.respawnY !== undefined ? o.respawnY : o.y;
     }
     return platObj;
   });
@@ -1291,6 +1389,16 @@ window.addEventListener("keydown", e => {
       if (newObj.type === 'jumpPad') {
         if (newObj.jumpBoost === undefined) newObj.jumpBoost = 800;
       }
+      if (newObj.type === 'chest') {
+        if (newObj.detectionRadius === undefined) newObj.detectionRadius = 100;
+        if (newObj.items === undefined) newObj.items = [];
+      }
+      if (newObj.type === 'respawn') {
+        if (newObj.detectionRadius === undefined) newObj.detectionRadius = 1200;
+        if (newObj.passThrough === undefined) newObj.passThrough = false;
+        if (newObj.respawnX === undefined) newObj.respawnX = newObj.x;
+        if (newObj.respawnY === undefined) newObj.respawnY = newObj.y;
+      }
       objects.push(newObj);
       selectObject(newObj);
       saveState();
@@ -1364,6 +1472,16 @@ document.getElementById("load-json").addEventListener("click", () => {
         }
         if (p.type === 'jumpPad') {
           obj.jumpBoost = p.jumpBoost || 800;
+        }
+        if (p.type === 'chest') {
+          obj.detectionRadius = p.detectionRadius || 100;
+          obj.items = p.items || [];
+        }
+        if (p.type === 'respawn') {
+          obj.detectionRadius = p.detectionRadius || 1200;
+          obj.passThrough = p.passThrough || false;
+          obj.respawnX = p.respawnX !== undefined ? p.respawnX : p.x;
+          obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
         }
         objects.push(obj);
       });
@@ -1475,6 +1593,16 @@ openDB().then(async () => {
       }
       if (p.type === 'jumpPad') {
         obj.jumpBoost = p.jumpBoost || 800;
+      }
+      if (p.type === 'chest') {
+        obj.detectionRadius = p.detectionRadius || 100;
+        obj.items = p.items || [];
+      }
+      if (p.type === 'respawn') {
+        obj.detectionRadius = p.detectionRadius || 1200;
+        obj.passThrough = p.passThrough || false;
+        obj.respawnX = p.respawnX !== undefined ? p.respawnX : p.x;
+        obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
       }
       objects.push(obj);
     });
