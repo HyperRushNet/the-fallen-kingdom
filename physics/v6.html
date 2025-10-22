@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -255,18 +255,18 @@
     <div id="debug"></div>
     <div id="inventory">
         <button id="closeInventory">&times;</button>
-        <h2>Inventaris</h2>
+        <h2>Inventory</h2>
         <div id="inventoryGrid"></div>
     </div>
     <div id="chestUI">
         <button id="closeChest">&times;</button>
-        <h2>Kist Interacties</h2>
+        <h2>Chest Interactions</h2>
         <div id="chestSection">
-            <h3>Inhoud Kist</h3>
+            <h3>Chest Contents</h3>
             <div id="chestGrid" class="grid-chest"></div>
         </div>
         <div id="playerSection">
-            <h3>Jouw Inventaris</h3>
+            <h3>Your Inventory</h3>
             <div id="playerGridInChest" class="grid-inventory"></div>
         </div>
     </div>
@@ -278,14 +278,12 @@
             airJumpCooldown: 1.5,
             dashDuration: 0.2,
             dashSpeed: 800,
-            useDynamicSubsteps: true,
-            maxSubLen: 10,
             cameraSmoothing: 0.05,
             maxPlayerSlots: 12,
             maxChestSlots: 9,
             chestDetectionRadius: 100,
-            respawnDetectionRadius: 120,
-            fadeDuration: 0.6,
+            respawnDetectionRadius: 1200,
+            fadeDuration: 1,
             mostlyDarkPercentage: 0.8,
             autoSaveInterval: 5000
         };
@@ -1134,7 +1132,6 @@
         class BaseShape {
             constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false, parallaxSpeed = 0.7) {
                 this.pos = new Vec2(x, y);
-                this.prevPos = new Vec2(x, y);
                 this.width = w;
                 this.height = h;
                 this.angle = angleDeg * Math.PI / 180;
@@ -1294,14 +1291,7 @@
                 this.vel.y += g_vec_y;
                 const disp_x = this.vel.x * dt;
                 const disp_y = this.vel.y * dt;
-                let numSteps;
-                if (config.useDynamicSubsteps) {
-                    const dispLen = Math.hypot(disp_x, disp_y);
-                    const maxSubLen = config.maxSubLen;
-                    numSteps = Math.max(1, Math.min(5, Math.ceil(dispLen / maxSubLen)));
-                } else {
-                    numSteps = 1;
-                }
+                let numSteps = Math.max(1, Math.min(5, Math.ceil(Math.hypot(disp_x, disp_y) / 10)));
                 const sub_disp_x = disp_x / numSteps;
                 const sub_disp_y = disp_y / numSteps;
                 let currentPosX = this.pos.x;
@@ -1447,7 +1437,6 @@
                     currentPosX = testPosX;
                     currentPosY = testPosY;
                 }
-                this.prevPos.set(this.pos.x, this.pos.y);
                 this.pos.x = currentPosX;
                 this.pos.y = currentPosY;
                 this.updateAABB();
@@ -1893,10 +1882,8 @@
                 return visible;
             }
             update(dt) {
-                let moved = false;
                 for (const e of this.dynamics) {
                     e.update(dt, this);
-                    if (e.pos.x !== e.prevPos.x || e.pos.y !== e.prevPos.y) moved = true;
                 }
 
                 if (this.player) {
@@ -1946,8 +1933,8 @@
                 }
             }
             getInterpolatedPosition(entity, alpha) {
-                this.reusableInterpPos.x = entity.prevPos.x + (entity.pos.x - entity.prevPos.x) * alpha;
-                this.reusableInterpPos.y = entity.prevPos.y + (entity.pos.y - entity.prevPos.y) * alpha;
+                this.reusableInterpPos.x = entity.pos.x;
+                this.reusableInterpPos.y = entity.pos.y;
                 return this.reusableInterpPos;
             }
             getInterpolatedVel(entity, alpha) {
@@ -2249,7 +2236,7 @@
         const fadeOverlay = document.getElementById("fadeOverlay");
         const gl = canvas.getContext("webgl2", { alpha: true, desynchronized: true, powerPreference: "high-performance" });
         if (!gl) {
-            alert("WebGL2 niet ondersteund");
+            alert("WebGL2 not supported");
         }
         const debugDiv = document.getElementById("debug");
         const inventoryDiv = document.getElementById("inventory");
@@ -2259,7 +2246,7 @@
         let currentOpenChest = null;
         const program = createProgram(gl, vsSource, fsSource);
         if (!program) {
-            alert("Shader program mislukt");
+            alert("Shader program failed");
             throw new Error("Failed to create program");
         }
         gl.useProgram(program);
@@ -2462,11 +2449,8 @@
 
         let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
         let lastDebugTime = lastTime;
-        let accumulator = 0;
-        const fixedDT = 1 / 120;
-        const maxStepsPerFrame = 6;
-        let camX = 0, camY = 0, prevCamX = 0, prevCamY = 0;
-        const cameraSmoothing = config.cameraSmoothing;
+        let camX = 0, camY = 0;
+        const cameraSmoothingRate = config.cameraSmoothing * 60;
         function loop(currentTime) {
             frameCount++;
             if (currentTime - lastFPSTime >= 1000) {
@@ -2475,47 +2459,22 @@
                 lastFPSTime = currentTime;
             }
 
-            const delta = (currentTime - lastTime) / 1000;
+            const delta = Math.min((currentTime - lastTime) / 1000, 1/30);
             lastTime = currentTime;
-            accumulator += delta;
-            let stepsThisFrame = 0;
-            prevCamX = camX;
-            prevCamY = camY;
-            while (accumulator >= fixedDT && stepsThisFrame < maxStepsPerFrame) {
-                world.update(fixedDT);
-                const targetCamX = world.player ? world.player.pos.x - canvas.width / 2 : camX;
-                const targetCamY = world.player ? world.player.pos.y - canvas.height / 2 : camY;
-                camX += (targetCamX - camX) * cameraSmoothing;
-                camY += (targetCamY - camY) * cameraSmoothing;
-                accumulator -= fixedDT;
-                stepsThisFrame++;
-            }
-            if (stepsThisFrame === maxStepsPerFrame) {
-                accumulator = 0;
-            }
 
-            let renderAlpha;
-            if (Math.abs(accumulator) < 1e-6 && stepsThisFrame > 0) {
-                if (world.player) {
-                    world.player.prevPos.set(world.player.pos.x, world.player.pos.y);
-                }
-                prevCamX = camX;
-                prevCamY = camY;
-                renderAlpha = 0;
-            } else {
-                renderAlpha = accumulator / fixedDT;
-            }
-
-            const interpCamX = prevCamX + (camX - prevCamX) * renderAlpha;
-            const interpCamY = prevCamY + (camY - prevCamY) * renderAlpha;
+            world.update(delta);
+            const targetCamX = world.player ? world.player.pos.x - canvas.width / 2 : camX;
+            const targetCamY = world.player ? world.player.pos.y - canvas.height / 2 : camY;
+            camX += (targetCamX - camX) * cameraSmoothingRate * delta;
+            camY += (targetCamY - camY) * cameraSmoothingRate * delta;
 
             if (world.player) {
-                world.draw(debugMode, interpCamX, interpCamY, frameCount, textures, renderAlpha, canvas.width, canvas.height);
+                world.draw(debugMode, camX, camY, frameCount, textures, 0, canvas.width, canvas.height);
                 if (currentTime - lastDebugTime >= 100 && debugMode) {
                     const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
-                    const interpPos = world.getInterpolatedPosition(world.player, renderAlpha);
-                    const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'Geen kist';
-                    const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Actief' : 'Inactief'})` : 'Geen respawn box';
+                    const interpPos = world.getInterpolatedPosition(world.player, 0);
+                    const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
+                    const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
                     debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\ndashing: ${world.player.isDashing}\nairJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}\nkeys: ${activeKeys}\nfps: ${fps}\n${chestInfo}\n${respawnInfo}`;
                     lastDebugTime = currentTime;
                 }
