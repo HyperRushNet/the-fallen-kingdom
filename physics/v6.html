@@ -46,6 +46,24 @@
             box-shadow: 0 0 20px rgba(176, 208, 255, 0.3);
             border-color: #ffffff;
         }
+        #debug button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.1));
+            color: #ff6b6b;
+            border: none;
+            border-radius: 0 0 8px 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+        #debug button:hover {
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.5), rgba(255, 0, 0, 0.2));
+            color: white;
+        }
         #inventory {
             position: fixed;
             top: 50%;
@@ -63,12 +81,12 @@
             z-index: 1000;
             display: none;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(176, 208, 255, 0.1);
-            backdrop-filter: blur(20px);
-            animation: uiSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+            animation: uiSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform;
         }
         @keyframes uiSlideIn {
-            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
             to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
         #inventory h2 {
@@ -93,7 +111,7 @@
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
+            transform: translate(-50%, -50%);
             width: 500px;
             height: 550px;
             background: linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.95));
@@ -106,9 +124,8 @@
             z-index: 1000;
             display: none;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(176, 208, 255, 0.1);
-            backdrop-filter: blur(20px);
-            animation: uiSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+            will-change: transform;
         }
         #chestUI h2 {
             margin-bottom: 16px;
@@ -252,7 +269,8 @@
 <body>
     <canvas id="game"></canvas>
     <div id="fadeOverlay"></div>
-    <div id="debug"></div>
+    <div id="debug">
+    </div>
     <div id="inventory">
         <button id="closeInventory">&times;</button>
         <h2>Inventory</h2>
@@ -286,10 +304,19 @@
             fadeDuration: 1,
             mostlyDarkPercentage: 0.8,
             autoSaveInterval: 5000,
-            enableCheats: false,
-            resetToStartEnabled: false,
-            godModeEnabled: false,
-            infiniteJumpsEnabled: false
+            debugKey: "KeyD",
+            inventoryKey: "KeyI",
+            chestKey: "KeyE",
+            respawnKey: "KeyR",
+            dashKeys: ["ShiftLeft", "ShiftRight"],
+            jumpKey: "Space",
+            leftKey: "ArrowLeft",
+            rightKey: "ArrowRight",
+            clearStorageKey: "Backspace",
+            ctrlForClear: true,
+            godModeKey: "KeyG",
+            infiniteJumpKey: "KeyJ",
+            noclipKey: "KeyN"
         };
 
         const mapData = {
@@ -866,14 +893,19 @@
     },
     {
       "id": "SGG8pcYQm6mQ-KelDCAx3MBhP",
-      "type": "platform",
+      "type": "chest",
       "x": 1309,
       "y": -135,
       "w": 75,
       "h": 75,
       "angle": 0,
       "textureId": null,
-      "zIndex": 58
+      "zIndex": 1,
+      "detectionRadius": 100,
+      "items": [
+        "rosaries",
+        "stone"
+      ]
     },
     {
       "id": "1QDwJg388Lnv-bRNjkmuWhFaJ",
@@ -918,6 +950,21 @@
       "angle": 0,
       "textureId": null,
       "zIndex": 62
+    },
+    {
+      "id": "f3m3R5o2BQzW-fI3gFRtTA3ER",
+      "type": "respawn",
+      "x": 1714,
+      "y": -616,
+      "w": 100,
+      "h": 20,
+      "angle": 0,
+      "textureId": null,
+      "zIndex": 63,
+      "detectionRadius": 100,
+      "passThrough": false,
+      "respawnX": 1714,
+      "respawnY": -616
     }
   ],
   "decor": [
@@ -945,6 +992,20 @@
     }
   ]
 };
+
+        const allItems = new Set();
+        mapData.platforms.forEach(plat => {
+            if (plat.type === "chest" && plat.items) {
+                plat.items.forEach(item => allItems.add(item));
+            }
+        });
+        const itemImages = {};
+        Array.from(allItems).forEach(item => {
+            const img = new Image();
+            img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+            img.onload = () => console.log(`Preloaded ${item}`);
+            itemImages[item] = img;
+        });
 
         class Vec2 {
             constructor(x = 0, y = 0) { this.x = x; this.y = y; }
@@ -1068,19 +1129,34 @@
 
         const projviewMatrix = new Float32Array(12);
 
-        function getProjViewMatrix(width, height, camX, camY, matrix) {
-            matrix[0] = 2 / width;
-            matrix[1] = 0;
-            matrix[2] = 0;
-            matrix[3] = 0;
-            matrix[4] = 0;
-            matrix[5] = -2 / height;
-            matrix[6] = 0;
-            matrix[7] = 0;
-            matrix[8] = -1 - 2 * camX / width;
-            matrix[9] = 1 + 2 * camY / height;
-            matrix[10] = 1;
-            matrix[11] = 0;
+        function getProjViewMatrix(width, height, camX, camY, matrix, isUI = false) {
+            if (isUI) {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1;
+                matrix[9] = 1;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            } else {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1 - 2 * camX / width;
+                matrix[9] = 1 + 2 * camY / height;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            }
             return matrix;
         }
 
@@ -1228,16 +1304,19 @@
                 this.justLanded = false;
                 this.landedEntity = null;
                 this.isDying = false;
+                this.godMode = false;
+                this.infiniteJump = false;
+                this.noclip = false;
                 if (isStatic) this.updateAABB();
             }
             update(dt, world) {
                 if (this.isStatic) return;
-                if (this.isDying) {
+                if (this.isDying && !this.godMode) {
                     this.vel.set(0, 0);
                     return;
                 }
                 const dashStarted = this.dashTimer > 0 && this.oldDashTimer <= 0;
-                if (this.airJumpCooldown > 0) {
+                if (this.airJumpCooldown > 0 && !this.infiniteJump) {
                     this.airJumpCooldown -= dt;
                     if (this.airJumpCooldown < 0) this.airJumpCooldown = 0;
                 }
@@ -1253,18 +1332,18 @@
                     this.isDashing = true;
                     input_speed = 0;
                     g_vec_y = 0;
-                    if (dashStarted && world.keys["Space"]) {
+                    if (dashStarted && world.keys[config.jumpKey]) {
                         this.diagonalDash = true;
                     }
                 } else {
                     this.isDashing = false;
                     this.diagonalDash = false;
-                    input_speed = world.keys["ArrowLeft"] ? -config.playerSpeed : world.keys["ArrowRight"] ? config.playerSpeed : 0;
-                    g_vec_y = config.gravity * dt;
+                    input_speed = world.keys[config.leftKey] ? -config.playerSpeed : world.keys[config.rightKey] ? config.playerSpeed : 0;
+                    if (!this.godMode) g_vec_y = config.gravity * dt;
                 }
                 const up_x = 0;
                 const up_y = -1;
-                if (this.oldOnGround) {
+                if (this.oldOnGround && !this.noclip) {
                     const tangent_x = -this.groundNormal.y;
                     const tangent_y = this.groundNormal.x;
                     const normalComp = this.vel.x * this.groundNormal.x + this.vel.y * this.groundNormal.y;
@@ -1298,6 +1377,11 @@
                 for (let step = 0; step < numSteps; step++) {
                     let testPosX = currentPosX + sub_disp_x;
                     let testPosY = currentPosY + sub_disp_y;
+                    if (this.noclip) {
+                        currentPosX = testPosX;
+                        currentPosY = testPosY;
+                        continue;
+                    }
                     for (let i = 0; i < 10; i++) {
                         let deadlyCollision = false;
                         let collisions = [];
@@ -1309,10 +1393,8 @@
                             const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-                                } else if (other.deadly && this === world.player) {
-                                    if (!config.godModeEnabled) {
-                                        deadlyCollision = true;
-                                    }
+                                } else if (other.deadly && this === world.player && !this.godMode) {
+                                    deadlyCollision = true;
                                 } else if (other.passThrough && this === world.player) {
                                 } else {
                                     let axis = res.axis;
@@ -1337,8 +1419,7 @@
                             }
                         }
                         if (deadlyCollision) {
-                            if (config.godModeEnabled) {
-                                // God mode: ignore death
+                            if (this.godMode) {
                                 break;
                             }
                             this.isDying = true;
@@ -1452,17 +1533,15 @@
                 if (this.onGround && !this.oldOnGround) {
                     this.airJumpCooldown = 0;
                 }
-                const jumpThisFrame = world.keys["Space"] && !this.jumpPressed;
-                this.jumpPressed = world.keys["Space"];
+                const jumpThisFrame = world.keys[config.jumpKey] && !this.jumpPressed;
+                this.jumpPressed = world.keys[config.jumpKey];
                 if (jumpThisFrame) {
                     let doJump = false;
-                    if (this.oldOnGround) {
+                    if (this.oldOnGround || this.infiniteJump) {
                         doJump = true;
-                    } else if ((this.airJumpCooldown <= 0) || config.infiniteJumpsEnabled) {
+                    } else if (this.airJumpCooldown <= 0) {
                         doJump = true;
-                        if (!config.infiniteJumpsEnabled) {
-                            this.airJumpCooldown = this.airJumpCooldownMax;
-                        }
+                        this.airJumpCooldown = this.airJumpCooldownMax;
                     }
                     if (doJump) {
                         if (this.isDashing) {
@@ -1479,7 +1558,7 @@
                         this.onGround = false;
                     }
                 }
-                if (this.onGround && !this.isDashing) {
+                if (this.onGround && !this.isDashing && !this.noclip) {
                     const tangent_x = -this.groundNormal.y;
                     const tangent_y = this.groundNormal.x;
                     this.vel.x = tangent_x * input_speed;
@@ -1620,7 +1699,7 @@
                 if (!this.db) return;
                 const data = {
                     position: { x: this.player.pos.x, y: this.player.pos.y },
-                    inventory: [...this.inventory],
+                    inventory: this.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null),
                     respawnPos: { x: this.currentRespawnPos.x, y: this.currentRespawnPos.y },
                     lastUpdate: Date.now()
                 };
@@ -1634,7 +1713,13 @@
                 const store = tx.objectStore('progress');
                 const req = store.get('current');
                 return new Promise((resolve, reject) => {
-                    req.onsuccess = () => resolve(req.result || null);
+                    req.onsuccess = () => {
+                        const saved = req.result;
+                        if (saved) {
+                            saved.inventory = saved.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null);
+                        }
+                        resolve(saved || null);
+                    };
                     req.onerror = reject;
                 });
             }
@@ -1853,7 +1938,7 @@
                 currentOpenChest = chest;
                 populateChestUI();
                 chestUI.style.display = 'block';
-                this.saveProgress().catch(console.error);
+                chestUI.style.opacity = '1';
             }
             updateInventoryUI() {
                 updateSlots('inventoryGrid', this.inventory, 'player');
@@ -1959,7 +2044,7 @@
             draw(debug, camX, camY, frameCount, textures, renderAlpha, width, height) {
                 const gl = this.gl;
                 this.updateVideoTextures();
-                getProjViewMatrix(width, height, camX, camY, projviewMatrix);
+                getProjViewMatrix(width, height, camX, camY, projviewMatrix, false);
                 if (this.uboMatrices) {
                     gl.bindBuffer(gl.UNIFORM_BUFFER, this.uboMatrices);
                     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projviewMatrix);
@@ -2090,6 +2175,7 @@
         }
 
         function createItemDiv(item, slotIdx, invType) {
+            if (!item || typeof item !== 'string' || item === 'undefined') return null;
             const div = document.createElement('div');
             div.className = 'item';
             div.draggable = true;
@@ -2097,22 +2183,30 @@
             div.dataset.inventoryType = invType;
             div.dataset.slotIndex = slotIdx.toString();
             const img = document.createElement('img');
-            img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+            const preloaded = itemImages[item];
+            if (preloaded && preloaded.complete) {
+                img.src = preloaded.src;
+            } else {
+                img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                img.onerror = () => { img.src = 'https://placehold.co/32x32/FF0000/FFFFFF?text=?'; };
+            }
             img.alt = item;
-            img.onerror = () => { img.src = 'https://placehold.co/32x32/FF0000/FFFFFF?text=?'; };
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
             div.appendChild(img);
             div.appendChild(tooltip);
             div.addEventListener('dragstart', (e) => {
-                const currentItem = e.target.dataset.item;
-                const sourceInv = e.target.dataset.inventoryType;
-                const sourceSlot = parseInt(e.target.dataset.slotIndex);
+                const currentItem = e.currentTarget.dataset.item;
+                const sourceInv = e.currentTarget.dataset.inventoryType;
+                const sourceSlot = parseInt(e.currentTarget.dataset.slotIndex);
                 e.dataTransfer.setData('text/plain', currentItem);
                 e.dataTransfer.setData('sourceInventory', sourceInv);
                 e.dataTransfer.setData('sourceSlot', sourceSlot.toString());
                 e.dataTransfer.effectAllowed = 'move';
+            });
+            div.addEventListener('dragend', (e) => {
+                console.log('Drag ended for item:', e.currentTarget.dataset.item);
             });
             return div;
         }
@@ -2120,19 +2214,21 @@
         function updateSlots(gridId, itemsArray, invType) {
             const grid = document.getElementById(gridId);
             if (!grid) return;
-            for (let i = 0; i < itemsArray.length; i++) {
+            const cleanItems = itemsArray.map(it => (typeof it === 'string' && it !== 'undefined') ? it : null);
+            for (let i = 0; i < cleanItems.length; i++) {
                 const slot = grid.children[i];
                 if (!slot) continue;
-                const item = itemsArray[i];
+                const item = cleanItems[i];
                 let itemDiv = slot.querySelector('.item');
                 if (item && !itemDiv) {
-                    itemDiv = createItemDiv(item, i, invType);
-                    slot.appendChild(itemDiv);
-                    slot.classList.add('has-item');
+                    const newDiv = createItemDiv(item, i, invType);
+                    if (newDiv) {
+                        slot.appendChild(newDiv);
+                        slot.classList.add('has-item');
+                    }
                 } else if (!item && itemDiv) {
                     itemDiv.remove();
                     slot.classList.remove('has-item');
-                    itemDiv = null;
                 } else if (item && itemDiv) {
                     itemDiv.dataset.item = item;
                     itemDiv.dataset.inventoryType = invType;
@@ -2140,7 +2236,12 @@
                     const tooltip = itemDiv.querySelector('.tooltip');
                     tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
                     const img = itemDiv.querySelector('img');
-                    img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                    const preloaded = itemImages[item];
+                    if (preloaded && preloaded.complete) {
+                        img.src = preloaded.src;
+                    } else {
+                        img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                    }
                 }
             }
         }
@@ -2148,37 +2249,57 @@
         function handleDrop(e) {
             e.preventDefault();
             const item = e.dataTransfer.getData('text/plain');
-            if (!item) return;
+            if (!item || item === 'undefined') return;
+
             const sourceInv = e.dataTransfer.getData('sourceInventory');
             const sourceSlotStr = e.dataTransfer.getData('sourceSlot');
-            const sourceSlot = sourceSlotStr ? parseInt(sourceSlotStr) : -1;
+            const sourceSlot = parseInt(sourceSlotStr);
             const targetInv = e.currentTarget.dataset.inventory;
             const targetSlot = parseInt(e.currentTarget.dataset.slot);
+
+            const sourceMax = sourceInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots;
+            if (isNaN(sourceSlot) || sourceSlot < 0 || sourceSlot >= sourceMax ||
+                isNaN(targetSlot) || targetSlot < 0 || targetSlot >= (targetInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots)) {
+                console.error('Invalid drop: sourceSlot=', sourceSlot, 'targetSlot=', targetSlot, 'item=', item);
+                return;
+            }
+
+            console.log('Valid drop:', { item, sourceInv, sourceSlot, targetInv, targetSlot });
+
             if (sourceInv === targetInv) {
                 if (sourceInv === 'player') {
                     const temp = world.inventory[sourceSlot];
                     world.inventory[sourceSlot] = world.inventory[targetSlot];
-                    world.inventory[targetSlot] = temp;
+                    world.inventory[targetSlot] = temp || null;
                 } else if (sourceInv === 'chest' && currentOpenChest) {
                     const temp = currentOpenChest.items[sourceSlot];
                     currentOpenChest.items[sourceSlot] = currentOpenChest.items[targetSlot];
-                    currentOpenChest.items[targetSlot] = temp;
+                    currentOpenChest.items[targetSlot] = temp || null;
                 }
             } else {
-                if (targetInv === 'player' && world.inventory[targetSlot] === null) {
+                if (targetInv === 'player' && (world.inventory[targetSlot] === null || world.inventory[targetSlot] === undefined)) {
                     world.inventory[targetSlot] = item;
                     if (sourceInv === 'chest' && currentOpenChest) {
                         currentOpenChest.items[sourceSlot] = null;
                     }
-                } else if (targetInv === 'chest' && currentOpenChest && currentOpenChest.items[targetSlot] === null) {
+                } else if (targetInv === 'chest' && currentOpenChest && (currentOpenChest.items[targetSlot] === null || currentOpenChest.items[targetSlot] === undefined)) {
                     currentOpenChest.items[targetSlot] = item;
                     if (sourceInv === 'player') {
                         world.inventory[sourceSlot] = null;
                     }
                 } else {
+                    console.log('Drop ignored: target not empty');
                     return;
                 }
             }
+
+            if (sourceInv === 'player' || targetInv === 'player') {
+                world.inventory = world.inventory.map(it => it === undefined ? null : it);
+            }
+            if (currentOpenChest && (sourceInv === 'chest' || targetInv === 'chest')) {
+                currentOpenChest.items = currentOpenChest.items.map(it => it === undefined ? null : it);
+            }
+
             world.updateInventoryUI();
             if (currentOpenChest) {
                 updateSlots('chestGrid', currentOpenChest.items, 'chest');
@@ -2392,7 +2513,43 @@
                 }
                 chestUI.style.display = 'none';
                 currentOpenChest = null;
+                world.saveProgress().catch(console.error);
             }
+        });
+
+        async function clearSave() {
+            if (!world.db) return;
+            try {
+                const tx = world.db.transaction('progress', 'readwrite');
+                const store = tx.objectStore('progress');
+                await new Promise((res, rej) => {
+                    const req = store.delete('current');
+                    req.onsuccess = res;
+                    req.onerror = rej;
+                });
+                world.player.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                world.player.vel.set(0, 0);
+                world.player.updateAABB();
+                world.inventory.fill(null);
+                world.updateInventoryUI();
+                world.currentRespawnPos = world.playerStartPos.clone();
+                world.respawnBoxes.forEach(box => box.setActive(false));
+                if (inventoryOpen) {
+                    inventoryOpen = false;
+                    inventoryDiv.style.display = 'none';
+                }
+                if (currentOpenChest) {
+                    closeChestBtn.click();
+                    currentOpenChest = null;
+                }
+                console.log('Save cleared');
+            } catch (e) {
+                console.error('Clear failed', e);
+            }
+        }
+
+        debugDiv.addEventListener('click', (e) => {
+            if (e.target.id === 'clearSave') clearSave();
         });
 
         function resizeCanvas() {
@@ -2408,39 +2565,48 @@
         let debugMode = false;
         let inventoryOpen = false;
         window.addEventListener("keydown", async (e) => {
-            if (e.code === "KeyD") debugMode = !debugMode;
-            const wasPressed = world.keys[e.code];
-            world.keys[e.code] = true;
+            const keyCode = e.code;
+            if (keyCode === config.debugKey) {
+                debugMode = !debugMode;
+            }
+            if (config.ctrlForClear && e.ctrlKey && keyCode === config.clearStorageKey) {
+                e.preventDefault();
+                clearSave();
+            }
+            if (keyCode === config.godModeKey && world.player) {
+                world.player.godMode = !world.player.godMode;
+                console.log('God Mode:', world.player.godMode);
+            }
+            if (keyCode === config.infiniteJumpKey && world.player) {
+                world.player.infiniteJump = !world.player.infiniteJump;
+                console.log('Infinite Jump:', world.player.infiniteJump);
+            }
+            if (keyCode === config.noclipKey && world.player) {
+                world.player.noclip = !world.player.noclip;
+                console.log('Noclip:', world.player.noclip);
+            }
+            const wasPressed = world.keys[keyCode];
+            world.keys[keyCode] = true;
             if (!wasPressed) {
-                if (config.enableCheats && config.resetToStartEnabled && e.ctrlKey && e.code === "KeyS") {
-                    if (world.player) {
-                        world.player.pos.set(world.playerStartPos.x, world.playerStartPos.y);
-                        world.player.vel.set(0, 0);
-                        world.player.onGround = false;
-                        world.player.isDying = false;
-                        world.player.updateAABB();
-                        console.log("Dev cheat: Reset to start position");
-                    }
-                }
-                if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+                if (config.dashKeys.includes(keyCode)) {
                     if (world.player.dashTimer <= 0) {
                         world.player.dashTimer = config.dashDuration;
                     }
                 }
-                if (e.code === "KeyE" && world.nearbyChest) {
+                if (keyCode === config.chestKey && world.nearbyChest) {
                     world.openChestUI(world.nearbyChest, textures);
                 }
-                if (e.code === "KeyR" && world.nearbyRespawnBox) {
+                if (keyCode === config.respawnKey && world.nearbyRespawnBox) {
                     world.setRespawnAtBox(world.nearbyRespawnBox);
                 }
-                if (e.code === "KeyI") {
+                if (keyCode === config.inventoryKey) {
                     inventoryOpen = !inventoryOpen;
                     inventoryDiv.style.display = inventoryOpen ? 'block' : 'none';
                     if (inventoryOpen) world.updateInventoryUI();
                     else world.saveProgress().catch(console.error);
                 }
             }
-            if (e.code === "Space") e.preventDefault();
+            if (keyCode === config.jumpKey) e.preventDefault();
         });
         window.addEventListener("keyup", e => world.keys[e.code] = false);
 
@@ -2491,8 +2657,23 @@
                     const interpPos = world.getInterpolatedPosition(world.player, 0);
                     const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
                     const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
-                    const cheatsInfo = `Cheats: ${config.enableCheats ? 'ON' : 'OFF'} (God:${config.godModeEnabled}, InfJump:${config.infiniteJumpsEnabled}, ResetStart:${config.resetToStartEnabled})`;
-                    debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\ndashing: ${world.player.isDashing}\nairJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}\nkeys: ${activeKeys}\nfps: ${fps}\n${chestInfo}\n${respawnInfo}\n${cheatsInfo}`;
+                    const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
+                    debugDiv.innerHTML = `
+                        <button id="clearSave">Clear Storage (Ctrl+Backspace)</button>
+                        Player Debug<br>
+                        pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>
+                        vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>
+                        onGround: ${world.player.onGround}<br>
+                        groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>
+                        z: ${world.player.z}<br>
+                        dashing: ${world.player.isDashing}<br>
+                        airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>
+                        keys: ${activeKeys}<br>
+                        fps: ${fps}<br>
+                        ${chestInfo}<br>
+                        ${respawnInfo}<br>
+                        ${cheatsInfo}
+                    `;
                     lastDebugTime = currentTime;
                 }
             }
