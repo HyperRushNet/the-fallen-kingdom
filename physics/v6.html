@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/assets/images/favicon/000000.png" media="(prefers-color-scheme: light)">  
-    <link rel="icon" href="/assets/images/favicon/ffffff.png" media="(prefers-color-scheme: dark)">  
+    <link rel="icon" href="/assets/images/favicon/000000.png" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="/assets/images/favicon/ffffff.png" media="(prefers-color-scheme: dark)">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <title>Game Engine</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            overflow: hidden; 
-            background: #0a0a0a; 
-            color: #b0d0ff; 
+        body {
+            overflow: hidden;
+            background: #0a0a0a;
+            color: #b0d0ff;
             font-family: 'Orbitron', 'Courier New', monospace;
             user-select: none;
             -webkit-user-select: none;
@@ -318,681 +318,7 @@
             infiniteJumpKey: "KeyJ",
             noclipKey: "KeyN"
         };
-
-        const mapData = {
-  "playerStart": {
-    "x": 0,
-    "y": -13,
-    "w": 59,
-    "h": 100,
-    "zIndex": 1,
-    "angle": 0
-  },
-  "textures": [],
-  "platforms": [
-    {
-      "id": "jgWo6uTND6pu-Os4J6efGYCzb",
-      "type": "platform",
-      "x": 210,
-      "y": 100,
-      "w": 1200,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "kkjpb16uNZiC-wXbrlAZlZh6G",
-      "type": "platform",
-      "x": 750,
-      "y": -360,
-      "w": 100,
-      "h": 200,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 2
-    },
-    {
-      "id": "8j6gnj4GmL6Z-yO60LctfFFzb",
-      "type": "platform",
-      "x": 635,
-      "y": -843,
-      "w": 400,
-      "h": 100,
-      "angle": 30,
-      "textureId": null,
-      "zIndex": 3
-    },
-    {
-      "id": "edCMMNq3n6xB-pQMRIUBnzSQ0",
-      "type": "platform",
-      "x": 900,
-      "y": -210,
-      "w": 200,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 4
-    },
-    {
-      "id": "3rQKxqosrA06-8dkJiryN0Bbm",
-      "type": "platform",
-      "x": 1077,
-      "y": -241,
-      "w": 200,
-      "h": 100,
-      "angle": -20,
-      "textureId": null,
-      "zIndex": 5
-    },
-    {
-      "id": "X2Qnky1oVNud-IjZmQYypmDHg",
-      "type": "platform",
-      "x": 1211,
-      "y": -281,
-      "w": 100,
-      "h": 100,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 6
-    },
-    {
-      "id": "2KGvRRd1pYqF-lf6mZxwt59dc",
-      "type": "platform",
-      "x": 1302,
-      "y": -289,
-      "w": 100,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 7
-    },
-    {
-      "id": "oWxYgmS6AQWg-kyNXNHFKVwAI",
-      "type": "platform",
-      "x": 1392,
-      "y": -281,
-      "w": 100,
-      "h": 100,
-      "angle": 10,
-      "textureId": null,
-      "zIndex": 8
-    },
-    {
-      "id": "8peAJm7lGCkV-kzrYFYGaCTDC",
-      "type": "platform",
-      "x": 1526,
-      "y": -240,
-      "w": 200,
-      "h": 100,
-      "angle": 20,
-      "textureId": null,
-      "zIndex": 9
-    },
-    {
-      "id": "9vCbybOEpKba-kxu7XvSfB8SD",
-      "type": "platform",
-      "x": 1410,
-      "y": 100,
-      "w": 1200,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "MS1PZMAEiRFM-dZFkoEtwGk7j",
-      "type": "platform",
-      "x": 1250,
-      "y": -360,
-      "w": 900,
-      "h": 200,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 11
-    },
-    {
-      "id": "mB9AGahnURyG-SRwduaagJUTa",
-      "type": "platform",
-      "x": 1491,
-      "y": -510,
-      "w": 780,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 12
-    },
-    {
-      "id": "4mSqoDGYUcVg-uVvKKDYiEFyL",
-      "type": "platform",
-      "x": 860,
-      "y": -781,
-      "w": 200,
-      "h": 100,
-      "angle": -20,
-      "textureId": null,
-      "zIndex": 13
-    },
-    {
-      "id": "0vTEKctsJJgh-bojJAgRYlkSz",
-      "type": "platform",
-      "x": 1093,
-      "y": -839,
-      "w": 300,
-      "h": 100,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 14
-    },
-    {
-      "id": "CmBavJ0hZhFq-GrwUXjNqhTpr",
-      "type": "platform",
-      "x": 1311,
-      "y": -909,
-      "w": 200,
-      "h": 100,
-      "angle": -30,
-      "textureId": null,
-      "zIndex": 15
-    },
-    {
-      "id": "VqLONgs03hiY-ogv3zTN5M3dK",
-      "type": "platform",
-      "x": 786,
-      "y": -245,
-      "w": 141,
-      "h": 100,
-      "angle": 45,
-      "textureId": null,
-      "zIndex": 16
-    },
-    {
-      "id": "Vb8HWAKBdL6Z-aIoE71xlQDgI",
-      "type": "platform",
-      "x": 1650,
-      "y": -210,
-      "w": 100,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 17
-    },
-    {
-      "id": "84t3a75ooIRX-T1OnrwMWNA6B",
-      "type": "platform",
-      "x": 1529,
-      "y": -979,
-      "w": 300,
-      "h": 100,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 18
-    },
-    {
-      "id": "gE7XXXicjEat-mnS07sjDfPvx",
-      "type": "platform",
-      "x": 1739,
-      "y": -913,
-      "w": 300,
-      "h": 100,
-      "angle": 45,
-      "textureId": null,
-      "zIndex": 19
-    },
-    {
-      "id": "wR44RJanvFEX-xjzmUm1QIC83",
-      "type": "platform",
-      "x": 1831,
-      "y": -701,
-      "w": 100,
-      "h": 283,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 20
-    },
-    {
-      "id": "9RsFfEXShyPx-L3bz8ljUsu0C",
-      "type": "platform",
-      "x": 2310,
-      "y": 50,
-      "w": 600,
-      "h": 200,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "wFUMitBwRH8N-jaQEV6NVDoea",
-      "type": "platform",
-      "x": 1795,
-      "y": -394,
-      "w": 450,
-      "h": 235,
-      "angle": -40,
-      "textureId": null,
-      "zIndex": 22
-    },
-    {
-      "id": "IAJZ6SZzR4YH-bq4lnwKOYhsj",
-      "type": "platform",
-      "x": 1969,
-      "y": -515,
-      "w": 355,
-      "h": 175,
-      "angle": -20,
-      "textureId": null,
-      "zIndex": 23
-    },
-    {
-      "id": "h8UAI1ADfe9H-R4jmVGaQc9xO",
-      "type": "platform",
-      "x": 2295,
-      "y": -605,
-      "w": 355,
-      "h": 175,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 24
-    },
-    {
-      "id": "rZaZix5aGw88-qwNz0CJUpQKs",
-      "type": "platform",
-      "x": 3441,
-      "y": -186,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 27
-    },
-    {
-      "id": "zlUUglmdDa54-WEb8AuvqA7xS",
-      "type": "platform",
-      "x": 3771,
-      "y": -237,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 28
-    },
-    {
-      "id": "pTqWy92PbcBF-Pwa8dvWqg7M9",
-      "type": "platform",
-      "x": 2910,
-      "y": -42,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 29
-    },
-    {
-      "id": "A3ckQ4o67yQp-xqTd68CPc0Vx",
-      "type": "platform",
-      "x": 3199,
-      "y": -52,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 30
-    },
-    {
-      "id": "GWX8BWSXmc7L-d30Ee41JSOpy",
-      "type": "platform",
-      "x": 3984,
-      "y": -417,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 31
-    },
-    {
-      "id": "F3cbLQKZGswe-OzeWvsmhx3KC",
-      "type": "platform",
-      "x": 3673,
-      "y": -574,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 32
-    },
-    {
-      "id": "jURZ7N1idbLU-ilSWg1t84xuZ",
-      "type": "deadly",
-      "x": 2910,
-      "y": -22,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 33
-    },
-    {
-      "id": "hwOm68RaIRHX-zEXB3Ze04DaI",
-      "type": "deadly",
-      "x": 3199,
-      "y": -32,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 34
-    },
-    {
-      "id": "zzmsdIG86uol-ifMTnU8xQMB1",
-      "type": "deadly",
-      "x": 3441,
-      "y": -166,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 35
-    },
-    {
-      "id": "872NIw92j9aD-hA8iQGKGtXbU",
-      "type": "deadly",
-      "x": 3771,
-      "y": -217,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 36
-    },
-    {
-      "id": "BlhZ9dgvWdWB-kiHylVXZiObj",
-      "type": "deadly",
-      "x": 3984,
-      "y": -397,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 37
-    },
-    {
-      "id": "z39vM1L7cE5Q-bB9RBVbfTk8a",
-      "type": "deadly",
-      "x": 3673,
-      "y": -554,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 38
-    },
-    {
-      "id": "raAYBYWQSgvh-2ULmY9IOfiNv",
-      "type": "platform",
-      "x": 3385,
-      "y": 450,
-      "w": 2750,
-      "h": 600,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 39
-    },
-    {
-      "id": "p8jDcXstfhOM-QSNUJnBykSV3",
-      "type": "platform",
-      "x": 4460,
-      "y": 50,
-      "w": 600,
-      "h": 200,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 40
-    },
-    {
-      "id": "v0WiMvC6M2qK-kDjUXzqeANwX",
-      "type": "platform",
-      "x": 4550,
-      "y": -370,
-      "w": 600,
-      "h": 400,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 41
-    },
-    {
-      "id": "uCFZiV6yv4UN-SadspmUsg5FV",
-      "type": "platform",
-      "x": 3957,
-      "y": -682,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 42
-    },
-    {
-      "id": "W3GH8M6LJkLs-TZBvsjZntFjg",
-      "type": "deadly",
-      "x": 3957,
-      "y": -662,
-      "w": 98,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 43
-    },
-    {
-      "id": "W0fXvWWTxMol-OMpY660ni3d1",
-      "type": "platform",
-      "x": 4150,
-      "y": -1030,
-      "w": 600,
-      "h": 200,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 44
-    },
-    {
-      "id": "UVRO79gn60Fa-qR4McfpfUNuv",
-      "type": "platform",
-      "x": 4648,
-      "y": -1006,
-      "w": 721,
-      "h": 200,
-      "angle": 7,
-      "textureId": null,
-      "zIndex": 45
-    },
-    {
-      "id": "1BUqI8Ofi6ms-oRamBygx0D9l",
-      "type": "platform",
-      "x": 4200,
-      "y": -420,
-      "w": 100,
-      "h": 300,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 46
-    },
-    {
-      "id": "6gehgTx3BD6O-xXi9vvMSMLBI",
-      "type": "platform",
-      "x": 4228,
-      "y": -250,
-      "w": 145,
-      "h": 80,
-      "angle": 45,
-      "textureId": null,
-      "zIndex": 47
-    },
-    {
-      "id": "pkpDsWpzctKL-5OwQigDTbIma",
-      "type": "platform",
-      "x": 3551,
-      "y": -1070,
-      "w": 721,
-      "h": 200,
-      "angle": 15,
-      "textureId": null,
-      "zIndex": 48
-    },
-    {
-      "id": "3LmKr3UGZEbo-oZqx3tKCAMDs",
-      "type": "platform",
-      "x": 2952,
-      "y": -1109,
-      "w": 600,
-      "h": 200,
-      "angle": -10,
-      "textureId": null,
-      "zIndex": 49
-    },
-    {
-      "id": "eoyRw3WubzR1-DbMIf038kjjL",
-      "type": "platform",
-      "x": 2576,
-      "y": -855,
-      "w": 600,
-      "h": 200,
-      "angle": -55,
-      "textureId": null,
-      "zIndex": 50
-    },
-    {
-      "id": "7KIgFCDRwdF8-U0yUPGrWyEqm",
-      "type": "platform",
-      "x": 4366,
-      "y": -639,
-      "w": 433,
-      "h": 138,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 53
-    },
-    {
-      "id": "VOvckp2nyAe5-Q8U76TEKoQeO",
-      "type": "deadly",
-      "x": 3385,
-      "y": 140,
-      "w": 1550,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 54
-    },
-    {
-      "id": "udUfT3MNj0Cq-KJ7Zsh70Ue5q",
-      "type": "platform",
-      "x": 1308,
-      "y": -88,
-      "w": 220,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 57
-    },
-    {
-      "id": "SGG8pcYQm6mQ-KelDCAx3MBhP",
-      "type": "chest",
-      "x": 1309,
-      "y": -135,
-      "w": 75,
-      "h": 75,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1,
-      "detectionRadius": 100,
-      "items": [
-        "rosaries",
-        "stone"
-      ]
-    },
-    {
-      "id": "1QDwJg388Lnv-bRNjkmuWhFaJ",
-      "type": "platform",
-      "x": 2156,
-      "y": -739,
-      "w": 700,
-      "h": 300,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 59
-    },
-    {
-      "id": "grUfrpf3npIq-vvdKdShPsT0r",
-      "type": "platform",
-      "x": 2174,
-      "y": -1035,
-      "w": 948,
-      "h": 300,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 60
-    },
-    {
-      "id": "PUWunsdRlN0O-JKgeIBhYmDtE",
-      "type": "platform",
-      "x": 4810,
-      "y": 350,
-      "w": 100,
-      "h": 800,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "bUCHEPHsDCZW-Ox8b1I5c4cng",
-      "type": "platform",
-      "x": 5010,
-      "y": 350,
-      "w": 100,
-      "h": 800,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 62
-    },
-    {
-      "id": "f3m3R5o2BQzW-fI3gFRtTA3ER",
-      "type": "respawn",
-      "x": 1714,
-      "y": -616,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 63,
-      "detectionRadius": 100,
-      "passThrough": false,
-      "respawnX": 1714,
-      "respawnY": -616
-    }
-  ],
-  "decor": [
-    {
-      "id": "HOJZq7kFaugY-LxBMwFAE7Nd0",
-      "x": 1408,
-      "y": -168,
-      "w": 150,
-      "h": 20,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 55,
-      "parallaxSpeed": 1
-    },
-    {
-      "id": "HsNHzCP3C4Dt-1K9hrQ34VdzX",
-      "x": 1208,
-      "y": -168,
-      "w": 150,
-      "h": 20,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 56,
-      "parallaxSpeed": 1
-    }
-  ]
-};
-
+        const mapData = { "playerStart": { "x": 0, "y": -13, "w": 59, "h": 100, "zIndex": 1, "angle": 0 }, "textures": [], "platforms": [ { "id": "jgWo6uTND6pu-Os4J6efGYCzb", "type": "platform", "x": 210, "y": 100, "w": 1200, "h": 100, "angle": 0, "textureId": null, "zIndex": 1 }, { "id": "kkjpb16uNZiC-wXbrlAZlZh6G", "type": "platform", "x": 750, "y": -360, "w": 100, "h": 200, "angle": 0, "textureId": null, "zIndex": 2 }, { "id": "8j6gnj4GmL6Z-yO60LctfFFzb", "type": "platform", "x": 635, "y": -843, "w": 400, "h": 100, "angle": 30, "textureId": null, "zIndex": 3 }, { "id": "edCMMNq3n6xB-pQMRIUBnzSQ0", "type": "platform", "x": 900, "y": -210, "w": 200, "h": 100, "angle": 0, "textureId": null, "zIndex": 4 }, { "id": "3rQKxqosrA06-8dkJiryN0Bbm", "type": "platform", "x": 1077, "y": -241, "w": 200, "h": 100, "angle": -20, "textureId": null, "zIndex": 5 }, { "id": "X2Qnky1oVNud-IjZmQYypmDHg", "type": "platform", "x": 1211, "y": -281, "w": 100, "h": 100, "angle": -10, "textureId": null, "zIndex": 6 }, { "id": "2KGvRRd1pYqF-lf6mZxwt59dc", "type": "platform", "x": 1302, "y": -289, "w": 100, "h": 100, "angle": 0, "textureId": null, "zIndex": 7 }, { "id": "oWxYgmS6AQWg-kyNXNHFKVwAI", "type": "platform", "x": 1392, "y": -281, "w": 100, "h": 100, "angle": 10, "textureId": null, "zIndex": 8 }, { "id": "8peAJm7lGCkV-kzrYFYGaCTDC", "type": "platform", "x": 1526, "y": -240, "w": 200, "h": 100, "angle": 20, "textureId": null, "zIndex": 9 }, { "id": "9vCbybOEpKba-kxu7XvSfB8SD", "type": "platform", "x": 1410, "y": 100, "w": 1200, "h": 100, "angle": 0, "textureId": null, "zIndex": 1 }, { "id": "MS1PZMAEiRFM-dZFkoEtwGk7j", "type": "platform", "x": 1250, "y": -360, "w": 900, "h": 200, "angle": 0, "textureId": null, "zIndex": 11 }, { "id": "mB9AGahnURyG-SRwduaagJUTa", "type": "platform", "x": 1491, "y": -510, "w": 780, "h": 100, "angle": 0, "textureId": null, "zIndex": 12 }, { "id": "4mSqoDGYUcVg-uVvKKDYiEFyL", "type": "platform", "x": 860, "y": -781, "w": 200, "h": 100, "angle": -20, "textureId": null, "zIndex": 13 }, { "id": "0vTEKctsJJgh-bojJAgRYlkSz", "type": "platform", "x": 1093, "y": -839, "w": 300, "h": 100, "angle": -10, "textureId": null, "zIndex": 14 }, { "id": "CmBavJ0hZhFq-GrwUXjNqhTpr", "type": "platform", "x": 1311, "y": -909, "w": 200, "h": 100, "angle": -30, "textureId": null, "zIndex": 15 }, { "id": "VqLONgs03hiY-ogv3zTN5M3dK", "type": "platform", "x": 786, "y": -245, "w": 141, "h": 100, "angle": 45, "textureId": null, "zIndex": 16 }, { "id": "Vb8HWAKBdL6Z-aIoE71xlQDgI", "type": "platform", "x": 1650, "y": -210, "w": 100, "h": 100, "angle": 0, "textureId": null, "zIndex": 17 }, { "id": "84t3a75ooIRX-T1OnrwMWNA6B", "type": "platform", "x": 1529, "y": -979, "w": 300, "h": 100, "angle": -10, "textureId": null, "zIndex": 18 }, { "id": "gE7XXXicjEat-mnS07sjDfPvx", "type": "platform", "x": 1739, "y": -913, "w": 300, "h": 100, "angle": 45, "textureId": null, "zIndex": 19 }, { "id": "wR44RJanvFEX-xjzmUm1QIC83", "type": "platform", "x": 1831, "y": -701, "w": 100, "h": 283, "angle": 0, "textureId": null, "zIndex": 20 }, { "id": "9RsFfEXShyPx-L3bz8ljUsu0C", "type": "platform", "x": 2310, "y": 50, "w": 600, "h": 200, "angle": 0, "textureId": null, "zIndex": 1 }, { "id": "wFUMitBwRH8N-jaQEV6NVDoea", "type": "platform", "x": 1795, "y": -394, "w": 450, "h": 235, "angle": -40, "textureId": null, "zIndex": 22 }, { "id": "IAJZ6SZzR4YH-bq4lnwKOYhsj", "type": "platform", "x": 1969, "y": -515, "w": 355, "h": 175, "angle": -20, "textureId": null, "zIndex": 23 }, { "id": "h8UAI1ADfe9H-R4jmVGaQc9xO", "type": "platform", "x": 2295, "y": -605, "w": 355, "h": 175, "angle": -10, "textureId": null, "zIndex": 24 }, { "id": "rZaZix5aGw88-qwNz0CJUpQKs", "type": "platform", "x": 3441, "y": -186, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 27 }, { "id": "zlUUglmdDa54-WEb8AuvqA7xS", "type": "platform", "x": 3771, "y": -237, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 28 }, { "id": "pTqWy92PbcBF-Pwa8dvWqg7M9", "type": "platform", "x": 2910, "y": -42, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 29 }, { "id": "A3ckQ4o67yQp-xqTd68CPc0Vx", "type": "platform", "x": 3199, "y": -52, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 30 }, { "id": "GWX8BWSXmc7L-d30Ee41JSOpy", "type": "platform", "x": 3984, "y": -417, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 31 }, { "id": "F3cbLQKZGswe-OzeWvsmhx3KC", "type": "platform", "x": 3673, "y": -574, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 32 }, { "id": "jURZ7N1idbLU-ilSWg1t84xuZ", "type": "deadly", "x": 2910, "y": -22, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 33 }, { "id": "hwOm68RaIRHX-zEXB3Ze04DaI", "type": "deadly", "x": 3199, "y": -32, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 34 }, { "id": "zzmsdIG86uol-ifMTnU8xQMB1", "type": "deadly", "x": 3441, "y": -166, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 35 }, { "id": "872NIw92j9aD-hA8iQGKGtXbU", "type": "deadly", "x": 3771, "y": -217, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 36 }, { "id": "BlhZ9dgvWdWB-kiHylVXZiObj", "type": "deadly", "x": 3984, "y": -397, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 37 }, { "id": "z39vM1L7cE5Q-bB9RBVbfTk8a", "type": "deadly", "x": 3673, "y": -554, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 38 }, { "id": "raAYBYWQSgvh-2ULmY9IOfiNv", "type": "platform", "x": 3385, "y": 450, "w": 2750, "h": 600, "angle": 0, "textureId": null, "zIndex": 39 }, { "id": "p8jDcXstfhOM-QSNUJnBykSV3", "type": "platform", "x": 4460, "y": 50, "w": 600, "h": 200, "angle": 0, "textureId": null, "zIndex": 40 }, { "id": "v0WiMvC6M2qK-kDjUXzqeANwX", "type": "platform", "x": 4550, "y": -370, "w": 600, "h": 400, "angle": 0, "textureId": null, "zIndex": 41 }, { "id": "uCFZiV6yv4UN-SadspmUsg5FV", "type": "platform", "x": 3957, "y": -682, "w": 100, "h": 20, "angle": 0, "textureId": null, "zIndex": 42 }, { "id": "W3GH8M6LJkLs-TZBvsjZntFjg", "type": "deadly", "x": 3957, "y": -662, "w": 98, "h": 20, "angle": 0, "textureId": null, "zIndex": 43 }, { "id": "W0fXvWWTxMol-OMpY660ni3d1", "type": "platform", "x": 4150, "y": -1030, "w": 600, "h": 200, "angle": -10, "textureId": null, "zIndex": 44 }, { "id": "UVRO79gn60Fa-qR4McfpfUNuv", "type": "platform", "x": 4648, "y": -1006, "w": 721, "h": 200, "angle": 7, "textureId": null, "zIndex": 45 }, { "id": "1BUqI8Ofi6ms-oRamBygx0D9l", "type": "platform", "x": 4200, "y": -420, "w": 100, "h": 300, "angle": 0, "textureId": null, "zIndex": 46 }, { "id": "6gehgTx3BD6O-xXi9vvMSMLBI", "type": "platform", "x": 4228, "y": -250, "w": 145, "h": 80, "angle": 45, "textureId": null, "zIndex": 47 }, { "id": "pkpDsWpzctKL-5OwQigDTbIma", "type": "platform", "x": 3551, "y": -1070, "w": 721, "h": 200, "angle": 15, "textureId": null, "zIndex": 48 }, { "id": "3LmKr3UGZEbo-oZqx3tKCAMDs", "type": "platform", "x": 2952, "y": -1109, "w": 600, "h": 200, "angle": -10, "textureId": null, "zIndex": 49 }, { "id": "eoyRw3WubzR1-DbMIf038kjjL", "type": "platform", "x": 2576, "y": -855, "w": 600, "h": 200, "angle": -55, "textureId": null, "zIndex": 50 }, { "id": "7KIgFCDRwdF8-U0yUPGrWyEqm", "type": "platform", "x": 4366, "y": -639, "w": 433, "h": 138, "angle": 0, "textureId": null, "zIndex": 53 }, { "id": "VOvckp2nyAe5-Q8U76TEKoQeO", "type": "deadly", "x": 3385, "y": 140, "w": 1550, "h": 20, "angle": 0, "textureId": null, "zIndex": 54 }, { "id": "udUfT3MNj0Cq-KJ7Zsh70Ue5q", "type": "platform", "x": 1308, "y": -88, "w": 220, "h": 20, "angle": 0, "textureId": null, "zIndex": 57 }, { "id": "SGG8pcYQm6mQ-KelDCAx3MBhP", "type": "chest", "x": 1309, "y": -135, "w": 75, "h": 75, "angle": 0, "textureId": null, "zIndex": 1, "detectionRadius": 100, "items": [ "rosaries", "stone" ], "closedTextureId": 0, "openTextureId": 1, "openingTextureId": 2, "closingTextureId": 3 }, { "id": "1QDwJg388Lnv-bRNjkmuWhFaJ", "type": "platform", "x": 2156, "y": -739, "w": 700, "h": 300, "angle": 0, "textureId": null, "zIndex": 59 }, { "id": "grUfrpf3npIq-vvdKdShPsT0r", "type": "platform", "x": 2174, "y": -1035, "w": 948, "h": 300, "angle": 0, "textureId": null, "zIndex": 60 }, { "id": "PUWunsdRlN0O-JKgeIBhYmDtE", "type": "platform", "x": 4810, "y": 350, "w": 100, "h": 800, "angle": 0, "textureId": null, "zIndex": 1 }, { "id": "bUCHEPHsDCZW-Ox8b1I5c4cng", "type": "platform", "x": 5010, "y": 350, "w": 100, "h": 800, "angle": 0, "textureId": null, "zIndex": 62 }, { "id": "f3m3R5o2BQzW-fI3gFRtTA3ER", "type": "respawn", "x": 1731, "y": -610, "w": 100, "h": 100, "angle": 0, "textureId": null, "zIndex": 0, "detectionRadius": 100, "passThrough": true, "respawnX": 1731, "respawnY": -610, "inactiveTextureId": 4, "activeTextureId": 5 } ], "decor": [ { "id": "HOJZq7kFaugY-LxBMwFAE7Nd0", "x": 1408, "y": -168, "w": 150, "h": 20, "angle": 90, "textureId": null, "zIndex": 55, "parallaxSpeed": 1 }, { "id": "HsNHzCP3C4Dt-1K9hrQ34VdzX", "x": 1208, "y": -168, "w": 150, "h": 20, "angle": 90, "textureId": null, "zIndex": 56, "parallaxSpeed": 1 } ] };
         const allItems = new Set();
         mapData.platforms.forEach(plat => {
             if (plat.type === "chest" && plat.items) {
@@ -1006,7 +332,6 @@
             img.onload = () => console.log(`Preloaded ${item}`);
             itemImages[item] = img;
         });
-
         class Vec2 {
             constructor(x = 0, y = 0) { this.x = x; this.y = y; }
             add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
@@ -1020,11 +345,9 @@
             clone() { return new Vec2(this.x, this.y); }
             set(x, y) { this.x = x; this.y = y; return this; }
         }
-
         function aabbOverlap(a, b) {
             return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
         }
-
         class Polygon {
             constructor(points) {
                 this.points = points.map(p => new Vec2(p.x, p.y));
@@ -1090,14 +413,12 @@
                 return { axis: { x: axisX, y: axisY }, overlap };
             }
         }
-
         function hexToRgb(hex) {
             const r = parseInt(hex.slice(1, 3), 16) / 255;
             const g = parseInt(hex.slice(3, 5), 16) / 255;
             const b = parseInt(hex.slice(5, 7), 16) / 255;
             return new Float32Array([r, g, b, 1]);
         }
-
         function createShader(gl, type, source) {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
@@ -1109,7 +430,6 @@
             }
             return shader;
         }
-
         function createProgram(gl, vsource, fsource) {
             const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
             if (!vs) return null;
@@ -1126,9 +446,7 @@
             }
             return program;
         }
-
         const projviewMatrix = new Float32Array(12);
-
         function getProjViewMatrix(width, height, camX, camY, matrix, isUI = false) {
             if (isUI) {
                 matrix[0] = 2 / width;
@@ -1159,7 +477,6 @@
             }
             return matrix;
         }
-
         const vsSource = `#version 300 es
             precision mediump float;
             layout(std140) uniform Matrices {
@@ -1176,7 +493,6 @@
                 v_color = a_color;
             }
         `;
-
         const fsSource = `#version 300 es
             precision mediump float;
             in vec2 v_texcoord;
@@ -1192,7 +508,6 @@
                 }
             }
         `;
-
         function isTextureReady(texObj) {
             if (!texObj) return false;
             if (texObj instanceof HTMLImageElement) {
@@ -1202,7 +517,6 @@
             }
             return false;
         }
-
         class BaseShape {
             constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false, parallaxSpeed = 0.7) {
                 this.pos = new Vec2(x, y);
@@ -1280,7 +594,6 @@
                 return idx;
             }
         }
-
         class Entity extends BaseShape {
             constructor(x, y, w, h, angleDeg, color, isStatic = false, z, textureIndex, parallaxSpeed) {
                 super(x, y, w, h, angleDeg, z, textureIndex, false, parallaxSpeed);
@@ -1579,37 +892,37 @@
                 this.oldDashTimer = this.dashTimer;
             }
         }
-
         class Chest extends Entity {
-            constructor(x, y, w, h, angleDeg, items, z, detectionRadius = config.chestDetectionRadius) {
-                super(x, y, w, h, angleDeg, "#8B4513", true, z, 0);
+            constructor(x, y, w, h, angleDeg, items, z, detectionRadius = config.chestDetectionRadius, closedTex = 0, openTex = 1, openingTex = 2, closingTex = 3) {
+                super(x, y, w, h, angleDeg, "#8B4513", true, z, closedTex);
                 this.items = items || new Array(config.maxChestSlots).fill(null);
                 this.opened = false;
                 this.detectionRadius = detectionRadius;
                 this.state = 'closed';
                 this.currentVideo = null;
-                this.closedImageId = 0;
-                this.openImageId = 1;
-                this.openAnimId = 3;
-                this.closeAnimId = 4;
+                this.closedTextureId = closedTex;
+                this.openTextureId = openTex;
+                this.openingTextureId = openingTex;
+                this.closingTextureId = closingTex;
+                this.textureIndex = this.closedTextureId;
             }
         }
-
         class RespawnBox extends Entity {
-            constructor(x, y, w, h, angleDeg, z, detectionRadius = config.respawnDetectionRadius, passThrough = false, respawnX = x, respawnY = y) {
-                super(x, y, w, h, angleDeg, "#FFD700", true, z, 0);
+            constructor(x, y, w, h, angleDeg, z, detectionRadius = config.respawnDetectionRadius, passThrough = false, respawnX = x, respawnY = y, inactiveTex = 0, activeTex = 1) {
+                super(x, y, w, h, angleDeg, "#FFD700", true, z, inactiveTex);
                 this.detectionRadius = detectionRadius;
                 this.passThrough = passThrough;
                 this.respawnPos = new Vec2(respawnX, respawnY);
                 this.active = false;
-                this.colorArray = hexToRgb("#FFD700");
+                this.inactiveTextureId = inactiveTex;
+                this.activeTextureId = activeTex;
+                this.textureIndex = this.inactiveTextureId;
             }
             setActive(active) {
                 this.active = active;
-                this.colorArray = active ? hexToRgb("#00FF00") : hexToRgb("#FFD700");
+                this.textureIndex = active ? this.activeTextureId : this.inactiveTextureId;
             }
         }
-
         class World {
             constructor(gl) {
                 this.gl = gl;
@@ -1643,7 +956,6 @@
                 this.uboMatrices = null;
                 this.lastSaveTime = 0;
                 this.db = null;
-
                 this.reusableVec = new Vec2();
                 this.reusablePoints = [];
                 this.reusableAABB = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
@@ -1665,17 +977,17 @@
                 this.reusableRenderPos = new Vec2();
                 this.reusableDebugPos = new Vec2();
                 this.reusableInterpVel = new Vec2();
-                this.reusableTexCoords = new Float32Array(8); 
-                this.reusableFixedTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]); 
-                this.reusableStandardTex = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]); 
+                this.reusableTexCoords = new Float32Array(8);
+                this.reusableFixedTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]);
+                this.reusableStandardTex = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
                 this.reusableCol = new Float32Array(4);
-                this.reusablePointsBuf = new Float32Array(8); 
+                this.reusablePointsBuf = new Float32Array(8);
                 this.reusableLineArray = new Float32Array(16);
                 this.reusableVelArrowStart = new Float32Array(4);
                 this.reusableVelArrowEnd = new Float32Array(4);
-                this.reusableDebugVertChunk = new Float32Array(128); 
-                this.reusableVertDataChunk = new Float32Array(512); 
-                this.reusableIndexDataChunk = new Uint16Array(256); 
+                this.reusableDebugVertChunk = new Float32Array(128);
+                this.reusableVertDataChunk = new Float32Array(512);
+                this.reusableIndexDataChunk = new Uint16Array(256);
                 this.reusableBatch = {indexStart: 0, numElements: 0, texIndex: -1};
                 this.reusableVisibleAABB = {minX: 0, minY: 0, maxX: 0, maxY: 0 };
             }
@@ -1758,13 +1070,17 @@
                     else if (plat.type === "jumpPad") color = "#0f0";
                     else if (plat.type === "chest") {
                         const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
+                        const closedTex = plat.closedTextureId !== undefined ? plat.closedTextureId : 0;
+                        const openTex = plat.openTextureId !== undefined ? plat.openTextureId : 1;
+                        const openingTex = plat.openingTextureId !== undefined ? plat.openingTextureId : 2;
+                        const closingTex = plat.closingTextureId !== undefined ? plat.closingTextureId : 3;
                         const chestItems = new Array(config.maxChestSlots).fill(null);
                         if (plat.items) {
                             plat.items.slice(0, config.maxChestSlots).forEach((item, idx) => {
                                 chestItems[idx] = item;
                             });
                         }
-                        const chest = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius);
+                        const chest = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius, closedTex, openTex, openingTex, closingTex);
                         chest.id = plat.id;
                         this.add(chest);
                         this.chests.push(chest);
@@ -1775,7 +1091,9 @@
                         const passThrough = plat.passThrough || false;
                         const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
                         const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
-                        const respawnBox = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY);
+                        const inactiveTex = plat.inactiveTextureId !== undefined ? plat.inactiveTextureId : 0;
+                        const activeTex = plat.activeTextureId !== undefined ? plat.activeTextureId : 1;
+                        const respawnBox = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY, inactiveTex, activeTex);
                         respawnBox.id = plat.id;
                         respawnBox.passThrough = passThrough;
                         this.add(respawnBox);
@@ -1813,11 +1131,10 @@
                 }
                 this.chests.forEach(chest => {
                     chest.state = 'closed';
-                    chest.textureIndex = chest.closedImageId;
+                    chest.textureIndex = chest.closedTextureId;
                 });
                 this.allEntities.sort((a, b) => a.z - b.z);
                 this.rebuildSpatialHash();
-
                 const saved = await this.loadProgress();
                 if (saved) {
                     this.player.pos.set(saved.position.x, saved.position.y);
@@ -1921,8 +1238,8 @@
                         chest.currentVideo = null;
                     }
                     chest.state = 'opening';
-                    chest.textureIndex = chest.openAnimId;
-                    const openTexObj = textures[chest.openAnimId];
+                    chest.textureIndex = chest.openingTextureId;
+                    const openTexObj = textures[chest.openingTextureId];
                     if (openTexObj && openTexObj.video) {
                         try {
                             openTexObj.video.currentTime = 0;
@@ -1930,24 +1247,24 @@
                             openTexObj.video.play().catch(e => {
                                 console.log('Open video play failed:', e);
                                 chest.state = 'open';
-                                chest.textureIndex = chest.openImageId;
+                                chest.textureIndex = chest.openTextureId;
                                 chest.currentVideo = null;
                             });
                             chest.currentVideo = openTexObj.video;
                             openTexObj.video.onended = () => {
                                 chest.state = 'open';
-                                chest.textureIndex = chest.openImageId;
+                                chest.textureIndex = chest.openTextureId;
                                 chest.currentVideo = null;
                             };
                         } catch (err) {
                             console.error('Error starting open animation:', err);
                             chest.state = 'open';
-                            chest.textureIndex = chest.openImageId;
+                            chest.textureIndex = chest.openTextureId;
                             chest.currentVideo = null;
                         }
                     } else {
                         chest.state = 'open';
-                        chest.textureIndex = chest.openImageId;
+                        chest.textureIndex = chest.openTextureId;
                         chest.currentVideo = null;
                     }
                 }
@@ -1985,14 +1302,13 @@
                         visible.push(e);
                     }
                 }
-                if (!visible.includes(this.player)) visible.push(this.player); 
+                if (!visible.includes(this.player)) visible.push(this.player);
                 return visible;
             }
             update(dt) {
                 for (const e of this.dynamics) {
                     e.update(dt, this);
                 }
-
                 if (this.player) {
                     let currentTele = null;
                     const playerAABB = this.player.aabb;
@@ -2004,7 +1320,6 @@
                     }
                     if (currentTele) {
                         if (currentTele.teleportDelay === 0) {
-
                             this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
                             this.player.vel.set(0, 0);
                             this.player.onGround = false;
@@ -2066,10 +1381,8 @@
                     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projviewMatrix);
                 }
                 const visible = this.getVisible(camX, camY, width, height);
-
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
-
                 let vertIdx = 0;
                 let indexIdx = 0;
                 let currentBatch = {indexStart: 0, numElements: 0, texIndex: -1};
@@ -2088,13 +1401,13 @@
                     let thisTex = e.textureIndex ?? -1;
                     if (e instanceof Chest) {
                         if (e.state === 'closed') {
-                            thisTex = e.closedImageId;
+                            thisTex = e.closedTextureId;
                         } else if (e.state === 'open') {
-                            thisTex = e.openImageId;
+                            thisTex = e.openTextureId;
                         } else if (e.state === 'opening') {
-                            thisTex = e.openAnimId;
+                            thisTex = e.openingTextureId;
                         } else if (e.state === 'closing') {
-                            thisTex = e.closeAnimId;
+                            thisTex = e.closingTextureId;
                         }
                         e.textureIndex = thisTex;
                     }
@@ -2144,7 +1457,6 @@
                     this.indexData[indexIdx++] = base + 3;
                 }
                 if (currentBatch.numElements > 0) batches.push({...currentBatch});
-
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, this.vertData.subarray(0, vertIdx), gl.DYNAMIC_DRAW);
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
@@ -2189,7 +1501,6 @@
                 }
             }
         }
-
         function createItemDiv(item, slotIdx, invType) {
             if (!item || typeof item !== 'string' || item === 'undefined') return null;
             const div = document.createElement('div');
@@ -2226,7 +1537,6 @@
             });
             return div;
         }
-
         function updateSlots(gridId, itemsArray, invType) {
             const grid = document.getElementById(gridId);
             if (!grid) return;
@@ -2261,27 +1571,22 @@
                 }
             }
         }
-
         function handleDrop(e) {
             e.preventDefault();
             const item = e.dataTransfer.getData('text/plain');
             if (!item || item === 'undefined') return;
-
             const sourceInv = e.dataTransfer.getData('sourceInventory');
             const sourceSlotStr = e.dataTransfer.getData('sourceSlot');
             const sourceSlot = parseInt(sourceSlotStr);
             const targetInv = e.currentTarget.dataset.inventory;
             const targetSlot = parseInt(e.currentTarget.dataset.slot);
-
             const sourceMax = sourceInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots;
             if (isNaN(sourceSlot) || sourceSlot < 0 || sourceSlot >= sourceMax ||
                 isNaN(targetSlot) || targetSlot < 0 || targetSlot >= (targetInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots)) {
                 console.error('Invalid drop: sourceSlot=', sourceSlot, 'targetSlot=', targetSlot, 'item=', item);
                 return;
             }
-
             console.log('Valid drop:', { item, sourceInv, sourceSlot, targetInv, targetSlot });
-
             if (sourceInv === targetInv) {
                 if (sourceInv === 'player') {
                     const temp = world.inventory[sourceSlot];
@@ -2308,21 +1613,18 @@
                     return;
                 }
             }
-
             if (sourceInv === 'player' || targetInv === 'player') {
                 world.inventory = world.inventory.map(it => it === undefined ? null : it);
             }
             if (currentOpenChest && (sourceInv === 'chest' || targetInv === 'chest')) {
                 currentOpenChest.items = currentOpenChest.items.map(it => it === undefined ? null : it);
             }
-
             world.updateInventoryUI();
             if (currentOpenChest) {
                 updateSlots('chestGrid', currentOpenChest.items, 'chest');
             }
             world.saveProgress().catch(console.error);
         }
-
         function populateGrid(gridId, itemsArray, numSlots, invType) {
             const grid = document.getElementById(gridId);
             if (!grid) return;
@@ -2339,19 +1641,16 @@
                 grid.appendChild(slot);
             }
         }
-
         function initUIGrids() {
             populateGrid('inventoryGrid', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
             populateGrid('playerGridInChest', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
             populateGrid('chestGrid', new Array(config.maxChestSlots).fill(null), config.maxChestSlots, 'chest');
         }
-
         function populateChestUI() {
             if (!currentOpenChest) return;
             updateSlots('chestGrid', currentOpenChest.items, 'chest');
             updateSlots('playerGridInChest', world.inventory, 'player');
         }
-
         function waitForTextures(textures) {
             return Promise.all(textures.map(texObj => {
                 if (texObj instanceof HTMLImageElement) {
@@ -2374,7 +1673,6 @@
                 return Promise.resolve();
             }));
         }
-
         const canvas = document.getElementById("game");
         const fadeOverlay = document.getElementById("fadeOverlay");
         const gl = canvas.getContext("webgl2", { alpha: true, desynchronized: true, powerPreference: "high-performance" });
@@ -2396,7 +1694,6 @@
         const textureLoc = gl.getUniformLocation(program, "u_texture");
         const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
         gl.uniform1i(textureLoc, 0);
-
         const matricesBlockIndex = gl.getUniformBlockIndex(program, "Matrices");
         let uboMatrices = null;
         if (matricesBlockIndex !== gl.INVALID_INDEX) {
@@ -2408,14 +1705,12 @@
         } else {
             console.error("Uniform block 'Matrices' not found");
         }
-
         const cyanColor = new Float32Array([0, 1, 1, 1]);
         const redColor = hexToRgb("#f00");
         const greenColor = new Float32Array([0, 1, 0, 1]);
         const whiteColor = new Float32Array([1, 1, 1, 1]);
         const world = new World(gl);
         world.uboMatrices = uboMatrices;
-
         gl.bindVertexArray(world.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, world.batchPositionBuffer);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
@@ -2426,7 +1721,6 @@
         gl.enableVertexAttribArray(2);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, world.batchIndexBuffer);
         gl.bindVertexArray(null);
-
         gl.bindVertexArray(world.debugVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, world.debugLineBuffer);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
@@ -2436,7 +1730,6 @@
         gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
         gl.enableVertexAttribArray(2);
         gl.bindVertexArray(null);
-
         const textures = [];
         const glTextures = [];
         mapData.textures.forEach((url, i) => {
@@ -2484,9 +1777,7 @@
             textures.push(textureObj);
             glTextures.push(tex);
         });
-
         initUIGrids();
-
         closeChestBtn.addEventListener('click', () => {
             if (currentOpenChest) {
                 const chest = currentOpenChest;
@@ -2497,8 +1788,8 @@
                         chest.currentVideo = null;
                     }
                     chest.state = 'closing';
-                    chest.textureIndex = chest.closeAnimId;
-                    const closeTexObj = textures[chest.closeAnimId];
+                    chest.textureIndex = chest.closingTextureId;
+                    const closeTexObj = textures[chest.closingTextureId];
                     if (closeTexObj && closeTexObj.video) {
                         try {
                             closeTexObj.video.currentTime = 0;
@@ -2506,24 +1797,24 @@
                             closeTexObj.video.play().catch(e => {
                                 console.log('Close video play failed:', e);
                                 chest.state = 'closed';
-                                chest.textureIndex = chest.closedImageId;
+                                chest.textureIndex = chest.closedTextureId;
                                 chest.currentVideo = null;
                             });
                             chest.currentVideo = closeTexObj.video;
                             closeTexObj.video.onended = () => {
                                 chest.state = 'closed';
-                                chest.textureIndex = chest.closedImageId;
+                                chest.textureIndex = chest.closedTextureId;
                                 chest.currentVideo = null;
                             };
                         } catch (err) {
                             console.error('Error starting close animation:', err);
                             chest.state = 'closed';
-                            chest.textureIndex = chest.closedImageId;
+                            chest.textureIndex = chest.closedTextureId;
                             chest.currentVideo = null;
                         }
                     } else {
                         chest.state = 'closed';
-                        chest.textureIndex = chest.closedImageId;
+                        chest.textureIndex = chest.closedTextureId;
                         chest.currentVideo = null;
                     }
                 }
@@ -2532,7 +1823,6 @@
                 world.saveProgress().catch(console.error);
             }
         });
-
         async function clearSave() {
             if (!world.db) return;
             try {
@@ -2574,11 +1864,9 @@
                 console.error('Clear failed', e);
             }
         }
-
         debugDiv.addEventListener('click', (e) => {
             if (e.target.id === 'clearSave') clearSave();
         });
-
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -2586,9 +1874,7 @@
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-
         document.addEventListener('contextmenu', e => e.preventDefault());
-
         let debugMode = false;
         let inventoryOpen = false;
         window.addEventListener("keydown", async (e) => {
@@ -2636,18 +1922,15 @@
             if (keyCode === config.jumpKey) e.preventDefault();
         });
         window.addEventListener("keyup", e => world.keys[e.code] = false);
-
         closeInventoryBtn.addEventListener('click', () => {
             inventoryOpen = false;
             inventoryDiv.style.display = 'none';
             world.saveProgress().catch(console.error);
         });
-
         world.updateInventoryUI = () => {
             updateSlots('inventoryGrid', world.inventory, 'player');
             updateSlots('playerGridInChest', world.inventory, 'player');
         };
-
         async function initializeGame() {
             await world.initDB();
             await waitForTextures(textures);
@@ -2655,7 +1938,6 @@
             world.updateInventoryUI();
         }
         initializeGame().catch(console.error);
-
         let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
         let lastDebugTime = lastTime;
         let camX = 0, camY = 0;
@@ -2667,16 +1949,13 @@
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
-
             const delta = Math.min((currentTime - lastTime) / 1000, 1/30);
             lastTime = currentTime;
-
             world.update(delta);
             const targetCamX = world.player ? world.player.pos.x - canvas.width / 2 : camX;
             const targetCamY = world.player ? world.player.pos.y - canvas.height / 2 : camY;
             camX += (targetCamX - camX) * cameraSmoothingRate * delta;
             camY += (targetCamY - camY) * cameraSmoothingRate * delta;
-
             if (world.player) {
                 world.draw(debugMode, camX, camY, frameCount, textures, 0, canvas.width, canvas.height);
                 if (currentTime - lastDebugTime >= 100 && debugMode) {
