@@ -1153,10 +1153,22 @@
         }
         async function updateJSON() {
             updateUsedIds();
-            const textures = [];
+            // Collect all unique texture URLs
+            const allUrls = new Set();
             objects.forEach(o => {
-                if (o.texture && !textures.includes(o.texture)) textures.push(o.texture);
+                if (o.texture && typeof o.texture === 'string') allUrls.add(o.texture);
+                if (o.type === 'chest') {
+                    ['closedTextureUrl', 'openTextureUrl', 'openingTextureUrl', 'closingTextureUrl'].forEach(key => {
+                        if (o[key] && typeof o[key] === 'string') allUrls.add(o[key]);
+                    });
+                }
+                if (o.type === 'respawn') {
+                    ['inactiveTextureUrl', 'activeTextureUrl'].forEach(key => {
+                        if (o[key] && typeof o[key] === 'string') allUrls.add(o[key]);
+                    });
+                }
             });
+            const textures = Array.from(allUrls);
             const platforms = objects.filter(o => o.type !== "decor").map(o => {
                 let platObj = {
                     id: o.id || generateId(),
@@ -1166,7 +1178,7 @@
                     w: Math.round(o.w),
                     h: Math.round(o.h),
                     angle: Math.round(o.angle || 0),
-                    texture: o.texture || null,
+                    texture: o.texture ? textures.indexOf(o.texture) : null,
                     zIndex: o.zIndex || 0
                 };
                 if (o.type === 'teleporter') {
@@ -1184,6 +1196,10 @@
                     platObj.openTextureUrl = o.openTextureUrl || '';
                     platObj.openingTextureUrl = o.openingTextureUrl || '';
                     platObj.closingTextureUrl = o.closingTextureUrl || '';
+                    platObj.closedTextureId = o.closedTextureUrl ? textures.indexOf(o.closedTextureUrl) : 0;
+                    platObj.openTextureId = o.openTextureUrl ? textures.indexOf(o.openTextureUrl) : 1;
+                    platObj.openingTextureId = o.openingTextureUrl ? textures.indexOf(o.openingTextureUrl) : 2;
+                    platObj.closingTextureId = o.closingTextureUrl ? textures.indexOf(o.closingTextureUrl) : 3;
                 }
                 if (o.type === 'respawn') {
                     platObj.detectionRadius = o.detectionRadius || 1200;
@@ -1192,6 +1208,8 @@
                     platObj.respawnY = o.respawnY !== undefined ? o.respawnY : o.y;
                     platObj.inactiveTextureUrl = o.inactiveTextureUrl || '';
                     platObj.activeTextureUrl = o.activeTextureUrl || '';
+                    platObj.inactiveTextureId = o.inactiveTextureUrl ? textures.indexOf(o.inactiveTextureUrl) : -1;
+                    platObj.activeTextureId = o.activeTextureUrl ? textures.indexOf(o.activeTextureUrl) : -1;
                 }
                 return platObj;
             });
@@ -1202,7 +1220,7 @@
                 w: Math.round(o.w),
                 h: Math.round(o.h),
                 angle: Math.round(o.angle || 0),
-                texture: o.texture || null,
+                texture: o.texture ? textures.indexOf(o.texture) : null,
                 zIndex: o.zIndex || 0,
                 parallaxSpeed: o.parallaxSpeed || 1
             }));
@@ -1565,7 +1583,7 @@
                     };
                     objects = [];
                     (data.platforms || []).forEach(p => {
-                        const obj = { ...p, type: p.type || 'platform', texture: p.texture || null };
+                        const obj = { ...p, type: p.type || 'platform', texture: p.texture !== null ? data.textures[p.texture] : null };
                         if (p.type === 'teleporter') {
                             obj.targetX = p.targetX || 0;
                             obj.targetY = p.targetY || 0;
@@ -1581,6 +1599,10 @@
                             obj.openTextureUrl = p.openTextureUrl || '';
                             obj.openingTextureUrl = p.openingTextureUrl || '';
                             obj.closingTextureUrl = p.closingTextureUrl || '';
+                            if (p.closedTextureId !== undefined && data.textures[p.closedTextureId]) obj.closedTextureUrl = data.textures[p.closedTextureId];
+                            if (p.openTextureId !== undefined && data.textures[p.openTextureId]) obj.openTextureUrl = data.textures[p.openTextureId];
+                            if (p.openingTextureId !== undefined && data.textures[p.openingTextureId]) obj.openingTextureUrl = data.textures[p.openingTextureId];
+                            if (p.closingTextureId !== undefined && data.textures[p.closingTextureId]) obj.closingTextureUrl = data.textures[p.closingTextureId];
                         }
                         if (p.type === 'respawn') {
                             obj.detectionRadius = p.detectionRadius || 1200;
@@ -1589,11 +1611,18 @@
                             obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
                             obj.inactiveTextureUrl = p.inactiveTextureUrl || '';
                             obj.activeTextureUrl = p.activeTextureUrl || '';
+                            if (p.inactiveTextureId !== undefined && data.textures[p.inactiveTextureId]) obj.inactiveTextureUrl = data.textures[p.inactiveTextureId];
+                            if (p.activeTextureId !== undefined && data.textures[p.activeTextureId]) obj.activeTextureUrl = data.textures[p.activeTextureId];
                         }
                         objects.push(obj);
                     });
                     (data.decor || []).forEach(d => {
-                        const obj = { ...d, type: 'decor', texture: d.texture || null, parallaxSpeed: d.parallaxSpeed || 1 };
+                        const obj = {
+                            ...d,
+                            type: 'decor',
+                            texture: d.texture !== null ? data.textures[d.texture] : null,
+                            parallaxSpeed: d.parallaxSpeed || 1
+                        };
                         objects.push(obj);
                     });
                     updateUsedIds();
@@ -1697,7 +1726,7 @@
                 };
                 objects = [];
                 (saved.platforms || []).forEach(p => {
-                    const obj = { ...p, type: p.type || 'platform', texture: p.texture || null };
+                    const obj = { ...p, type: p.type || 'platform', texture: p.texture !== null ? saved.textures[p.texture] : null };
                     if (p.type === 'teleporter') {
                         obj.targetX = p.targetX || 0;
                         obj.targetY = p.targetY || 0;
@@ -1713,6 +1742,10 @@
                         obj.openTextureUrl = p.openTextureUrl || '';
                         obj.openingTextureUrl = p.openingTextureUrl || '';
                         obj.closingTextureUrl = p.closingTextureUrl || '';
+                        if (p.closedTextureId !== undefined && saved.textures[p.closedTextureId]) obj.closedTextureUrl = saved.textures[p.closedTextureId];
+                        if (p.openTextureId !== undefined && saved.textures[p.openTextureId]) obj.openTextureUrl = saved.textures[p.openTextureId];
+                        if (p.openingTextureId !== undefined && saved.textures[p.openingTextureId]) obj.openingTextureUrl = saved.textures[p.openingTextureId];
+                        if (p.closingTextureId !== undefined && saved.textures[p.closingTextureId]) obj.closingTextureUrl = saved.textures[p.closingTextureId];
                     }
                     if (p.type === 'respawn') {
                         obj.detectionRadius = p.detectionRadius || 1200;
@@ -1721,11 +1754,18 @@
                         obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
                         obj.inactiveTextureUrl = p.inactiveTextureUrl || '';
                         obj.activeTextureUrl = p.activeTextureUrl || '';
+                        if (p.inactiveTextureId !== undefined && saved.textures[p.inactiveTextureId]) obj.inactiveTextureUrl = saved.textures[p.inactiveTextureId];
+                        if (p.activeTextureId !== undefined && saved.textures[p.activeTextureId]) obj.activeTextureUrl = saved.textures[p.activeTextureId];
                     }
                     objects.push(obj);
                 });
                 (saved.decor || []).forEach(d => {
-                    const obj = { ...d, type: 'decor', texture: d.texture || null, parallaxSpeed: d.parallaxSpeed || 1 };
+                    const obj = {
+                        ...d,
+                        type: 'decor',
+                        texture: d.texture !== null ? saved.textures[d.texture] : null,
+                        parallaxSpeed: d.parallaxSpeed || 1
+                    };
                     objects.push(obj);
                 });
                 updateUsedIds();
