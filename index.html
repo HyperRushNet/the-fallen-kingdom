@@ -1,406 +1,337 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="icon" href="/assets/images/favicon/000000.png" media="(prefers-color-scheme: light)">  
-      <link rel="icon" href="/assets/images/favicon/ffffff.png" media="(prefers-color-scheme: dark)">  
+    <link rel="icon" href="/assets/images/favicon/000000.png" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="/assets/images/favicon/ffffff.png" media="(prefers-color-scheme: dark)">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <title>Game Engine</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { overflow: hidden; background: #0a0a0a; color: #b0d0ff; font-family: 'Courier New', monospace; }
+        body {
+            overflow: hidden;
+            background: #0a0a0a;
+            color: #b0d0ff;
+            font-family: 'Orbitron', 'Courier New', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
         canvas { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); display: block; width: 100vw; height: 100vh; }
+        #fadeOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            opacity: 0;
+            z-index: 10000;
+            pointer-events: none;
+        }
         #debug {
             position: fixed; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.4);
             padding: 12px; border: 1px dashed #b0d0ff; border-radius: 8px;
             width: 260px; font-size: 11px; line-height: 1.1;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); backdrop-filter: blur(8px);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            transition: all 0.3s ease;
+        }
+        #debug:hover {
+            box-shadow: 0 0 20px rgba(176, 208, 255, 0.3);
+            border-color: #ffffff;
+        }
+        #debug button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.1));
+            color: #ff6b6b;
+            border: none;
+            border-radius: 0 0 8px 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+        #debug button:hover {
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.5), rgba(255, 0, 0, 0.2));
+            color: white;
+        }
+        #inventory {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 450px;
+            height: 350px;
+            background: linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.95));
+            border: 2px solid #b0d0ff;
+            border-radius: 16px;
+            padding: 24px;
+            color: #b0d0ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+            animation: uiSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform;
+        }
+        @keyframes uiSlideIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        #inventory h2 {
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            background: linear-gradient(90deg, #b0d0ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 10px rgba(176, 208, 255, 0.5);
+        }
+        #inventoryGrid {
+            margin: 16px 0;
+            padding: 12px;
+            background: rgba(176, 208, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(176, 208, 255, 0.1);
+        }
+        #chestUI {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 550px;
+            background: linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.95));
+            border: 2px solid #b0d0ff;
+            border-radius: 16px;
+            padding: 24px;
+            color: #b0d0ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+            will-change: transform;
+        }
+        #chestUI h2 {
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            background: linear-gradient(90deg, #b0d0ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 10px rgba(176, 208, 255, 0.5);
+        }
+        #chestSection, #playerSection {
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(176, 208, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid rgba(176, 208, 255, 0.1);
+        }
+        #chestSection h3, #playerSection h3 {
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #ffffff;
+        }
+        .grid-inventory {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .grid-chest {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .slot {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(176, 208, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .slot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(176, 208, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        .slot:hover::before {
+            left: 100%;
+        }
+        .slot:hover {
+            border-color: #b0d0ff;
+            box-shadow: 0 0 15px rgba(176, 208, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .slot.has-item {
+            border-color: #ffffff;
+            box-shadow: inset 0 0 10px rgba(176, 208, 255, 0.2);
+        }
+        .item {
+            display: flex;
+            align-items: center;
+            cursor: grab;
+            transition: transform 0.2s ease;
+            z-index: 10;
+        }
+        .item:hover {
+            transform: scale(1.1);
+        }
+        .item:active {
+            cursor: grabbing;
+        }
+        .item img {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            filter: drop-shadow(0 0 5px rgba(176, 208, 255, 0.5));
+        }
+        #closeInventory, #closeChest {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0.1));
+            border: 1px solid rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            color: #ff6b6b;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        #closeInventory:hover, #closeChest:hover {
+            background: linear-gradient(145deg, rgba(255, 0, 0, 0.4), rgba(255, 0, 0, 0.2));
+            color: #ffffff;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #b0d0ff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 20;
+            backdrop-filter: blur(10px);
+        }
+        .slot:hover .tooltip {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
     <canvas id="game"></canvas>
-    <div id="debug"></div>
+    <div id="fadeOverlay"></div>
+    <div id="debug">
+    </div>
+    <div id="inventory">
+        <button id="closeInventory">&times;</button>
+        <h2>Inventory</h2>
+        <div id="inventoryGrid"></div>
+    </div>
+    <div id="chestUI">
+        <button id="closeChest">&times;</button>
+        <h2>Chest Interactions</h2>
+        <div id="chestSection">
+            <h3>Chest Contents</h3>
+            <div id="chestGrid" class="grid-chest"></div>
+        </div>
+        <div id="playerSection">
+            <h3>Your Inventory</h3>
+            <div id="playerGridInChest" class="grid-inventory"></div>
+        </div>
+    </div>
     <script>
-        const mapData = {
-  "playerStart": {
-    "x": -119,
-    "y": 1050,
-    "w": 50,
-    "h": 100,
-    "zIndex": 1,
-    "angle": 0
-  },
-  "textures": [],
-  "platforms": [
-    {
-      "id": "6nZuizW8hxb6-m0JFncfLJvDx",
-      "type": "platform",
-      "x": -15,
-      "y": 101,
-      "w": 2500,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "keMuBhHTqzP2-ElDnZmfDgouW",
-      "type": "platform",
-      "x": -515,
-      "y": -379,
-      "w": 1500,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "VejZRojgzHvF-blIm5xKkEuSc",
-      "type": "platform",
-      "x": 785,
-      "y": -279,
-      "w": 300,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "ou9cBmQV4oSC-wSgRFhRiTbIE",
-      "type": "platform",
-      "x": 935,
-      "y": -179,
-      "w": 400,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "PCRuBLJhTzCW-v5HYVKi3vRnw",
-      "type": "platform",
-      "x": -1215,
-      "y": 343,
-      "w": 385,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "Tt1L7zgf67Ba-qI3mYMxRomVz",
-      "type": "platform",
-      "x": -1315,
-      "y": 71,
-      "w": 100,
-      "h": 40,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "pDhcC4LYm7GM-0Te03XOwqGSy",
-      "type": "platform",
-      "x": -1715,
-      "y": 476,
-      "w": 650,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "LnKK92pQqrR4-WAYcIK6o0CrO",
-      "type": "platform",
-      "x": -1615,
-      "y": 277,
-      "w": 100,
-      "h": 40,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "tiw5l0HEWmNb-xkHm9MMVxoBA",
-      "type": "platform",
-      "x": -1315,
-      "y": 457,
-      "w": 100,
-      "h": 40,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "O88XGygv1w7W-P5bsK3A2BCSW",
-      "type": "platform",
-      "x": -1615,
-      "y": 630,
-      "w": 100,
-      "h": 21,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "3aWMoOKZz9eu-g15sjN8KHSoF",
-      "type": "platform",
-      "x": -1266,
-      "y": 851,
-      "w": 1000,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "YzAU4qP0q7iK-MZ02BMhjv2Hq",
-      "type": "platform",
-      "x": -816,
-      "y": 926,
-      "w": 50,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "Bq7LjoSO7O3C-OP89VYYDa5Pq",
-      "type": "platform",
-      "x": -616,
-      "y": 1001,
-      "w": 500,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "y001yJpts06Z-Up3ZSne68MDI",
-      "type": "platform",
-      "x": -416,
-      "y": 1076,
-      "w": 50,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "9xYEm7NYJ2C8-PtGP83JMkIup",
-      "type": "platform",
-      "x": 34,
-      "y": 1151,
-      "w": 1000,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "KUmh0zb7jvLv-eBufiB0JfDAd",
-      "type": "platform",
-      "x": -915,
-      "y": 531,
-      "w": 500,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "al6fJe2QvPfg-rUXeq8puzLh6",
-      "type": "platform",
-      "x": -517,
-      "y": 438,
-      "w": 400,
-      "h": 100,
-      "angle": -30,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "bsRILzn7R53Y-8cUE1ET5Suje",
-      "type": "platform",
-      "x": -120,
-      "y": 345,
-      "w": 500,
-      "h": 100,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "nAAGqt9GS8jK-nU7KhTkKxK8x",
-      "type": "platform",
-      "x": 299,
-      "y": 410,
-      "w": 400,
-      "h": 100,
-      "angle": 20,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "qGkvIjGduOUK-WwvnVYHNnntQ",
-      "type": "platform",
-      "x": 500,
-      "y": -99,
-      "w": 100,
-      "h": 300,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "nFFvxLSlKRGZ-SKuYyD9dH6hC",
-      "type": "platform",
-      "x": 375,
-      "y": -24,
-      "w": 150,
-      "h": 150,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "cqs3LndWS16h-thvZHwDCdioJ",
-      "type": "jumpPad",
-      "x": 600,
-      "y": 61,
-      "w": 100,
-      "h": 20,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1,
-      "jumpBoost": 900
-    },
-    {
-      "id": "ycTCDYB6odM0-zNoKsGoJTRyr",
-      "type": "platform",
-      "x": -1311,
-      "y": 115,
-      "w": 116,
-      "h": 10,
-      "angle": 30,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "5foUQwpdeilr-wn1m3NUsaYQY",
-      "type": "platform",
-      "x": -929,
-      "y": 316,
-      "w": 474,
-      "h": 330,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "eunLLfXHBYRx-knwFl1rsrLtX",
-      "type": "platform",
-      "x": -592,
-      "y": 316,
-      "w": 200,
-      "h": 330,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "QgOB6NK09YBe-6C0nSWir9dPH",
-      "type": "platform",
-      "x": -1619,
-      "y": 322,
-      "w": 116,
-      "h": 10,
-      "angle": -30,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "Pv9FpijKeZMG-mqntsk3CwftP",
-      "type": "platform",
-      "x": -1311,
-      "y": 502,
-      "w": 116,
-      "h": 10,
-      "angle": 30,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "tMBnCpknroFJ-PVsLWRyg6z8d",
-      "type": "platform",
-      "x": -1595,
-      "y": 721,
-      "w": 161,
-      "h": 20,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "wg3uiAJODzkn-5yJ4wSZEceNE",
-      "type": "platform",
-      "x": -418,
-      "y": 273,
-      "w": 150,
-      "h": 244,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "5G7iO2PgSFRT-SmgiVi4auxOp",
-      "type": "platform",
-      "x": -107,
-      "y": 223,
-      "w": 472,
-      "h": 144,
-      "angle": 0,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "j10TRmLPSoe8-pGTcSMHSEHow",
-      "type": "platform",
-      "x": 586,
-      "y": 566,
-      "w": 300,
-      "h": 100,
-      "angle": 40,
-      "textureId": null,
-      "zIndex": 1
-    },
-    {
-      "id": "QDmOtLZY7FzE-mz1wO0cOjhoF",
-      "type": "platform",
-      "x": 484,
-      "y": 1065,
-      "w": 75,
-      "h": 100,
-      "angle": 90,
-      "textureId": null,
-      "zIndex": 2
-    }
-  ],
-  "decor": []
-};
-
-const config = {
-    gravity: 900,
-    playerSpeed: 200,
-    jumpHeight: 600,
-    airJumpCooldown: 1.5,
-    dashDuration: 0.2,
-    dashSpeed: 800,
-    useDynamicSubsteps: true,
-    maxSubLen: 5
-};
-
+        const config = {
+            gravity: 900,
+            playerSpeed: 200,
+            jumpHeight: 600,
+            airJumpCooldown: 1.5,
+            dashDuration: 0.2,
+            dashSpeed: 800,
+            cameraSmoothing: 0.05,
+            maxPlayerSlots: 12,
+            maxChestSlots: 9,
+            chestDetectionRadius: 100,
+            respawnDetectionRadius: 1200,
+            fadeDuration: 1,
+            mostlyDarkPercentage: 0.8,
+            autoSaveInterval: 5000,
+            debugKey: "KeyD",
+            inventoryKey: "KeyI",
+            chestKey: "KeyE",
+            respawnKey: "KeyR",
+            dashKeys: ["ShiftLeft", "ShiftRight"],
+            jumpKey: "Space",
+            leftKey: "ArrowLeft",
+            rightKey: "ArrowRight",
+            clearStorageKey: "Backspace",
+            ctrlForClear: true,
+            godModeKey: "KeyG",
+            infiniteJumpKey: "KeyJ",
+            noclipKey: "KeyN"
+        };
+        const mapData = {"playerStart":{"x":0,"y":-13,"w":59,"h":100,"zIndex":1,"angle":0},"textures":["https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm"],"platforms":[{"id":"jgWo6uTND6pu-Os4J6efGYCzb","type":"platform","x":210,"y":100,"w":1200,"h":100,"angle":0,"texture":null,"zIndex":1},{"id":"kkjpb16uNZiC-wXbrlAZlZh6G","type":"platform","x":750,"y":-360,"w":100,"h":200,"angle":0,"texture":null,"zIndex":2},{"id":"8j6gnj4GmL6Z-yO60LctfFFzb","type":"platform","x":635,"y":-843,"w":400,"h":100,"angle":30,"texture":null,"zIndex":3},{"id":"edCMMNq3n6xB-pQMRIUBnzSQ0","type":"platform","x":900,"y":-210,"w":200,"h":100,"angle":0,"texture":null,"zIndex":4},{"id":"3rQKxqosrA06-8dkJiryN0Bbm","type":"platform","x":1077,"y":-241,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":5},{"id":"X2Qnky1oVNud-IjZmQYypmDHg","type":"platform","x":1211,"y":-281,"w":100,"h":100,"angle":-10,"texture":null,"zIndex":6},{"id":"2KGvRRd1pYqF-lf6mZxwt59dc","type":"platform","x":1302,"y":-289,"w":100,"h":100,"angle":0,"texture":null,"zIndex":7},{"id":"oWxYgmS6AQWg-kyNXNHFKVwAI","type":"platform","x":1392,"y":-281,"w":100,"h":100,"angle":10,"texture":null,"zIndex":8},{"id":"8peAJm7lGCkV-kzrYFYGaCTDC","type":"platform","x":1526,"y":-240,"w":200,"h":100,"angle":20,"texture":null,"zIndex":9},{"id":"9vCbybOEpKba-kxu7XvSfB8SD","type":"platform","x":1410,"y":100,"w":1200,"h":100,"angle":0,"texture":null,"zIndex":1},{"id":"MS1PZMAEiRFM-dZFkoEtwGk7j","type":"platform","x":1250,"y":-360,"w":900,"h":200,"angle":0,"texture":null,"zIndex":11},{"id":"mB9AGahnURyG-SRwduaagJUTa","type":"platform","x":1491,"y":-510,"w":780,"h":100,"angle":0,"texture":null,"zIndex":12},{"id":"4mSqoDGYUcVg-uVvKKDYiEFyL","type":"platform","x":860,"y":-781,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":13},{"id":"0vTEKctsJJgh-bojJAgRYlkSz","type":"platform","x":1093,"y":-839,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":14},{"id":"CmBavJ0hZhFq-GrwUXjNqhTpr","type":"platform","x":1311,"y":-909,"w":200,"h":100,"angle":-30,"texture":null,"zIndex":15},{"id":"VqLONgs03hiY-ogv3zTN5M3dK","type":"platform","x":786,"y":-245,"w":141,"h":100,"angle":45,"texture":null,"zIndex":16},{"id":"Vb8HWAKBdL6Z-aIoE71xlQDgI","type":"platform","x":1650,"y":-210,"w":100,"h":100,"angle":0,"texture":null,"zIndex":17},{"id":"84t3a75ooIRX-T1OnrwMWNA6B","type":"platform","x":1529,"y":-979,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":18},{"id":"gE7XXXicjEat-mnS07sjDfPvx","type":"platform","x":1739,"y":-913,"w":300,"h":100,"angle":45,"texture":null,"zIndex":19},{"id":"wR44RJanvFEX-xjzmUm1QIC83","type":"platform","x":1831,"y":-701,"w":100,"h":283,"angle":0,"texture":null,"zIndex":20},{"id":"9RsFfEXShyPx-L3bz8ljUsu0C","type":"platform","x":2310,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":1},{"id":"wFUMitBwRH8N-jaQEV6NVDoea","type":"platform","x":1795,"y":-394,"w":450,"h":235,"angle":-40,"texture":null,"zIndex":22},{"id":"IAJZ6SZzR4YH-bq4lnwKOYhsj","type":"platform","x":1969,"y":-515,"w":355,"h":175,"angle":-20,"texture":null,"zIndex":23},{"id":"h8UAI1ADfe9H-R4jmVGaQc9xO","type":"platform","x":2295,"y":-605,"w":355,"h":175,"angle":-10,"texture":null,"zIndex":24},{"id":"rZaZix5aGw88-qwNz0CJUpQKs","type":"platform","x":3441,"y":-186,"w":100,"h":20,"angle":0,"texture":null,"zIndex":27},{"id":"zlUUglmdDa54-WEb8AuvqA7xS","type":"platform","x":3771,"y":-237,"w":100,"h":20,"angle":0,"texture":null,"zIndex":28},{"id":"pTqWy92PbcBF-Pwa8dvWqg7M9","type":"platform","x":2910,"y":-42,"w":100,"h":20,"angle":0,"texture":null,"zIndex":29},{"id":"A3ckQ4o67yQp-xqTd68CPc0Vx","type":"platform","x":3199,"y":-52,"w":100,"h":20,"angle":0,"texture":null,"zIndex":30},{"id":"GWX8BWSXmc7L-d30Ee41JSOpy","type":"platform","x":3984,"y":-417,"w":100,"h":20,"angle":0,"texture":null,"zIndex":31},{"id":"F3cbLQKZGswe-OzeWvsmhx3KC","type":"platform","x":3673,"y":-574,"w":100,"h":20,"angle":0,"texture":null,"zIndex":32},{"id":"jURZ7N1idbLU-ilSWg1t84xuZ","type":"deadly","x":2910,"y":-22,"w":98,"h":20,"angle":0,"texture":null,"zIndex":33},{"id":"hwOm68RaIRHX-zEXB3Ze04DaI","type":"deadly","x":3199,"y":-32,"w":98,"h":20,"angle":0,"texture":null,"zIndex":34},{"id":"zzmsdIG86uol-ifMTnU8xQMB1","type":"deadly","x":3441,"y":-166,"w":98,"h":20,"angle":0,"texture":null,"zIndex":35},{"id":"872NIw92j9aD-hA8iQGKGtXbU","type":"deadly","x":3771,"y":-217,"w":98,"h":20,"angle":0,"texture":null,"zIndex":36},{"id":"BlhZ9dgvWdWB-kiHylVXZiObj","type":"deadly","x":3984,"y":-397,"w":98,"h":20,"angle":0,"texture":null,"zIndex":37},{"id":"z39vM1L7cE5Q-bB9RBVbfTk8a","type":"deadly","x":3673,"y":-554,"w":98,"h":20,"angle":0,"texture":null,"zIndex":38},{"id":"raAYBYWQSgvh-2ULmY9IOfiNv","type":"platform","x":3385,"y":450,"w":2750,"h":600,"angle":0,"texture":null,"zIndex":39},{"id":"p8jDcXstfhOM-QSNUJnBykSV3","type":"platform","x":4460,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":40},{"id":"v0WiMvC6M2qK-kDjUXzqeANwX","type":"platform","x":4550,"y":-370,"w":600,"h":400,"angle":0,"texture":null,"zIndex":41},{"id":"uCFZiV6yv4UN-SadspmUsg5FV","type":"platform","x":3957,"y":-682,"w":100,"h":20,"angle":0,"texture":null,"zIndex":42},{"id":"W3GH8M6LJkLs-TZBvsjZntFjg","type":"deadly","x":3957,"y":-662,"w":98,"h":20,"angle":0,"texture":null,"zIndex":43},{"id":"W0fXvWWTxMol-OMpY660ni3d1","type":"platform","x":4150,"y":-1030,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":44},{"id":"UVRO79gn60Fa-qR4McfpfUNuv","type":"platform","x":4648,"y":-1006,"w":721,"h":200,"angle":7,"texture":null,"zIndex":45},{"id":"1BUqI8Ofi6ms-oRamBygx0D9l","type":"platform","x":4200,"y":-420,"w":100,"h":300,"angle":0,"texture":null,"zIndex":46},{"id":"6gehgTx3BD6O-xXi9vvMSMLBI","type":"platform","x":4228,"y":-250,"w":145,"h":80,"angle":45,"texture":null,"zIndex":47},{"id":"pkpDsWpzctKL-5OwQigDTbIma","type":"platform","x":3551,"y":-1070,"w":721,"h":200,"angle":15,"texture":null,"zIndex":48},{"id":"3LmKr3UGZEbo-oZqx3tKCAMDs","type":"platform","x":2952,"y":-1109,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":49},{"id":"eoyRw3WubzR1-DbMIf038kjjL","type":"platform","x":2576,"y":-855,"w":600,"h":200,"angle":-55,"texture":null,"zIndex":50},{"id":"7KIgFCDRwdF8-U0yUPGrWyEqm","type":"platform","x":4366,"y":-639,"w":433,"h":138,"angle":0,"texture":null,"zIndex":53},{"id":"VOvckp2nyAe5-Q8U76TEKoQeO","type":"deadly","x":3385,"y":140,"w":1550,"h":20,"angle":0,"texture":null,"zIndex":54},{"id":"udUfT3MNj0Cq-KJ7Zsh70Ue5q","type":"platform","x":1308,"y":-88,"w":220,"h":20,"angle":0,"texture":null,"zIndex":57},{"id":"SGG8pcYQm6mQ-KelDCAx3MBhP","type":"chest","x":1309,"y":-135,"w":75,"h":75,"angle":0,"texture":null,"zIndex":1,"detectionRadius":100,"items":["rosaries","stone"],"closedTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","openTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","openingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closedTextureId":0,"openTextureId":1,"openingTextureId":2,"closingTextureId":3},{"id":"1QDwJg388Lnv-bRNjkmuWhFaJ","type":"platform","x":2156,"y":-739,"w":700,"h":300,"angle":0,"texture":null,"zIndex":59},{"id":"grUfrpf3npIq-vvdKdShPsT0r","type":"platform","x":2174,"y":-1035,"w":948,"h":300,"angle":0,"texture":null,"zIndex":60},{"id":"PUWunsdRlN0O-JKgeIBhYmDtE","type":"platform","x":4810,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":1},{"id":"bUCHEPHsDCZW-Ox8b1I5c4cng","type":"platform","x":5010,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":62},{"id":"f3m3R5o2BQzW-fI3gFRtTA3ER","type":"respawn","x":1731,"y":-610,"w":100,"h":100,"angle":0,"texture":null,"zIndex":0,"detectionRadius":100,"passThrough":true,"respawnX":1731,"respawnY":-610,"inactiveTextureUrl":"","activeTextureUrl":"","inactiveTextureId":-1,"activeTextureId":-1}],"decor":[{"id":"HOJZq7kFaugY-LxBMwFAE7Nd0","x":1408,"y":-168,"w":150,"h":20,"angle":90,"texture":null,"zIndex":55,"parallaxSpeed":1},{"id":"HsNHzCP3C4Dt-1K9hrQ34VdzX","x":1208,"y":-168,"w":150,"h":20,"angle":90,"texture":null,"zIndex":56,"parallaxSpeed":1}]}
+        const allItems = new Set();
+        mapData.platforms.forEach(plat => {
+            if (plat.type === "chest" && plat.items) {
+                plat.items.forEach(item => allItems.add(item));
+            }
+        });
+        const itemImages = {};
+        Array.from(allItems).forEach(item => {
+            const img = new Image();
+            img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+            img.onload = () => console.log(`Preloaded ${item}`);
+            itemImages[item] = img;
+        });
         class Vec2 {
             constructor(x = 0, y = 0) { this.x = x; this.y = y; }
             add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
@@ -414,11 +345,9 @@ const config = {
             clone() { return new Vec2(this.x, this.y); }
             set(x, y) { this.x = x; this.y = y; return this; }
         }
-
         function aabbOverlap(a, b) {
             return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
         }
-
         class Polygon {
             constructor(points) {
                 this.points = points.map(p => new Vec2(p.x, p.y));
@@ -484,14 +413,12 @@ const config = {
                 return { axis: { x: axisX, y: axisY }, overlap };
             }
         }
-
         function hexToRgb(hex) {
             const r = parseInt(hex.slice(1, 3), 16) / 255;
             const g = parseInt(hex.slice(3, 5), 16) / 255;
             const b = parseInt(hex.slice(5, 7), 16) / 255;
             return new Float32Array([r, g, b, 1]);
         }
-
         function createShader(gl, type, source) {
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
@@ -503,7 +430,6 @@ const config = {
             }
             return shader;
         }
-
         function createProgram(gl, vsource, fsource) {
             const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
             if (!vs) return null;
@@ -520,25 +446,37 @@ const config = {
             }
             return program;
         }
-
         const projviewMatrix = new Float32Array(12);
-
-        function getProjViewMatrix(width, height, camX, camY, matrix) {
-            matrix[0] = 2 / width;
-            matrix[1] = 0;
-            matrix[2] = 0;
-            matrix[3] = 0;
-            matrix[4] = 0;
-            matrix[5] = -2 / height;
-            matrix[6] = 0;
-            matrix[7] = 0;
-            matrix[8] = -1 - 2 * camX / width;
-            matrix[9] = 1 + 2 * camY / height;
-            matrix[10] = 1;
-            matrix[11] = 0;
+        function getProjViewMatrix(width, height, camX, camY, matrix, isUI = false) {
+            if (isUI) {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1;
+                matrix[9] = 1;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            } else {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1 - 2 * camX / width;
+                matrix[9] = 1 + 2 * camY / height;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            }
             return matrix;
         }
-
         const vsSource = `#version 300 es
             precision mediump float;
             layout(std140) uniform Matrices {
@@ -555,7 +493,6 @@ const config = {
                 v_color = a_color;
             }
         `;
-
         const fsSource = `#version 300 es
             precision mediump float;
             in vec2 v_texcoord;
@@ -571,7 +508,6 @@ const config = {
                 }
             }
         `;
-
         function isTextureReady(texObj) {
             if (!texObj) return false;
             if (texObj instanceof HTMLImageElement) {
@@ -581,11 +517,9 @@ const config = {
             }
             return false;
         }
-
         class BaseShape {
             constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false, parallaxSpeed = 0.7) {
                 this.pos = new Vec2(x, y);
-                this.prevPos = new Vec2(x, y);
                 this.width = w;
                 this.height = h;
                 this.angle = angleDeg * Math.PI / 180;
@@ -660,13 +594,13 @@ const config = {
                 return idx;
             }
         }
-
         class Entity extends BaseShape {
             constructor(x, y, w, h, angleDeg, color, isStatic = false, z, textureIndex, parallaxSpeed) {
                 super(x, y, w, h, angleDeg, z, textureIndex, false, parallaxSpeed);
                 this.colorArray = hexToRgb(color);
                 this.isStatic = isStatic;
                 this.deadly = false;
+                this.passThrough = false;
                 this.jumpBoost = 0;
                 this.teleportTarget = null;
                 this.teleportDelay = 0;
@@ -682,12 +616,20 @@ const config = {
                 this.teleporterAccum = 0;
                 this.justLanded = false;
                 this.landedEntity = null;
+                this.isDying = false;
+                this.godMode = false;
+                this.infiniteJump = false;
+                this.noclip = false;
                 if (isStatic) this.updateAABB();
             }
             update(dt, world) {
                 if (this.isStatic) return;
+                if (this.isDying && !this.godMode) {
+                    this.vel.set(0, 0);
+                    return;
+                }
                 const dashStarted = this.dashTimer > 0 && this.oldDashTimer <= 0;
-                if (this.airJumpCooldown > 0) {
+                if (this.airJumpCooldown > 0 && !this.infiniteJump) {
                     this.airJumpCooldown -= dt;
                     if (this.airJumpCooldown < 0) this.airJumpCooldown = 0;
                 }
@@ -703,18 +645,18 @@ const config = {
                     this.isDashing = true;
                     input_speed = 0;
                     g_vec_y = 0;
-                    if (dashStarted && world.keys["Space"]) {
+                    if (dashStarted && world.keys[config.jumpKey]) {
                         this.diagonalDash = true;
                     }
                 } else {
                     this.isDashing = false;
                     this.diagonalDash = false;
-                    input_speed = world.keys["ArrowLeft"] ? -config.playerSpeed : world.keys["ArrowRight"] ? config.playerSpeed : 0;
-                    g_vec_y = config.gravity * dt;
+                    input_speed = world.keys[config.leftKey] ? -config.playerSpeed : world.keys[config.rightKey] ? config.playerSpeed : 0;
+                    if (!this.godMode) g_vec_y = config.gravity * dt;
                 }
                 const up_x = 0;
                 const up_y = -1;
-                if (this.oldOnGround) {
+                if (this.oldOnGround && !this.noclip) {
                     const tangent_x = -this.groundNormal.y;
                     const tangent_y = this.groundNormal.x;
                     const normalComp = this.vel.x * this.groundNormal.x + this.vel.y * this.groundNormal.y;
@@ -739,14 +681,7 @@ const config = {
                 this.vel.y += g_vec_y;
                 const disp_x = this.vel.x * dt;
                 const disp_y = this.vel.y * dt;
-                let numSteps;
-                if (config.useDynamicSubsteps) {
-                    const dispLen = Math.hypot(disp_x, disp_y);
-                    const maxSubLen = config.maxSubLen;
-                    numSteps = Math.max(1, Math.ceil(dispLen / maxSubLen));
-                } else {
-                    numSteps = 1;
-                }
+                let numSteps = Math.max(1, Math.ceil(Math.hypot(disp_x, disp_y) / 0.5));
                 const sub_disp_x = disp_x / numSteps;
                 const sub_disp_y = disp_y / numSteps;
                 let currentPosX = this.pos.x;
@@ -755,7 +690,12 @@ const config = {
                 for (let step = 0; step < numSteps; step++) {
                     let testPosX = currentPosX + sub_disp_x;
                     let testPosY = currentPosY + sub_disp_y;
-                    for (let i = 0; i < 20; i++) {
+                    if (this.noclip) {
+                        currentPosX = testPosX;
+                        currentPosY = testPosY;
+                        continue;
+                    }
+                    for (let i = 0; i < 10; i++) {
                         let deadlyCollision = false;
                         let collisions = [];
                         let testAABB = this.shape.getAABB(testPosX, testPosY);
@@ -766,9 +706,9 @@ const config = {
                             const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-                                    // Skip push for teleporter
-                                } else if (other.deadly && this === world.player) {
+                                } else if (other.deadly && this === world.player && !this.godMode) {
                                     deadlyCollision = true;
+                                } else if (other.passThrough && this === world.player) {
                                 } else {
                                     let axis = res.axis;
                                     const d_x = testPosX - other.pos.x;
@@ -792,18 +732,32 @@ const config = {
                             }
                         }
                         if (deadlyCollision) {
-                            this.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                            if (this.godMode) {
+                                break;
+                            }
+                            this.isDying = true;
                             this.vel.set(0, 0);
-                            this.onGround = false;
-                            currentPosX = this.pos.x;
-                            currentPosY = this.pos.y;
-                            testPosX = currentPosX;
-                            testPosY = currentPosY;
-                            this.updateAABB();
+                            const fadeDuration = config.fadeDuration;
+                            const mostlyDarkPercentage = config.mostlyDarkPercentage;
+                            fadeOverlay.style.transition = `opacity ${fadeDuration}s ease-out`;
+                            fadeOverlay.style.opacity = '1';
+                            setTimeout(() => {
+                                this.pos.set(world.currentRespawnPos.x, world.currentRespawnPos.y);
+                                this.updateAABB();
+                                this.vel.set(0, 0);
+                                this.onGround = false;
+                                setTimeout(() => {
+                                    fadeOverlay.style.transition = `opacity ${fadeDuration}s ease-in`;
+                                    fadeOverlay.style.opacity = '0';
+                                    setTimeout(() => {
+                                        this.isDying = false;
+                                        world.saveProgress().catch(console.error);
+                                    }, fadeDuration * 1000);
+                                }, fadeDuration * (1 - mostlyDarkPercentage) * 1000);
+                            }, fadeDuration * mostlyDarkPercentage * 1000);
                             break;
                         }
                         if (collisions.length === 0) break;
-                        // Sort collisions by overlap descending for sequential resolution
                         collisions.sort((a, b) => b.overlap - a.overlap);
                         let has_ground = false;
                         let maxGroundOverlap = -Infinity;
@@ -837,7 +791,6 @@ const config = {
                             this.landedEntity = bestGround;
                             this.groundNormal.set(ground_normal_x, ground_normal_y);
                         }
-                        // Escape stuck: na alle pushes, check of nog overlaps; zo ja, nudge uit kleinste
                         let remainingCollisions = [];
                         testAABB = this.shape.getAABB(testPosX, testPosY);
                         for (const other of world.getNearby(testPosX, testPosY)) {
@@ -847,9 +800,8 @@ const config = {
                             const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y);
                             if (res) {
                                 if (other.teleportTarget && this === world.player) {
-                                    // Skip voor teleporter
                                 } else if (other.deadly && this === world.player) {
-                                    // Deadly skip, maar handel als voorheen
+                                } else if (other.passThrough && this === world.player) {
                                 } else {
                                     let axis = res.axis;
                                     const d_x = testPosX - other.pos.x;
@@ -873,19 +825,16 @@ const config = {
                             }
                         }
                         if (remainingCollisions.length > 0) {
-                            // Sort op kleinste overlap eerst (om makkelijkste uitweg te kiezen)
                             remainingCollisions.sort((a, b) => a.overlap - b.overlap);
                             const col = remainingCollisions[0];
-                            const push_dist = col.overlap;  // Volledig pushen om te ontsnappen (geen beta)
+                            const push_dist = col.overlap;
                             testPosX += col.push_x * push_dist;
                             testPosY += col.push_y * push_dist;
-                            // Geen extra vel reflect hier, om jitter te vermijden
                         }
                     }
                     currentPosX = testPosX;
                     currentPosY = testPosY;
                 }
-                this.prevPos.set(this.pos.x, this.pos.y);
                 this.pos.x = currentPosX;
                 this.pos.y = currentPosY;
                 this.updateAABB();
@@ -897,11 +846,11 @@ const config = {
                 if (this.onGround && !this.oldOnGround) {
                     this.airJumpCooldown = 0;
                 }
-                const jumpThisFrame = world.keys["Space"] && !this.jumpPressed;
-                this.jumpPressed = world.keys["Space"];
+                const jumpThisFrame = world.keys[config.jumpKey] && !this.jumpPressed;
+                this.jumpPressed = world.keys[config.jumpKey];
                 if (jumpThisFrame) {
                     let doJump = false;
-                    if (this.oldOnGround) {
+                    if (this.oldOnGround || this.infiniteJump) {
                         doJump = true;
                     } else if (this.airJumpCooldown <= 0) {
                         doJump = true;
@@ -922,7 +871,7 @@ const config = {
                         this.onGround = false;
                     }
                 }
-                if (this.onGround && !this.isDashing) {
+                if (this.onGround && !this.isDashing && !this.noclip) {
                     const tangent_x = -this.groundNormal.y;
                     const tangent_y = this.groundNormal.x;
                     this.vel.x = tangent_x * input_speed;
@@ -943,19 +892,55 @@ const config = {
                 this.oldDashTimer = this.dashTimer;
             }
         }
-
+        class Chest extends Entity {
+            constructor(x, y, w, h, angleDeg, items, z, detectionRadius = config.chestDetectionRadius, closedTex = 0, openTex = 1, openingTex = 2, closingTex = 3) {
+                super(x, y, w, h, angleDeg, "#8B4513", true, z, closedTex);
+                this.items = items || new Array(config.maxChestSlots).fill(null);
+                this.opened = false;
+                this.detectionRadius = detectionRadius;
+                this.state = 'closed';
+                this.currentVideo = null;
+                this.closedTextureId = closedTex;
+                this.openTextureId = openTex;
+                this.openingTextureId = openingTex;
+                this.closingTextureId = closingTex;
+                this.textureIndex = this.closedTextureId;
+            }
+        }
+        class RespawnBox extends Entity {
+            constructor(x, y, w, h, angleDeg, z, detectionRadius = config.respawnDetectionRadius, passThrough = false, respawnX = x, respawnY = y, inactiveTex = -1, activeTex = -1) {
+                super(x, y, w, h, angleDeg, "#FFD700", true, z, inactiveTex);
+                this.detectionRadius = detectionRadius;
+                this.passThrough = passThrough;
+                this.respawnPos = new Vec2(respawnX, respawnY);
+                this.active = false;
+                this.inactiveTextureId = inactiveTex;
+                this.activeTextureId = activeTex;
+                this.textureIndex = this.inactiveTextureId;
+            }
+            setActive(active) {
+                this.active = active;
+                this.textureIndex = active ? this.activeTextureId : this.inactiveTextureId;
+            }
+        }
         class World {
             constructor(gl) {
                 this.gl = gl;
                 this.statics = [];
                 this.dynamics = [];
                 this.decors = [];
+                this.chests = [];
+                this.respawnBoxes = [];
                 this.keys = {};
                 this.cellSize = 200;
                 this.spatialHash = new Map();
                 this.player = null;
                 this.playerStartPos = new Vec2(0, 0);
+                this.currentRespawnPos = new Vec2(0, 0);
                 this.allEntities = [];
+                this.inventory = new Array(config.maxPlayerSlots).fill(null);
+                this.nearbyChest = null;
+                this.nearbyRespawnBox = null;
                 this.batchPositionBuffer = gl.createBuffer();
                 this.batchIndexBuffer = gl.createBuffer();
                 this.debugLineBuffer = gl.createBuffer();
@@ -969,7 +954,8 @@ const config = {
                 this.debugVertData = new Float32Array(8192);
                 this.videoTextures = [];
                 this.uboMatrices = null;
-
+                this.lastSaveTime = 0;
+                this.db = null;
                 this.reusableVec = new Vec2();
                 this.reusablePoints = [];
                 this.reusableAABB = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
@@ -991,21 +977,77 @@ const config = {
                 this.reusableRenderPos = new Vec2();
                 this.reusableDebugPos = new Vec2();
                 this.reusableInterpVel = new Vec2();
-                this.reusableTexCoords = new Float32Array(8); 
-                this.reusableFixedTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]); 
-                this.reusableStandardTex = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]); 
+                this.reusableTexCoords = new Float32Array(8);
+                this.reusableFixedTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]);
+                this.reusableStandardTex = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
                 this.reusableCol = new Float32Array(4);
-                this.reusablePointsBuf = new Float32Array(8); 
+                this.reusablePointsBuf = new Float32Array(8);
                 this.reusableLineArray = new Float32Array(16);
                 this.reusableVelArrowStart = new Float32Array(4);
                 this.reusableVelArrowEnd = new Float32Array(4);
-                this.reusableDebugVertChunk = new Float32Array(128); 
-                this.reusableVertDataChunk = new Float32Array(512); 
-                this.reusableIndexDataChunk = new Uint16Array(256); 
+                this.reusableDebugVertChunk = new Float32Array(128);
+                this.reusableVertDataChunk = new Float32Array(512);
+                this.reusableIndexDataChunk = new Uint16Array(256);
                 this.reusableBatch = {indexStart: 0, numElements: 0, texIndex: -1};
                 this.reusableVisibleAABB = {minX: 0, minY: 0, maxX: 0, maxY: 0 };
             }
-            loadMap(data) {
+            async initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('GameSave', 1);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve(this.db);
+                    };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('progress')) {
+                            db.createObjectStore('progress', { keyPath: 'id' });
+                        }
+                    };
+                });
+            }
+            async saveProgress() {
+                if (!this.db) return;
+                const data = {
+                    position: { x: this.player.pos.x, y: this.player.pos.y },
+                    inventory: this.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null),
+                    respawnPos: { x: this.currentRespawnPos.x, y: this.currentRespawnPos.y },
+                    chests: this.chests.map(c => ({
+                        id: c.id,
+                        items: c.items.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null)
+                    })),
+                    lastUpdate: Date.now()
+                };
+                const tx = this.db.transaction('progress', 'readwrite');
+                const store = tx.objectStore('progress');
+                store.put({ id: 'current', ...data });
+            }
+            async loadProgress() {
+                if (!this.db) return null;
+                const tx = this.db.transaction('progress', 'readonly');
+                const store = tx.objectStore('progress');
+                const req = store.get('current');
+                return new Promise((resolve, reject) => {
+                    req.onsuccess = () => {
+                        const saved = req.result;
+                        if (saved) {
+                            saved.inventory = saved.inventory.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null);
+                            if (saved.chests) {
+                                saved.chests.forEach(schest => {
+                                    const chest = this.chests.find(c => c.id === schest.id);
+                                    if (chest) {
+                                        chest.items = schest.items.map(item => (typeof item === 'string' && item !== 'undefined') ? item : null);
+                                    }
+                                });
+                            }
+                        }
+                        resolve(saved || null);
+                    };
+                    req.onerror = reject;
+                });
+            }
+            async loadMap(data, textures) {
                 if (data.playerStart) {
                     const w = data.playerStart.w || 50;
                     const h = data.playerStart.h || 100;
@@ -1014,20 +1056,54 @@ const config = {
                         {x: w/2, y: h/2}, {x: -w/2, y: h/2}
                     ]);
                     this.playerStartPos.set(data.playerStart.x || 0, data.playerStart.y || 0);
+                    this.currentRespawnPos = this.playerStartPos.clone();
                     this.player = new Entity(data.playerStart.x || 0, data.playerStart.y || 0, w, h, data.playerStart.angle || 0, "#4af", false, data.playerStart.zIndex || 1);
                     this.player.shape = playerShape;
                     this.add(this.player);
                     this.allEntities.push(this.player);
                 }
                 for (const plat of data.platforms || []) {
-                    const textureIndex = plat.textureId !== null ? plat.textureId : -1;
                     let color = "#555";
                     if (plat.type === "wall") color = "#666";
                     else if (plat.type === "deadly") color = "#f00";
                     else if (plat.type === "teleporter") color = "#00f";
                     else if (plat.type === "jumpPad") color = "#0f0";
-                    const e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, textureIndex);
+                    else if (plat.type === "chest") {
+                        const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
+                        const closedTex = plat.closedTextureId !== undefined ? plat.closedTextureId : 0;
+                        const openTex = plat.openTextureId !== undefined ? plat.openTextureId : 1;
+                        const openingTex = plat.openingTextureId !== undefined ? plat.openingTextureId : 2;
+                        const closingTex = plat.closingTextureId !== undefined ? plat.closingTextureId : 3;
+                        const chestItems = new Array(config.maxChestSlots).fill(null);
+                        if (plat.items) {
+                            plat.items.slice(0, config.maxChestSlots).forEach((item, idx) => {
+                                chestItems[idx] = item;
+                            });
+                        }
+                        const chest = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius, closedTex, openTex, openingTex, closingTex);
+                        chest.id = plat.id;
+                        this.add(chest);
+                        this.chests.push(chest);
+                        this.allEntities.push(chest);
+                        continue;
+                    } else if (plat.type === "respawn") {
+                        const detectionRadius = plat.detectionRadius || config.respawnDetectionRadius;
+                        const passThrough = plat.passThrough || false;
+                        const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
+                        const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
+                        const inactiveTex = plat.inactiveTextureId !== undefined ? plat.inactiveTextureId : -1;
+                        const activeTex = plat.activeTextureId !== undefined ? plat.activeTextureId : -1;
+                        const respawnBox = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY, inactiveTex, activeTex);
+                        respawnBox.id = plat.id;
+                        respawnBox.passThrough = passThrough;
+                        this.add(respawnBox);
+                        this.respawnBoxes.push(respawnBox);
+                        this.allEntities.push(respawnBox);
+                        continue;
+                    }
+                    const e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
                     if (plat.type === "deadly") e.deadly = true;
+                    if (plat.passThrough) e.passThrough = true;
                     if (plat.type === "teleporter") {
                         e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
                         e.teleportDelay = plat.teleportDelay || 0;
@@ -1046,15 +1122,32 @@ const config = {
                         d.h || 100,
                         d.angle || 0,
                         d.zIndex || 0,
-                        d.textureId !== null ? d.textureId : -1,
+                        d.texture !== null ? d.texture : -1,
                         true,
                         d.parallaxSpeed || 0.7
                     );
                     this.decors.push(dd);
                     this.allEntities.push(dd);
                 }
+                this.chests.forEach(chest => {
+                    chest.state = 'closed';
+                    chest.textureIndex = chest.closedTextureId;
+                });
                 this.allEntities.sort((a, b) => a.z - b.z);
                 this.rebuildSpatialHash();
+                const saved = await this.loadProgress();
+                if (saved) {
+                    this.player.pos.set(saved.position.x, saved.position.y);
+                    this.inventory = [...saved.inventory];
+                    this.currentRespawnPos.set(saved.respawnPos.x, saved.respawnPos.y);
+                    this.respawnBoxes.forEach(box => box.setActive(false));
+                    this.respawnBoxes.forEach(box => {
+                        if (Math.abs(box.respawnPos.x - this.currentRespawnPos.x) < 10 && Math.abs(box.respawnPos.y - this.currentRespawnPos.y) < 10) {
+                            box.setActive(true);
+                        }
+                    });
+                    this.updateInventoryUI();
+                }
             }
             add(e) {
                 if (e.isDecor) this.decors.push(e);
@@ -1066,7 +1159,7 @@ const config = {
             }
             rebuildSpatialHash() {
                 this.spatialHash.clear();
-                const allStaticLike = [...this.statics, ...this.decors];
+                const allStaticLike = [...this.statics, ...this.decors, ...this.chests, ...this.respawnBoxes];
                 for (const e of allStaticLike) {
                     const aabb = e.aabb;
                     const expand = e.isDecor ? 150 : 50;
@@ -1096,11 +1189,93 @@ const config = {
                         }
                     }
                 }
-                return Array.from(nearby).sort((a, b) => {
-                    const da = (a.pos.x - posX) ** 2 + (a.pos.y - posY) ** 2;
-                    const db = (b.pos.x - posX) ** 2 + (b.pos.y - posY) ** 2;
-                    return da - db;
-                });
+                return Array.from(nearby);
+            }
+            checkNearbyChest() {
+                this.nearbyChest = null;
+                let closestChest = null;
+                let minDist = Infinity;
+                const playerPos = this.player.pos;
+                for (const chest of this.chests) {
+                    const distVec = chest.pos.sub(playerPos.clone());
+                    const dist = distVec.len();
+                    if (dist < chest.detectionRadius && dist < minDist) {
+                        minDist = dist;
+                        closestChest = chest;
+                    }
+                }
+                this.nearbyChest = closestChest;
+            }
+            checkNearbyRespawnBox() {
+                this.nearbyRespawnBox = null;
+                let closestBox = null;
+                let minDist = Infinity;
+                const playerPos = this.player.pos;
+                for (const box of this.respawnBoxes) {
+                    const distVec = box.pos.sub(playerPos.clone());
+                    const dist = distVec.len();
+                    if (dist < box.detectionRadius && dist < minDist) {
+                        minDist = dist;
+                        closestBox = box;
+                    }
+                }
+                this.nearbyRespawnBox = closestBox;
+            }
+            setRespawnAtBox(box) {
+                if (!box) return;
+                this.respawnBoxes.forEach(b => b.setActive(false));
+                box.setActive(true);
+                this.currentRespawnPos = box.respawnPos.clone();
+                this.saveProgress().catch(console.error);
+            }
+            openChestUI(chest, textures) {
+                if (!chest) return;
+                if (chest.state === 'open' || chest.state === 'opening') {
+                } else if (chest.state === 'closed') {
+                    if (chest.currentVideo) {
+                        chest.currentVideo.pause();
+                        chest.currentVideo.onended = null;
+                        chest.currentVideo = null;
+                    }
+                    chest.state = 'opening';
+                    chest.textureIndex = chest.openingTextureId;
+                    const openTexObj = textures[chest.openingTextureId];
+                    if (openTexObj && openTexObj.video) {
+                        try {
+                            openTexObj.video.currentTime = 0;
+                            openTexObj.video.loop = false;
+                            openTexObj.video.play().catch(e => {
+                                console.log('Open video play failed:', e);
+                                chest.state = 'open';
+                                chest.textureIndex = chest.openTextureId;
+                                chest.currentVideo = null;
+                            });
+                            chest.currentVideo = openTexObj.video;
+                            openTexObj.video.onended = () => {
+                                chest.state = 'open';
+                                chest.textureIndex = chest.openTextureId;
+                                chest.currentVideo = null;
+                            };
+                        } catch (err) {
+                            console.error('Error starting open animation:', err);
+                            chest.state = 'open';
+                            chest.textureIndex = chest.openTextureId;
+                            chest.currentVideo = null;
+                        }
+                    } else {
+                        chest.state = 'open';
+                        chest.textureIndex = chest.openTextureId;
+                        chest.currentVideo = null;
+                    }
+                }
+                currentOpenChest = chest;
+                populateChestUI();
+                chestUI.style.display = 'block';
+                chestUI.style.opacity = '1';
+            }
+            updateInventoryUI() {
+                updateSlots('inventoryGrid', this.inventory, 'player');
+                updateSlots('playerGridInChest', this.inventory, 'player');
             }
             getVisible(camX, camY, width, height) {
                 const pad = 20;
@@ -1127,16 +1302,13 @@ const config = {
                         visible.push(e);
                     }
                 }
-                if (!visible.includes(this.player)) visible.push(this.player); 
+                if (!visible.includes(this.player)) visible.push(this.player);
                 return visible;
             }
             update(dt) {
-                let moved = false;
                 for (const e of this.dynamics) {
                     e.update(dt, this);
-                    if (e.pos.x !== e.prevPos.x || e.pos.y !== e.prevPos.y) moved = true;
                 }
-
                 if (this.player) {
                     let currentTele = null;
                     const playerAABB = this.player.aabb;
@@ -1148,7 +1320,6 @@ const config = {
                     }
                     if (currentTele) {
                         if (currentTele.teleportDelay === 0) {
-
                             this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
                             this.player.vel.set(0, 0);
                             this.player.onGround = false;
@@ -1174,11 +1345,18 @@ const config = {
                         this.player.currentTeleporter = null;
                         this.player.teleporterAccum = 0;
                     }
+                    this.checkNearbyChest();
+                    this.checkNearbyRespawnBox();
+                }
+                const now = performance.now();
+                if (now - this.lastSaveTime > config.autoSaveInterval) {
+                    this.saveProgress().catch(console.error);
+                    this.lastSaveTime = now;
                 }
             }
             getInterpolatedPosition(entity, alpha) {
-                this.reusableInterpPos.x = entity.prevPos.x + (entity.pos.x - entity.prevPos.x) * alpha;
-                this.reusableInterpPos.y = entity.prevPos.y + (entity.pos.y - entity.prevPos.y) * alpha;
+                this.reusableInterpPos.x = entity.pos.x;
+                this.reusableInterpPos.y = entity.pos.y;
                 return this.reusableInterpPos;
             }
             getInterpolatedVel(entity, alpha) {
@@ -1197,16 +1375,14 @@ const config = {
             draw(debug, camX, camY, frameCount, textures, renderAlpha, width, height) {
                 const gl = this.gl;
                 this.updateVideoTextures();
-                getProjViewMatrix(width, height, camX, camY, projviewMatrix);
+                getProjViewMatrix(width, height, camX, camY, projviewMatrix, false);
                 if (this.uboMatrices) {
                     gl.bindBuffer(gl.UNIFORM_BUFFER, this.uboMatrices);
                     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projviewMatrix);
                 }
                 const visible = this.getVisible(camX, camY, width, height);
-
                 gl.clearColor(0, 0, 0, 0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
-
                 let vertIdx = 0;
                 let indexIdx = 0;
                 let currentBatch = {indexStart: 0, numElements: 0, texIndex: -1};
@@ -1223,6 +1399,18 @@ const config = {
                         renderPosY += offsetY;
                     }
                     let thisTex = e.textureIndex ?? -1;
+                    if (e instanceof Chest) {
+                        if (e.state === 'closed') {
+                            thisTex = e.closedTextureId;
+                        } else if (e.state === 'open') {
+                            thisTex = e.openTextureId;
+                        } else if (e.state === 'opening') {
+                            thisTex = e.openingTextureId;
+                        } else if (e.state === 'closing') {
+                            thisTex = e.closingTextureId;
+                        }
+                        e.textureIndex = thisTex;
+                    }
                     let effectiveTex = -1;
                     let isVideoTexture = false;
                     if (thisTex >= 0) {
@@ -1231,7 +1419,9 @@ const config = {
                         let hasDims = e.width != null && e.height != null;
                         if (texReady && (e.isDecor || hasDims)) {
                             effectiveTex = thisTex;
-                            isVideoTexture = texObj.video !== undefined;
+                            isVideoTexture = texObj && texObj.video !== undefined;
+                        } else {
+                            console.warn('Texture not ready for entity:', e.id || 'unknown');
                         }
                     }
                     let col = effectiveTex >= 0 ? whiteColor : e.colorArray;
@@ -1267,7 +1457,6 @@ const config = {
                     this.indexData[indexIdx++] = base + 3;
                 }
                 if (currentBatch.numElements > 0) batches.push({...currentBatch});
-
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, this.vertData.subarray(0, vertIdx), gl.DYNAMIC_DRAW);
                 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
@@ -1312,23 +1501,199 @@ const config = {
                 }
             }
         }
-
+        function createItemDiv(item, slotIdx, invType) {
+            if (!item || typeof item !== 'string' || item === 'undefined') return null;
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.draggable = true;
+            div.dataset.item = item;
+            div.dataset.inventoryType = invType;
+            div.dataset.slotIndex = slotIdx.toString();
+            const img = document.createElement('img');
+            const preloaded = itemImages[item];
+            if (preloaded && preloaded.complete) {
+                img.src = preloaded.src;
+            } else {
+                img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                img.onerror = () => { img.src = 'https://placehold.co/32x32/FF0000/FFFFFF?text=?'; };
+            }
+            img.alt = item;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+            div.appendChild(img);
+            div.appendChild(tooltip);
+            div.addEventListener('dragstart', (e) => {
+                const currentItem = e.currentTarget.dataset.item;
+                const sourceInv = e.currentTarget.dataset.inventoryType;
+                const sourceSlot = parseInt(e.currentTarget.dataset.slotIndex);
+                e.dataTransfer.setData('text/plain', currentItem);
+                e.dataTransfer.setData('sourceInventory', sourceInv);
+                e.dataTransfer.setData('sourceSlot', sourceSlot.toString());
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            div.addEventListener('dragend', (e) => {
+                console.log('Drag ended for item:', e.currentTarget.dataset.item);
+            });
+            return div;
+        }
+        function updateSlots(gridId, itemsArray, invType) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            const cleanItems = itemsArray.map(it => (typeof it === 'string' && it !== 'undefined') ? it : null);
+            for (let i = 0; i < cleanItems.length; i++) {
+                const slot = grid.children[i];
+                if (!slot) continue;
+                const item = cleanItems[i];
+                let itemDiv = slot.querySelector('.item');
+                if (item && !itemDiv) {
+                    const newDiv = createItemDiv(item, i, invType);
+                    if (newDiv) {
+                        slot.appendChild(newDiv);
+                        slot.classList.add('has-item');
+                    }
+                } else if (!item && itemDiv) {
+                    itemDiv.remove();
+                    slot.classList.remove('has-item');
+                } else if (item && itemDiv) {
+                    itemDiv.dataset.item = item;
+                    itemDiv.dataset.inventoryType = invType;
+                    itemDiv.dataset.slotIndex = i.toString();
+                    const tooltip = itemDiv.querySelector('.tooltip');
+                    tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+                    const img = itemDiv.querySelector('img');
+                    const preloaded = itemImages[item];
+                    if (preloaded && preloaded.complete) {
+                        img.src = preloaded.src;
+                    } else {
+                        img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                    }
+                }
+            }
+        }
+        function handleDrop(e) {
+            e.preventDefault();
+            const item = e.dataTransfer.getData('text/plain');
+            if (!item || item === 'undefined') return;
+            const sourceInv = e.dataTransfer.getData('sourceInventory');
+            const sourceSlotStr = e.dataTransfer.getData('sourceSlot');
+            const sourceSlot = parseInt(sourceSlotStr);
+            const targetInv = e.currentTarget.dataset.inventory;
+            const targetSlot = parseInt(e.currentTarget.dataset.slot);
+            const sourceMax = sourceInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots;
+            if (isNaN(sourceSlot) || sourceSlot < 0 || sourceSlot >= sourceMax ||
+                isNaN(targetSlot) || targetSlot < 0 || targetSlot >= (targetInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots)) {
+                console.error('Invalid drop: sourceSlot=', sourceSlot, 'targetSlot=', targetSlot, 'item=', item);
+                return;
+            }
+            console.log('Valid drop:', { item, sourceInv, sourceSlot, targetInv, targetSlot });
+            if (sourceInv === targetInv) {
+                if (sourceInv === 'player') {
+                    const temp = world.inventory[sourceSlot];
+                    world.inventory[sourceSlot] = world.inventory[targetSlot];
+                    world.inventory[targetSlot] = temp || null;
+                } else if (sourceInv === 'chest' && currentOpenChest) {
+                    const temp = currentOpenChest.items[sourceSlot];
+                    currentOpenChest.items[sourceSlot] = currentOpenChest.items[targetSlot];
+                    currentOpenChest.items[targetSlot] = temp || null;
+                }
+            } else {
+                if (targetInv === 'player' && (world.inventory[targetSlot] === null || world.inventory[targetSlot] === undefined)) {
+                    world.inventory[targetSlot] = item;
+                    if (sourceInv === 'chest' && currentOpenChest) {
+                        currentOpenChest.items[sourceSlot] = null;
+                    }
+                } else if (targetInv === 'chest' && currentOpenChest && (currentOpenChest.items[targetSlot] === null || currentOpenChest.items[targetSlot] === undefined)) {
+                    currentOpenChest.items[targetSlot] = item;
+                    if (sourceInv === 'player') {
+                        world.inventory[sourceSlot] = null;
+                    }
+                } else {
+                    console.log('Drop ignored: target not empty');
+                    return;
+                }
+            }
+            if (sourceInv === 'player' || targetInv === 'player') {
+                world.inventory = world.inventory.map(it => it === undefined ? null : it);
+            }
+            if (currentOpenChest && (sourceInv === 'chest' || targetInv === 'chest')) {
+                currentOpenChest.items = currentOpenChest.items.map(it => it === undefined ? null : it);
+            }
+            world.updateInventoryUI();
+            if (currentOpenChest) {
+                updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            }
+            world.saveProgress().catch(console.error);
+        }
+        function populateGrid(gridId, itemsArray, numSlots, invType) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            grid.innerHTML = '';
+            const gridClass = invType === 'chest' ? 'grid-chest' : 'grid-inventory';
+            grid.className = gridClass;
+            for (let i = 0; i < numSlots; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                slot.dataset.slot = i;
+                slot.dataset.inventory = invType;
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', handleDrop);
+                grid.appendChild(slot);
+            }
+        }
+        function initUIGrids() {
+            populateGrid('inventoryGrid', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('playerGridInChest', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('chestGrid', new Array(config.maxChestSlots).fill(null), config.maxChestSlots, 'chest');
+        }
+        function populateChestUI() {
+            if (!currentOpenChest) return;
+            updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        }
+        function waitForTextures(textures) {
+            return Promise.all(textures.map(texObj => {
+                if (texObj instanceof HTMLImageElement) {
+                    if (texObj.complete && texObj.naturalWidth > 0) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        texObj.onload = () => resolve();
+                        texObj.onerror = reject;
+                    });
+                } else if (texObj && texObj.video) {
+                    return new Promise((resolve, reject) => {
+                        const onReady = () => {
+                            texObj.isReady = true;
+                            resolve();
+                        };
+                        texObj.video.addEventListener('canplay', onReady, {once: true});
+                        texObj.video.addEventListener('error', reject, {once: true});
+                        if (texObj.video.readyState >= 2) onReady();
+                    });
+                }
+                return Promise.resolve();
+            }));
+        }
         const canvas = document.getElementById("game");
+        const fadeOverlay = document.getElementById("fadeOverlay");
         const gl = canvas.getContext("webgl2", { alpha: true, desynchronized: true, powerPreference: "high-performance" });
         if (!gl) {
-            alert("WebGL2 niet ondersteund");
+            alert("WebGL2 not supported");
         }
         const debugDiv = document.getElementById("debug");
+        const inventoryDiv = document.getElementById("inventory");
+        const closeInventoryBtn = document.getElementById("closeInventory");
+        const chestUI = document.getElementById("chestUI");
+        const closeChestBtn = document.getElementById("closeChest");
+        let currentOpenChest = null;
         const program = createProgram(gl, vsSource, fsSource);
         if (!program) {
-            alert("Shader program mislukt");
+            alert("Shader program failed");
             throw new Error("Failed to create program");
         }
         gl.useProgram(program);
         const textureLoc = gl.getUniformLocation(program, "u_texture");
         const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
         gl.uniform1i(textureLoc, 0);
-
         const matricesBlockIndex = gl.getUniformBlockIndex(program, "Matrices");
         let uboMatrices = null;
         if (matricesBlockIndex !== gl.INVALID_INDEX) {
@@ -1340,14 +1705,12 @@ const config = {
         } else {
             console.error("Uniform block 'Matrices' not found");
         }
-
         const cyanColor = new Float32Array([0, 1, 1, 1]);
         const redColor = hexToRgb("#f00");
         const greenColor = new Float32Array([0, 1, 0, 1]);
         const whiteColor = new Float32Array([1, 1, 1, 1]);
         const world = new World(gl);
         world.uboMatrices = uboMatrices;
-
         gl.bindVertexArray(world.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, world.batchPositionBuffer);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
@@ -1358,7 +1721,6 @@ const config = {
         gl.enableVertexAttribArray(2);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, world.batchIndexBuffer);
         gl.bindVertexArray(null);
-
         gl.bindVertexArray(world.debugVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, world.debugLineBuffer);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
@@ -1368,7 +1730,6 @@ const config = {
         gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
         gl.enableVertexAttribArray(2);
         gl.bindVertexArray(null);
-
         const textures = [];
         const glTextures = [];
         mapData.textures.forEach((url, i) => {
@@ -1384,7 +1745,7 @@ const config = {
                 const video = document.createElement('video');
                 video.crossOrigin = 'anonymous';
                 video.src = url;
-                video.loop = true;
+                video.loop = false;
                 video.muted = true;
                 video.preload = 'auto';
                 video.playbackRate = 1;
@@ -1395,10 +1756,6 @@ const config = {
                         textureObj.isReady = true;
                         video.play().catch(e => console.log('Autoplay prevented:', e));
                     }
-                });
-                video.addEventListener('ended', () => {
-                    video.currentTime = 0;
-                    video.play().catch(e => {});
                 });
                 video.addEventListener('error', (e) => {
                     console.error('Video load error:', e);
@@ -1412,12 +1769,104 @@ const config = {
                     gl.bindTexture(gl.TEXTURE_2D, tex);
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureObj);
                 };
-                textureObj.onerror = () => console.error('Image load error');
+                textureObj.onerror = () => {
+                    console.error('Image load error for:', url);
+                    textureObj.src = 'https://placehold.co/80x80/808080/FFFFFF?text=Err';
+                };
             }
             textures.push(textureObj);
             glTextures.push(tex);
         });
-
+        initUIGrids();
+        closeChestBtn.addEventListener('click', () => {
+            if (currentOpenChest) {
+                const chest = currentOpenChest;
+                if (chest.state === 'open' || chest.state === 'opening') {
+                    if (chest.currentVideo) {
+                        chest.currentVideo.pause();
+                        chest.currentVideo.onended = null;
+                        chest.currentVideo = null;
+                    }
+                    chest.state = 'closing';
+                    chest.textureIndex = chest.closingTextureId;
+                    const closeTexObj = textures[chest.closingTextureId];
+                    if (closeTexObj && closeTexObj.video) {
+                        try {
+                            closeTexObj.video.currentTime = 0;
+                            closeTexObj.video.loop = false;
+                            closeTexObj.video.play().catch(e => {
+                                console.log('Close video play failed:', e);
+                                chest.state = 'closed';
+                                chest.textureIndex = chest.closedTextureId;
+                                chest.currentVideo = null;
+                            });
+                            chest.currentVideo = closeTexObj.video;
+                            closeTexObj.video.onended = () => {
+                                chest.state = 'closed';
+                                chest.textureIndex = chest.closedTextureId;
+                                chest.currentVideo = null;
+                            };
+                        } catch (err) {
+                            console.error('Error starting close animation:', err);
+                            chest.state = 'closed';
+                            chest.textureIndex = chest.closedTextureId;
+                            chest.currentVideo = null;
+                        }
+                    } else {
+                        chest.state = 'closed';
+                        chest.textureIndex = chest.closedTextureId;
+                        chest.currentVideo = null;
+                    }
+                }
+                chestUI.style.display = 'none';
+                currentOpenChest = null;
+                world.saveProgress().catch(console.error);
+            }
+        });
+        async function clearSave() {
+            if (!world.db) return;
+            try {
+                const tx = world.db.transaction('progress', 'readwrite');
+                const store = tx.objectStore('progress');
+                await new Promise((res, rej) => {
+                    const req = store.delete('current');
+                    req.onsuccess = res;
+                    req.onerror = rej;
+                });
+                world.player.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                world.player.vel.set(0, 0);
+                world.player.updateAABB();
+                world.inventory.fill(null);
+                world.updateInventoryUI();
+                world.currentRespawnPos = world.playerStartPos.clone();
+                world.respawnBoxes.forEach(box => box.setActive(false));
+                // Reset chests to initial
+                const initialChestsData = mapData.platforms.filter(plat => plat.type === "chest").map(plat => ({
+                    id: plat.id,
+                    items: (plat.items || []).slice(0, config.maxChestSlots).concat(new Array(Math.max(0, config.maxChestSlots - (plat.items || []).length)).fill(null))
+                }));
+                world.chests.forEach(chest => {
+                    const initial = initialChestsData.find(ic => ic.id === chest.id);
+                    if (initial) {
+                        chest.items = initial.items.slice();
+                    }
+                });
+                if (inventoryOpen) {
+                    inventoryOpen = false;
+                    inventoryDiv.style.display = 'none';
+                }
+                if (currentOpenChest) {
+                    closeChestBtn.click();
+                    currentOpenChest = null;
+                }
+                console.log('Save cleared');
+            } catch (e) {
+                console.error('Clear failed', e);
+            }
+        }
+        debugDiv.addEventListener('click', (e) => {
+            if (e.target.id === 'clearSave') clearSave();
+        });
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -1425,32 +1874,74 @@ const config = {
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-
+        document.addEventListener('contextmenu', e => e.preventDefault());
         let debugMode = false;
-        window.addEventListener("keydown", e => {
-            if (e.code === "KeyD") debugMode = !debugMode;
-            const wasPressed = world.keys[e.code];
-            world.keys[e.code] = true;
+        let inventoryOpen = false;
+        window.addEventListener("keydown", async (e) => {
+            const keyCode = e.code;
+            if (keyCode === config.debugKey) {
+                debugMode = !debugMode;
+            }
+            if (config.ctrlForClear && e.ctrlKey && keyCode === config.clearStorageKey) {
+                e.preventDefault();
+                clearSave();
+            }
+            if (keyCode === config.godModeKey && world.player) {
+                world.player.godMode = !world.player.godMode;
+                console.log('God Mode:', world.player.godMode);
+            }
+            if (keyCode === config.infiniteJumpKey && world.player) {
+                world.player.infiniteJump = !world.player.infiniteJump;
+                console.log('Infinite Jump:', world.player.infiniteJump);
+            }
+            if (keyCode === config.noclipKey && world.player) {
+                world.player.noclip = !world.player.noclip;
+                console.log('Noclip:', world.player.noclip);
+            }
+            const wasPressed = world.keys[keyCode];
+            world.keys[keyCode] = true;
             if (!wasPressed) {
-                if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+                if (config.dashKeys.includes(keyCode)) {
                     if (world.player.dashTimer <= 0) {
                         world.player.dashTimer = config.dashDuration;
                     }
                 }
+                if (keyCode === config.chestKey && world.nearbyChest) {
+                    world.openChestUI(world.nearbyChest, textures);
+                }
+                if (keyCode === config.respawnKey && world.nearbyRespawnBox) {
+                    world.setRespawnAtBox(world.nearbyRespawnBox);
+                }
+                if (keyCode === config.inventoryKey) {
+                    inventoryOpen = !inventoryOpen;
+                    inventoryDiv.style.display = inventoryOpen ? 'block' : 'none';
+                    if (inventoryOpen) world.updateInventoryUI();
+                    else world.saveProgress().catch(console.error);
+                }
             }
-            if (e.code === "Space") e.preventDefault();
+            if (keyCode === config.jumpKey) e.preventDefault();
         });
         window.addEventListener("keyup", e => world.keys[e.code] = false);
-
-        world.loadMap(mapData);
-
+        closeInventoryBtn.addEventListener('click', () => {
+            inventoryOpen = false;
+            inventoryDiv.style.display = 'none';
+            world.saveProgress().catch(console.error);
+        });
+        world.updateInventoryUI = () => {
+            updateSlots('inventoryGrid', world.inventory, 'player');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        };
+        async function initializeGame() {
+            await world.initDB();
+            await waitForTextures(textures);
+            await world.loadMap(mapData, textures);
+            world.updateInventoryUI();
+        }
+        initializeGame().catch(console.error);
         let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
         let lastDebugTime = lastTime;
-        let accumulator = 0;
-        const fixedDT = 1 / 120;
-        const maxAccumulator = fixedDT * 2;
-        let camX = 0, camY = 0, prevCamX = 0, prevCamY = 0;
-        const cameraSmoothing = 0.1;
+        let camX = 0, camY = 0;
+        const cameraSmoothingRate = config.cameraSmoothing * 60;
         function loop(currentTime) {
             frameCount++;
             if (currentTime - lastFPSTime >= 1000) {
@@ -1458,33 +1949,39 @@ const config = {
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
-
-            const delta = Math.min((currentTime - lastTime) / 1000, fixedDT * 2);
+            const delta = Math.min((currentTime - lastTime) / 1000, 1/30);
             lastTime = currentTime;
-            accumulator += delta;
-            while (accumulator >= fixedDT) {
-                prevCamX = camX;
-                prevCamY = camY;
-                world.update(fixedDT);
-                const targetCamX = world.player.pos.x - canvas.width / 2;
-                const targetCamY = world.player.pos.y - canvas.height / 2;
-                camX += (targetCamX - camX) * cameraSmoothing;
-                camY += (targetCamY - camY) * cameraSmoothing;
-                accumulator -= fixedDT;
-            }
-
-            if (accumulator > maxAccumulator) accumulator = maxAccumulator;
-
-            const renderAlpha = accumulator / fixedDT;
-            const interpCamX = prevCamX + (camX - prevCamX) * renderAlpha;
-            const interpCamY = prevCamY + (camY - prevCamY) * renderAlpha;
-
-            world.draw(debugMode, interpCamX, interpCamY, frameCount, textures, renderAlpha, canvas.width, canvas.height);
-            if (currentTime - lastDebugTime >= 100 && debugMode) {
-                const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
-                const interpPos = world.getInterpolatedPosition(world.player, renderAlpha);
-                debugDiv.textContent = `Player Debug\npos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})\nvel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})\nonGround: ${world.player.onGround}\ngroundAngle: ${world.player.groundAngle.toFixed(1)}°\nz: ${world.player.z}\ndashing: ${world.player.isDashing}\nairJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}\nkeys: ${activeKeys}\nfps: ${fps}`;
-                lastDebugTime = currentTime;
+            world.update(delta);
+            const targetCamX = world.player ? world.player.pos.x - canvas.width / 2 : camX;
+            const targetCamY = world.player ? world.player.pos.y - canvas.height / 2 : camY;
+            camX += (targetCamX - camX) * cameraSmoothingRate * delta;
+            camY += (targetCamY - camY) * cameraSmoothingRate * delta;
+            if (world.player) {
+                world.draw(debugMode, camX, camY, frameCount, textures, 0, canvas.width, canvas.height);
+                if (currentTime - lastDebugTime >= 100 && debugMode) {
+                    const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
+                    const interpPos = world.getInterpolatedPosition(world.player, 0);
+                    const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
+                    const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
+                    const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
+                    debugDiv.innerHTML = `
+                        <button id="clearSave">Clear Storage (Ctrl+Backspace)</button>
+                        Player Debug<br>
+                        pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>
+                        vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>
+                        onGround: ${world.player.onGround}<br>
+                        groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>
+                        z: ${world.player.z}<br>
+                        dashing: ${world.player.isDashing}<br>
+                        airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>
+                        keys: ${activeKeys}<br>
+                        fps: ${fps}<br>
+                        ${chestInfo}<br>
+                        ${respawnInfo}<br>
+                        ${cheatsInfo}
+                    `;
+                    lastDebugTime = currentTime;
+                }
             }
             requestAnimationFrame(loop);
         }
