@@ -369,6 +369,7 @@
             <div id="json-section">
                 <textarea id="json-out" placeholder="JSON will appear here..."></textarea>
                 <button id="copy-json"><i class="fas fa-copy"></i> Copy</button>
+                <button id="copy-minified"><i class="fas fa-compress"></i> Copy Minified</button>
             </div>
         </div>
     </div>
@@ -455,7 +456,7 @@
             el.addEventListener('focusin', () => { paused = true; updateStatus(); });
             el.addEventListener('focusout', () => { paused = false; updateStatus(); });
         });
-        const uiElements = document.querySelectorAll('#toolbar, #hierarchy, #inspector, #help-toggle, #help-content');
+        const uiElements = document.querySelectorAll('#toolbar, #inspector, #help-toggle, #help-content');
         uiElements.forEach(el => {
             el.addEventListener('mouseenter', () => { paused = true; updateStatus(); });
             el.addEventListener('mouseleave', () => { paused = false; updateStatus(); });
@@ -477,6 +478,9 @@
         const imageCache = new Map();
         const videoCache = new Map();
         const usedIds = new Set(); // For fast ID checking
+        let needsSort = true;
+        let sortedObjects = [];
+        let redraw = true;
         class VideoManager {
             constructor() {
                 this.activeVideos = new Set();
@@ -611,6 +615,7 @@
             selected = obj === 'player' ? 'player' : obj;
             updateHierarchy();
             updateInspector();
+            redraw = true;
         }
         function updateInspector() {
             const noSel = document.getElementById("no-selection");
@@ -664,7 +669,7 @@
                         if (id === 'player-z') player.zIndex = parseInt(el.value) || 1;
                         saveState();
                         updateJSON();
-                        draw();
+                        redraw = true;
                     });
                 });
                 return;
@@ -716,20 +721,20 @@
                             <textarea id="chest-items" placeholder="item1,item2,...">${(selected.items || []).join(',')}</textarea>
                         </div>
                         <div class="property-row">
-                            <label>Closed Texture ID</label>
-                            <input type="number" id="closed-texture-id" value="${selected.closedTextureId !== undefined ? selected.closedTextureId : 0}">
+                            <label>Closed Texture URL</label>
+                            <input type="text" id="closed-texture-url" value="${selected.closedTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                         <div class="property-row">
-                            <label>Open Texture ID</label>
-                            <input type="number" id="open-texture-id" value="${selected.openTextureId !== undefined ? selected.openTextureId : 1}">
+                            <label>Open Texture URL</label>
+                            <input type="text" id="open-texture-url" value="${selected.openTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                         <div class="property-row">
-                            <label>Opening Texture ID</label>
-                            <input type="number" id="opening-texture-id" value="${selected.openingTextureId !== undefined ? selected.openingTextureId : 2}">
+                            <label>Opening Texture URL</label>
+                            <input type="text" id="opening-texture-url" value="${selected.openingTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                         <div class="property-row">
-                            <label>Closing Texture ID</label>
-                            <input type="number" id="closing-texture-id" value="${selected.closingTextureId !== undefined ? selected.closingTextureId : 3}">
+                            <label>Closing Texture URL</label>
+                            <input type="text" id="closing-texture-url" value="${selected.closingTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                     </div>
                 `;
@@ -756,12 +761,12 @@
                             <input type="number" id="respawn-y" value="${selected.respawnY !== undefined ? selected.respawnY : selected.y}">
                         </div>
                         <div class="property-row">
-                            <label>Inactive Texture ID</label>
-                            <input type="number" id="inactive-texture-id" value="${selected.inactiveTextureId !== undefined ? selected.inactiveTextureId : 0}">
+                            <label>Inactive Texture URL</label>
+                            <input type="text" id="inactive-texture-url" value="${selected.inactiveTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                         <div class="property-row">
-                            <label>Active Texture ID</label>
-                            <input type="number" id="active-texture-id" value="${selected.activeTextureId !== undefined ? selected.activeTextureId : 1}">
+                            <label>Active Texture URL</label>
+                            <input type="text" id="active-texture-url" value="${selected.activeTextureUrl || ''}" placeholder="Enter URL">
                         </div>
                     </div>
                 `;
@@ -852,7 +857,7 @@
                 </div>
             `;
             // Event listeners for common fields
-            ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay', 'jump-boost', 'chest-radius', 'respawn-radius', 'respawn-x', 'respawn-y', 'closed-texture-id', 'open-texture-id', 'opening-texture-id', 'closing-texture-id', 'inactive-texture-id', 'active-texture-id'].forEach(id => {
+            ['pos-x', 'pos-y', 'rot', 'width', 'height', 'z-index', 'parallax', 'texture-url', 'target-x', 'target-y', 'teleport-delay', 'jump-boost', 'chest-radius', 'respawn-radius', 'respawn-x', 'respawn-y', 'closed-texture-url', 'open-texture-url', 'opening-texture-url', 'closing-texture-url', 'inactive-texture-url', 'active-texture-url'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener("input", () => {
                     applyInspectorChanges();
@@ -900,18 +905,18 @@
                         if (newType === 'chest') {
                             if (selected.detectionRadius === undefined) selected.detectionRadius = 100;
                             if (selected.items === undefined) selected.items = [];
-                            if (selected.closedTextureId === undefined) selected.closedTextureId = 0;
-                            if (selected.openTextureId === undefined) selected.openTextureId = 1;
-                            if (selected.openingTextureId === undefined) selected.openingTextureId = 2;
-                            if (selected.closingTextureId === undefined) selected.closingTextureId = 3;
+                            if (selected.closedTextureUrl === undefined) selected.closedTextureUrl = '';
+                            if (selected.openTextureUrl === undefined) selected.openTextureUrl = '';
+                            if (selected.openingTextureUrl === undefined) selected.openingTextureUrl = '';
+                            if (selected.closingTextureUrl === undefined) selected.closingTextureUrl = '';
                         }
                         if (newType === 'respawn') {
                             if (selected.detectionRadius === undefined) selected.detectionRadius = 1200;
                             if (selected.passThrough === undefined) selected.passThrough = false;
                             if (selected.respawnX === undefined) selected.respawnX = selected.x;
                             if (selected.respawnY === undefined) selected.respawnY = selected.y;
-                            if (selected.inactiveTextureId === undefined) selected.inactiveTextureId = 0;
-                            if (selected.activeTextureId === undefined) selected.activeTextureId = 1;
+                            if (selected.inactiveTextureUrl === undefined) selected.inactiveTextureUrl = '';
+                            if (selected.activeTextureUrl === undefined) selected.activeTextureUrl = '';
                         }
                         updateInspector();
                         saveState();
@@ -921,46 +926,53 @@
             }
             document.getElementById("to-front").addEventListener("click", () => {
                 selected.zIndex = getMaxZIndex() + 1;
+                needsSort = true;
                 updateInspector();
-                draw();
+                redraw = true;
                 saveState();
             });
             document.getElementById("to-back").addEventListener("click", () => {
                 selected.zIndex = getMinZIndex() - 1;
+                needsSort = true;
                 updateInspector();
-                draw();
+                redraw = true;
                 saveState();
             });
             document.getElementById("up").addEventListener("click", () => {
                 selected.zIndex = (selected.zIndex || 0) + 1;
+                needsSort = true;
                 updateInspector();
-                draw();
+                redraw = true;
                 saveState();
             });
             document.getElementById("down").addEventListener("click", () => {
                 selected.zIndex = (selected.zIndex || 0) - 1;
+                needsSort = true;
                 updateInspector();
-                draw();
+                redraw = true;
                 saveState();
             });
             document.getElementById("delete-obj").addEventListener("click", () => {
                 objects = objects.filter(o => o !== selected);
+                needsSort = true;
                 selected = null;
                 updateHierarchy();
                 updateInspector();
-                draw();
+                redraw = true;
                 updateJSON();
                 saveState();
             });
         }
         function applyInspectorChanges() {
             if (!selected || selected === 'player') return;
+            const oldZ = selected.zIndex;
             selected.x = parseInt(document.getElementById("pos-x").value) || 0;
             selected.y = parseInt(document.getElementById("pos-y").value) || 0;
             selected.angle = parseFloat(document.getElementById("rot").value) || 0;
             selected.w = parseInt(document.getElementById("width").value) || 10;
             selected.h = parseInt(document.getElementById("height").value) || 10;
             selected.zIndex = parseInt(document.getElementById("z-index").value) || 0;
+            if (selected.zIndex !== oldZ) needsSort = true;
             const parallaxEl = document.getElementById("parallax");
             if (parallaxEl) selected.parallaxSpeed = parseFloat(parallaxEl.value) || 1;
             const targetXEl = document.getElementById("target-x");
@@ -983,32 +995,53 @@
             if (respawnXEl) selected.respawnX = parseInt(respawnXEl.value) || selected.x;
             const respawnYEl = document.getElementById("respawn-y");
             if (respawnYEl) selected.respawnY = parseInt(respawnYEl.value) || selected.y;
-            const closedTexEl = document.getElementById("closed-texture-id");
-            if (closedTexEl) selected.closedTextureId = parseInt(closedTexEl.value) || 0;
-            const openTexEl = document.getElementById("open-texture-id");
-            if (openTexEl) selected.openTextureId = parseInt(openTexEl.value) || 1;
-            const openingTexEl = document.getElementById("opening-texture-id");
-            if (openingTexEl) selected.openingTextureId = parseInt(openingTexEl.value) || 2;
-            const closingTexEl = document.getElementById("closing-texture-id");
-            if (closingTexEl) selected.closingTextureId = parseInt(closingTexEl.value) || 3;
-            const inactiveTexEl = document.getElementById("inactive-texture-id");
-            if (inactiveTexEl) selected.inactiveTextureId = parseInt(inactiveTexEl.value) || 0;
-            const activeTexEl = document.getElementById("active-texture-id");
-            if (activeTexEl) selected.activeTextureId = parseInt(activeTexEl.value) || 1;
+            const closedTexEl = document.getElementById("closed-texture-url");
+            if (closedTexEl) selected.closedTextureUrl = closedTexEl.value || '';
+            const openTexEl = document.getElementById("open-texture-url");
+            if (openTexEl) selected.openTextureUrl = openTexEl.value || '';
+            const openingTexEl = document.getElementById("opening-texture-url");
+            if (openingTexEl) selected.openingTextureUrl = openingTexEl.value || '';
+            const closingTexEl = document.getElementById("closing-texture-url");
+            if (closingTexEl) selected.closingTextureUrl = closingTexEl.value || '';
+            const inactiveTexEl = document.getElementById("inactive-texture-url");
+            if (inactiveTexEl) selected.inactiveTextureUrl = inactiveTexEl.value || '';
+            const activeTexEl = document.getElementById("active-texture-url");
+            if (activeTexEl) selected.activeTextureUrl = activeTexEl.value || '';
             selected.texture = document.getElementById("texture-url").value || null;
             if (selected.type !== 'decor') delete selected.parallaxSpeed;
-            draw();
+            redraw = true;
             updateJSON();
             updateHierarchy();
         }
+        function rectsIntersect(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return !(x1 + w1 < x2 || x2 + w2 < x1 || y1 + h1 < y2 || y2 + h2 < y1);
+        }
         function draw() {
+            if (!redraw) return;
+            redraw = false;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
             ctx.scale(scale, scale);
             ctx.translate(-camX, -camY);
-            const sortedObjects = objects.slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+            const viewLeft = camX;
+            const viewTop = camY;
+            const viewRight = camX + canvas.width / scale;
+            const viewBottom = camY + canvas.height / scale;
+            if (needsSort) {
+                sortedObjects = objects.slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+                needsSort = false;
+            }
             sortedObjects.forEach(o => {
+                const halfW = o.w / 2;
+                const halfH = o.h / 2;
+                const objLeft = o.x - halfW;
+                const objRight = o.x + halfW;
+                const objTop = o.y - halfH;
+                const objBottom = o.y + halfH;
+                if (!rectsIntersect(objLeft, objTop, o.w, o.h, viewLeft, viewTop, canvas.width / scale, canvas.height / scale)) {
+                    return;
+                }
                 let angle = Math.round(o.angle || 0) % 360;
                 const w = Math.round(o.w);
                 const h = Math.round(o.h);
@@ -1038,7 +1071,7 @@
                             const img = new Image();
                             img.src = o.texture;
                             img.crossOrigin = "anonymous";
-                            img.onload = () => draw();
+                            img.onload = () => { redraw = true; };
                             img.onerror = () => console.warn("Broken image:", o.texture);
                             imageCache.set(o.texture, img);
                         }
@@ -1133,7 +1166,7 @@
                     w: Math.round(o.w),
                     h: Math.round(o.h),
                     angle: Math.round(o.angle || 0),
-                    textureId: o.texture ? textures.indexOf(o.texture) : null,
+                    texture: o.texture || null,
                     zIndex: o.zIndex || 0
                 };
                 if (o.type === 'teleporter') {
@@ -1147,18 +1180,18 @@
                 if (o.type === 'chest') {
                     platObj.detectionRadius = o.detectionRadius || 100;
                     platObj.items = o.items || [];
-                    platObj.closedTextureId = o.closedTextureId !== undefined ? o.closedTextureId : 0;
-                    platObj.openTextureId = o.openTextureId !== undefined ? o.openTextureId : 1;
-                    platObj.openingTextureId = o.openingTextureId !== undefined ? o.openingTextureId : 2;
-                    platObj.closingTextureId = o.closingTextureId !== undefined ? o.closingTextureId : 3;
+                    platObj.closedTextureUrl = o.closedTextureUrl || '';
+                    platObj.openTextureUrl = o.openTextureUrl || '';
+                    platObj.openingTextureUrl = o.openingTextureUrl || '';
+                    platObj.closingTextureUrl = o.closingTextureUrl || '';
                 }
                 if (o.type === 'respawn') {
                     platObj.detectionRadius = o.detectionRadius || 1200;
                     platObj.passThrough = o.passThrough || false;
                     platObj.respawnX = o.respawnX !== undefined ? o.respawnX : o.x;
                     platObj.respawnY = o.respawnY !== undefined ? o.respawnY : o.y;
-                    platObj.inactiveTextureId = o.inactiveTextureId !== undefined ? o.inactiveTextureId : 0;
-                    platObj.activeTextureId = o.activeTextureId !== undefined ? o.activeTextureId : 1;
+                    platObj.inactiveTextureUrl = o.inactiveTextureUrl || '';
+                    platObj.activeTextureUrl = o.activeTextureUrl || '';
                 }
                 return platObj;
             });
@@ -1169,7 +1202,7 @@
                 w: Math.round(o.w),
                 h: Math.round(o.h),
                 angle: Math.round(o.angle || 0),
-                textureId: o.texture ? textures.indexOf(o.texture) : null,
+                texture: o.texture || null,
                 zIndex: o.zIndex || 0,
                 parallaxSpeed: o.parallaxSpeed || 1
             }));
@@ -1253,13 +1286,14 @@
                 };
                 setObjectId(selected, selected.id);
                 objects.push(selected);
+                needsSort = true;
                 dragging = true;
                 dragOffsetX = 0;
                 dragOffsetY = 0;
             }
             updateHierarchy();
             updateInspector();
-            draw();
+            redraw = true;
         }, { passive: false });
         canvas.addEventListener("touchmove", e => {
             if (paused) return;
@@ -1282,7 +1316,7 @@
                     camY = my - ((touch1.clientY + touch2.clientY) / 2 - rect.top) / scale;
                 }
                 lastTouchDist = dist;
-                draw();
+                redraw = true;
                 return;
             }
             if (isPanning) {
@@ -1292,13 +1326,13 @@
                 camY -= (clientY - panStartY) / scale;
                 panStartX = clientX;
                 panStartY = clientY;
-                draw();
+                redraw = true;
             } else if (dragging && selected) {
                 const sel = selected === 'player' ? player : selected;
                 sel.x = Math.round(x - dragOffsetX);
                 sel.y = Math.round(y - dragOffsetY);
                 if (selected !== 'player') updateInspector();
-                draw();
+                redraw = true;
             }
         }, { passive: false });
         canvas.addEventListener("touchend", e => {
@@ -1342,6 +1376,7 @@
                 };
                 setObjectId(selected, selected.id);
                 objects.push(selected);
+                needsSort = true;
                 dragging = true;
                 dragOffsetX = 0;
                 dragOffsetY = 0;
@@ -1349,7 +1384,7 @@
             saveState();
             updateHierarchy();
             updateInspector();
-            draw();
+            redraw = true;
         });
         canvas.addEventListener("mousemove", e => {
             if (paused) return;
@@ -1361,13 +1396,13 @@
                 camY -= (e.clientY - panStartY) / scale;
                 panStartX = e.clientX;
                 panStartY = e.clientY;
-                draw();
+                redraw = true;
             } else if (dragging && selected) {
                 const sel = selected === 'player' ? player : selected;
                 sel.x = Math.round(x - dragOffsetX);
                 sel.y = Math.round(y - dragOffsetY);
                 if (selected !== 'player') updateInspector();
-                draw();
+                redraw = true;
             }
         });
         canvas.addEventListener("mouseup", () => {
@@ -1385,7 +1420,7 @@
             scale = Math.min(Math.max(scale, 0.2), 5);
             camX = mx - (e.clientX - canvas.getBoundingClientRect().left) / scale;
             camY = my - (e.clientY - canvas.getBoundingClientRect().top) / scale;
-            draw();
+            redraw = true;
         });
         window.addEventListener("keydown", e => {
             if (paused) return;
@@ -1398,10 +1433,11 @@
                         player = state.player;
                         if (state.selected === 'player') selected = 'player';
                         else selected = objects.find(o => o.id === state.selected) || null;
+                        needsSort = true;
                         updateHierarchy();
                         updateInspector();
                         updateJSON();
-                        draw();
+                        redraw = true;
                     }
                     e.preventDefault();
                     return;
@@ -1414,10 +1450,11 @@
                         player = state.player;
                         if (state.selected === 'player') selected = 'player';
                         else selected = objects.find(o => o.id === state.selected) || null;
+                        needsSort = true;
                         updateHierarchy();
                         updateInspector();
                         updateJSON();
-                        draw();
+                        redraw = true;
                     }
                     e.preventDefault();
                     return;
@@ -1446,25 +1483,26 @@
                     if (newObj.type === 'chest') {
                         if (newObj.detectionRadius === undefined) newObj.detectionRadius = 100;
                         if (newObj.items === undefined) newObj.items = [];
-                        if (newObj.closedTextureId === undefined) newObj.closedTextureId = 0;
-                        if (newObj.openTextureId === undefined) newObj.openTextureId = 1;
-                        if (newObj.openingTextureId === undefined) newObj.openingTextureId = 2;
-                        if (newObj.closingTextureId === undefined) newObj.closingTextureId = 3;
+                        if (newObj.closedTextureUrl === undefined) newObj.closedTextureUrl = '';
+                        if (newObj.openTextureUrl === undefined) newObj.openTextureUrl = '';
+                        if (newObj.openingTextureUrl === undefined) newObj.openingTextureUrl = '';
+                        if (newObj.closingTextureUrl === undefined) newObj.closingTextureUrl = '';
                     }
                     if (newObj.type === 'respawn') {
                         if (newObj.detectionRadius === undefined) newObj.detectionRadius = 1200;
                         if (newObj.passThrough === undefined) newObj.passThrough = false;
                         if (newObj.respawnX === undefined) newObj.respawnX = newObj.x;
                         if (newObj.respawnY === undefined) newObj.respawnY = newObj.y;
-                        if (newObj.inactiveTextureId === undefined) newObj.inactiveTextureId = 0;
-                        if (newObj.activeTextureId === undefined) newObj.activeTextureId = 1;
+                        if (newObj.inactiveTextureUrl === undefined) newObj.inactiveTextureUrl = '';
+                        if (newObj.activeTextureUrl === undefined) newObj.activeTextureUrl = '';
                     }
                     setObjectId(newObj, newObj.id);
                     objects.push(newObj);
+                    needsSort = true;
                     selectObject(newObj);
                     saveState();
                     updateJSON();
-                    draw();
+                    redraw = true;
                     e.preventDefault();
                     return;
                 }
@@ -1472,37 +1510,44 @@
             if (e.key === "Backspace") {
                 if (selected === 'player') return;
                 objects = objects.filter(o => o !== selected);
+                needsSort = true;
                 selected = null;
                 saveState();
                 updateHierarchy();
                 updateInspector();
                 updateJSON();
-                draw();
+                redraw = true;
                 e.preventDefault();
                 return;
             }
             const moveAmount = e.shiftKey ? 10 : 1;
             if (selected === 'player') {
+                let changed = false;
                 switch (e.key) {
-                    case "ArrowLeft": player.x -= moveAmount; break;
-                    case "ArrowRight": player.x += moveAmount; break;
-                    case "ArrowUp": player.y -= moveAmount; break;
-                    case "ArrowDown": player.y += moveAmount; break;
+                    case "ArrowLeft": player.x -= moveAmount; changed = true; break;
+                    case "ArrowRight": player.x += moveAmount; changed = true; break;
+                    case "ArrowUp": player.y -= moveAmount; changed = true; break;
+                    case "ArrowDown": player.y += moveAmount; changed = true; break;
                 }
-                saveState();
-                updateJSON();
-                draw();
+                if (changed) {
+                    saveState();
+                    updateJSON();
+                    redraw = true;
+                }
             } else if (selected) {
+                let changed = false;
                 switch (e.key) {
-                    case "ArrowLeft": selected.x -= moveAmount; break;
-                    case "ArrowRight": selected.x += moveAmount; break;
-                    case "ArrowUp": selected.y -= moveAmount; break;
-                    case "ArrowDown": selected.y += moveAmount; break;
+                    case "ArrowLeft": selected.x -= moveAmount; changed = true; break;
+                    case "ArrowRight": selected.x += moveAmount; changed = true; break;
+                    case "ArrowUp": selected.y -= moveAmount; changed = true; break;
+                    case "ArrowDown": selected.y += moveAmount; changed = true; break;
                 }
-                saveState();
-                updateInspector();
-                updateJSON();
-                draw();
+                if (changed) {
+                    saveState();
+                    updateInspector();
+                    updateJSON();
+                    redraw = true;
+                }
             }
         });
         document.getElementById("load-json").addEventListener("click", () => {
@@ -1520,7 +1565,7 @@
                     };
                     objects = [];
                     (data.platforms || []).forEach(p => {
-                        const obj = { ...p, type: p.type || 'platform', texture: data.textures?.[p.textureId] || null };
+                        const obj = { ...p, type: p.type || 'platform', texture: p.texture || null };
                         if (p.type === 'teleporter') {
                             obj.targetX = p.targetX || 0;
                             obj.targetY = p.targetY || 0;
@@ -1532,33 +1577,34 @@
                         if (p.type === 'chest') {
                             obj.detectionRadius = p.detectionRadius || 100;
                             obj.items = p.items || [];
-                            obj.closedTextureId = p.closedTextureId !== undefined ? p.closedTextureId : 0;
-                            obj.openTextureId = p.openTextureId !== undefined ? p.openTextureId : 1;
-                            obj.openingTextureId = p.openingTextureId !== undefined ? p.openingTextureId : 2;
-                            obj.closingTextureId = p.closingTextureId !== undefined ? p.closingTextureId : 3;
+                            obj.closedTextureUrl = p.closedTextureUrl || '';
+                            obj.openTextureUrl = p.openTextureUrl || '';
+                            obj.openingTextureUrl = p.openingTextureUrl || '';
+                            obj.closingTextureUrl = p.closingTextureUrl || '';
                         }
                         if (p.type === 'respawn') {
                             obj.detectionRadius = p.detectionRadius || 1200;
                             obj.passThrough = p.passThrough || false;
                             obj.respawnX = p.respawnX !== undefined ? p.respawnX : p.x;
                             obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
-                            obj.inactiveTextureId = p.inactiveTextureId !== undefined ? p.inactiveTextureId : 0;
-                            obj.activeTextureId = p.activeTextureId !== undefined ? p.activeTextureId : 1;
+                            obj.inactiveTextureUrl = p.inactiveTextureUrl || '';
+                            obj.activeTextureUrl = p.activeTextureUrl || '';
                         }
                         objects.push(obj);
                     });
                     (data.decor || []).forEach(d => {
-                        const obj = { ...d, type: 'decor', texture: data.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 };
+                        const obj = { ...d, type: 'decor', texture: d.texture || null, parallaxSpeed: d.parallaxSpeed || 1 };
                         objects.push(obj);
                     });
                     updateUsedIds();
+                    needsSort = true;
                     selected = null;
                     history = [];
                     historyIndex = -1;
                     updateHierarchy();
                     updateInspector();
                     updateJSON();
-                    draw();
+                    redraw = true;
                 } catch (err) {
                     alert("Invalid JSON");
                 }
@@ -1571,18 +1617,20 @@
         document.getElementById("clear-map").addEventListener("click", () => {
             if (confirm("Clear all?")) {
                 objects = [];
+                needsSort = true;
                 selected = null;
                 history = [];
                 historyIndex = -1;
                 updateHierarchy();
                 updateInspector();
                 updateJSON();
-                draw();
+                redraw = true;
             }
         });
         document.getElementById("reset-map").addEventListener("click", () => {
             if (confirm("Reset to default?")) {
                 objects = [];
+                needsSort = true;
                 player = {x: 200, y: 200, w: 50, h: 50, zIndex: 1, angle: 0};
                 selected = null;
                 history = [];
@@ -1590,17 +1638,32 @@
                 updateHierarchy();
                 updateInspector();
                 updateJSON();
-                draw();
+                redraw = true;
             }
         });
         document.getElementById("toggle-debug").addEventListener("click", () => {
             debugMode = !debugMode;
             document.getElementById("toggle-debug").innerHTML = `<i class="fas fa-${debugMode ? 'check' : 'times'}-circle"></i> ${debugMode ? 'Debug On' : 'Debug Off'}`;
-            draw();
+            redraw = true;
         });
         document.getElementById("copy-json").addEventListener("click", () => {
             navigator.clipboard.writeText(document.getElementById("json-out").value);
             alert("Copied!");
+        });
+        document.getElementById("copy-minified").addEventListener("click", () => {
+            const jsonText = document.getElementById("json-out").value;
+            if (jsonText.trim()) {
+                try {
+                    const jsonObj = JSON.parse(jsonText);
+                    const minified = JSON.stringify(jsonObj);
+                    navigator.clipboard.writeText(minified);
+                    alert("Minified JSON copied!");
+                } catch (err) {
+                    alert("Invalid JSON in textarea");
+                }
+            } else {
+                alert("No JSON to copy");
+            }
         });
         function getMaxZIndex() {
             return objects.length > 0 ? Math.max(...objects.map(o => o.zIndex || 0)) : 0;
@@ -1619,7 +1682,7 @@
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
             updateJSON();
-            draw();
+            redraw = true;
         });
         openDB().then(async () => {
             const saved = await loadFromDB();
@@ -1634,7 +1697,7 @@
                 };
                 objects = [];
                 (saved.platforms || []).forEach(p => {
-                    const obj = { ...p, type: p.type || 'platform', texture: saved.textures?.[p.textureId] || null };
+                    const obj = { ...p, type: p.type || 'platform', texture: p.texture || null };
                     if (p.type === 'teleporter') {
                         obj.targetX = p.targetX || 0;
                         obj.targetY = p.targetY || 0;
@@ -1646,31 +1709,32 @@
                     if (p.type === 'chest') {
                         obj.detectionRadius = p.detectionRadius || 100;
                         obj.items = p.items || [];
-                        obj.closedTextureId = p.closedTextureId !== undefined ? p.closedTextureId : 0;
-                        obj.openTextureId = p.openTextureId !== undefined ? p.openTextureId : 1;
-                        obj.openingTextureId = p.openingTextureId !== undefined ? p.openingTextureId : 2;
-                        obj.closingTextureId = p.closingTextureId !== undefined ? p.closingTextureId : 3;
+                        obj.closedTextureUrl = p.closedTextureUrl || '';
+                        obj.openTextureUrl = p.openTextureUrl || '';
+                        obj.openingTextureUrl = p.openingTextureUrl || '';
+                        obj.closingTextureUrl = p.closingTextureUrl || '';
                     }
                     if (p.type === 'respawn') {
                         obj.detectionRadius = p.detectionRadius || 1200;
                         obj.passThrough = p.passThrough || false;
                         obj.respawnX = p.respawnX !== undefined ? p.respawnX : p.x;
                         obj.respawnY = p.respawnY !== undefined ? p.respawnY : p.y;
-                        obj.inactiveTextureId = p.inactiveTextureId !== undefined ? p.inactiveTextureId : 0;
-                        obj.activeTextureId = p.activeTextureId !== undefined ? p.activeTextureId : 1;
+                        obj.inactiveTextureUrl = p.inactiveTextureUrl || '';
+                        obj.activeTextureUrl = p.activeTextureUrl || '';
                     }
                     objects.push(obj);
                 });
                 (saved.decor || []).forEach(d => {
-                    const obj = { ...d, type: 'decor', texture: saved.textures?.[d.textureId] || null, parallaxSpeed: d.parallaxSpeed || 1 };
+                    const obj = { ...d, type: 'decor', texture: d.texture || null, parallaxSpeed: d.parallaxSpeed || 1 };
                     objects.push(obj);
                 });
                 updateUsedIds();
+                needsSort = true;
             }
             updateHierarchy();
             updateInspector();
             updateJSON();
-            draw();
+            redraw = true;
             updateStatus();
             saveState();
         }).catch(console.error);
