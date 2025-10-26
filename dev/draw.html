@@ -99,89 +99,62 @@
   <div id="progressText">Voorbereiden...</div>
 </div>
 <canvas id="pixelCanvas" width="800" height="800" class="transparent-checker"></canvas>
-
 <script>
-// ---------- Hoofd thread ----------
-const canvas = document.getElementById("pixelCanvas");
-const ctx = canvas.getContext("2d");
-let pixelData = new Map(); // Sparse: key = `${x},${y}`, value = color
-let pixelSize = 32;
-let zoom = 1;
-let offsetX = 0;
-let offsetY = 0;
-let color = "#000000";
-let transparentMode = false;
-let width = 16;
-let height = 16;
-let brushSize = 1;
-let isDrawing = false;
-let isPanning = false;
-let lastPanX = 0;
-let lastPanY = 0;
-let db;
-let canvasWidth = 800;
-let canvasHeight = 800;
-
-// Progress UI
-const progressContainer = document.getElementById("progressContainer");
-const progressFill = document.getElementById("progressFill");
-const progressText = document.getElementById("progressText");
-const createBtn = document.getElementById("createGrid");
-const exportBtn = document.getElementById("exportImage");
-
-// ---------- IndexedDB setup (ongewijzigd) ----------
-const request = indexedDB.open("PixelArtDB", 1);
-request.onupgradeneeded = e => {
-  db = e.target.result;
-  db.createObjectStore("projects", { keyPath: "name" });
-};
-request.onsuccess = e => {
-  db = e.target.result;
-  loadProjectList();
-};
-
-// ---------- Render viewport only (met max resolutie cap) ----------
-function drawGrid() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-  
-  let startX = Math.max(0, Math.floor(-offsetX / (pixelSize * zoom)));
-  let endX = Math.min(width, Math.ceil((canvasWidth - offsetX) / (pixelSize * zoom)));
-  let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
-  let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
-  
-  // Cap maximale zichtbare world pixels op 750x750, zelfs bij extreme zoom out
-  const maxVisible = 750;
-  const visibleW = endX - startX;
-  const visibleH = endY - startY;
-  
-  if (visibleW > maxVisible) {
-    const extra = visibleW - maxVisible;
-    const shrinkLeft = Math.floor(extra / 2);
-    const shrinkRight = extra - shrinkLeft;
-    startX += shrinkLeft;
-    endX -= shrinkRight;
-  }
-  if (visibleH > maxVisible) {
-    const extra = visibleH - maxVisible;
-    const shrinkTop = Math.floor(extra / 2);
-    const shrinkBottom = extra - shrinkTop;
-    startY += shrinkTop;
-    endY -= shrinkBottom;
-  }
-  
-  const visibleWorldW = endX - startX;
-  const visibleWorldH = endY - startY;
-  const visiblePixels = visibleWorldW * visibleWorldH;
-  
-  ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
-  
-  // Optimalisatie: Bij grote viewports, gebruik solid achtergrond
-  if (visiblePixels > 1000000) {
-    ctx.fillStyle = "#e8e8e8";
-    ctx.fillRect(startX * pixelSize, startY * pixelSize, visibleWorldW * pixelSize, visibleWorldH * pixelSize);
-  } else {
+(function() {
+  // Wrap in IIFE to avoid global scope issues
+  'use strict';
+  // ---------- Hoofd thread ----------
+  const canvas = document.getElementById("pixelCanvas");
+  const ctx = canvas.getContext("2d");
+  let pixelData = new Map(); // Sparse: key = `${x},${y}`, value = color
+  let pixelSize = 32;
+  let zoom = 1;
+  let offsetX = 0;
+  let offsetY = 0;
+  let color = "#000000";
+  let transparentMode = false;
+  let width = 16;
+  let height = 16;
+  let brushSize = 1;
+  let isDrawing = false;
+  let isPanning = false;
+  let lastPanX = 0;
+  let lastPanY = 0;
+  let canvasWidth = 800;
+  let canvasHeight = 800;
+  // Progress UI
+  const progressContainer = document.getElementById("progressContainer");
+  const progressFill = document.getElementById("progressFill");
+  const progressText = document.getElementById("progressText");
+  const createBtn = document.getElementById("createGrid");
+  const exportBtn = document.getElementById("exportImage");
+  // ---------- IndexedDB setup ----------
+  let db = null;
+  const request = indexedDB.open("PixelArtDB", 1);
+  request.onupgradeneeded = e => {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("projects")) {
+      db.createObjectStore("projects", { keyPath: "name" });
+    }
+  };
+  request.onerror = e => console.error("IndexedDB error:", e);
+  request.onsuccess = e => {
+    db = e.target.result;
+    loadProjectList();
+  };
+  // ---------- Render viewport only ----------
+  function drawGrid() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+   
+    let startX = Math.max(0, Math.floor(-offsetX / (pixelSize * zoom)));
+    let endX = Math.min(width, Math.ceil((canvasWidth - offsetX) / (pixelSize * zoom)));
+    let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
+    let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
+   
+    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+   
     // Volledige checkerboard
     for (let y = startY; y < endY; y++) {
       for (let x = startX; x < endX; x++) {
@@ -192,357 +165,408 @@ function drawGrid() {
         ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
       }
     }
-  }
-  
-  // Pixels altijd tekenen (sparse, dus snel)
-  for (let y = startY; y < endY; y++) {
-    for (let x = startX; x < endX; x++) {
-      const key = `${x},${y}`;
-      if (pixelData.has(key)) {
-        const pxColor = pixelData.get(key);
-        if (pxColor !== "rgba(0,0,0,0)") {
-          ctx.fillStyle = pxColor;
-          ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+   
+    // Pixels tekenen (sparse)
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const key = `${x},${y}`;
+        if (pixelData.has(key)) {
+          const pxColor = pixelData.get(key);
+          if (pxColor !== "rgba(0,0,0,0)") {
+            ctx.fillStyle = pxColor;
+            ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+          }
         }
       }
     }
   }
-}
-
-// ---------- Raster aanmaken met Web Worker voor grote grids ----------
-let worker = null;
-function initWorker() {
-  if (worker) return;
-  const workerScript = `
-    self.onmessage = function(e) {
-      const { type, data, format, pixelSize, width, height } = e.data;
-      if (type === 'create') {
-        const { w, h } = data;
-        const totalSteps = Math.max(10, Math.log(w * h) * 5); // Fake steps gebaseerd op grootte
-        let step = 0;
-        const interval = setInterval(() => {
-          step++;
-          self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100 });
-          if (step >= totalSteps) {
-            clearInterval(interval);
-            self.postMessage({ type: 'done', width: w, height: h });
+  // ---------- Web Worker init ----------
+  let worker = null;
+  function initWorker() {
+    if (worker) return worker;
+    const workerScript = `
+      self.onmessage = function(e) {
+        try {
+          const { type, data, format, width, height } = e.data;
+          if (type === 'create') {
+            const { w, h } = data;
+            const totalSteps = Math.max(10, Math.log(w * h) * 5 || 10);
+            let step = 0;
+            const interval = setInterval(() => {
+              step++;
+              self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100, task: 'create' });
+              if (step >= totalSteps) {
+                clearInterval(interval);
+                self.postMessage({ type: 'done', width: w, height: h });
+              }
+            }, 50);
+          } else if (type === 'export') {
+            const offscreen = e.data.canvas;
+            const offCtx = offscreen.getContext('2d');
+            offCtx.imageSmoothingEnabled = false;
+           
+            const sparseData = data;
+            const totalPixels = sparseData.length;
+            let processed = 0;
+           
+            if (format === 'jpg') {
+              offCtx.fillStyle = "#ffffff";
+              offCtx.fillRect(0, 0, width, height);
+            }
+           
+            sparseData.forEach(([key, pxColor]) => {
+              if (pxColor !== "rgba(0,0,0,0)") {
+                const [x, y] = key.split(',').map(Number);
+                offCtx.fillStyle = pxColor;
+                offCtx.fillRect(x, y, 1, 1);
+              }
+              processed++;
+              self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });
+            });
+           
+            const mimeType = format === "png" ? "image/png" : format === "jpg" ? "image/jpeg" : "image/webp";
+            const quality = format === "jpg" ? 0.95 : 1.0;
+           
+            offscreen.convertToBlob({ type: mimeType, quality: quality }).then(blob => {
+              self.postMessage({ type: 'done', blob: blob });
+            }).catch(err => {
+              self.postMessage({ type: 'error', message: err.message });
+            });
           }
-        }, 50); // 50ms per step voor zichtbare progress (totaal ~0.5-2s voor grote grids)
-      } else if (type === 'export') {
-        // Export logic (ongewijzigd)
-        const offscreen = e.data.canvas;
-        const offCtx = offscreen.getContext('2d');
-        offCtx.imageSmoothingEnabled = false;
-        
-        const sparseData = data;
-        const totalPixels = sparseData.length;
-        let processed = 0;
-        
-        if (format === 'jpg') {
-          offCtx.fillStyle = "#ffffff";
-          offCtx.fillRect(0, 0, width * pixelSize, height * pixelSize);
+        } catch (err) {
+          self.postMessage({ type: 'error', message: err.message });
         }
-        
-        sparseData.forEach(([key, pxColor]) => {
-          if (pxColor !== "rgba(0,0,0,0)") {
-            const [x, y] = key.split(',').map(Number);
-            offCtx.fillStyle = pxColor;
-            offCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-          }
-          processed++;
-          self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100 });
-        });
-        
-        const mimeType = format === "png" ? "image/png" : format === "jpg" ? "image/jpeg" : "image/webp";
-        const quality = format === "jpg" ? 0.95 : 1.0;
-        
-        offscreen.convertToBlob({ type: mimeType, quality }).then(blob => {
-          self.postMessage({ type: 'done', blob: blob });
-        });
+      };
+    `;
+    worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
+   
+    worker.onmessage = function(e) {
+      const { type, progress, task, blob, width: newWidth, height: newHeight, message } = e.data;
+      if (type === 'progress') {
+        progressFill.style.width = progress + '%';
+        const percent = Math.round(progress);
+        if (task === 'create') {
+          progressText.textContent = `Raster initialiseren... ${percent}%`;
+        } else if (task === 'export') {
+          progressText.textContent = `Export... ${percent}%`;
+        }
+      } else if (type === 'done') {
+        if (blob) {
+          // Export done
+          const url = URL.createObjectURL(blob);
+          const format = document.getElementById("exportFormat").value;
+          const timestamp = Date.now();
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `pixelart-${timestamp}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          hideProgress();
+          exportBtn.disabled = false;
+        } else {
+          // Create done
+          width = newWidth;
+          height = newHeight;
+          pixelData.clear();
+          pixelSize = 32;
+          zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+          offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+          offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+          drawGrid();
+          hideProgress();
+          createBtn.disabled = false;
+        }
+      } else if (type === 'error') {
+        console.error("Worker error:", message);
+        progressText.textContent = `Fout: ${message}`;
+        setTimeout(hideProgress, 3000);
+        if (task === 'create') createBtn.disabled = false;
+        if (task === 'export') exportBtn.disabled = false;
       }
     };
-  `;
-  worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
-  
-  worker.onmessage = function(e) {
-    const { type, progress, blob, width: newWidth, height: newHeight } = e.data;
-    if (type === 'progress') {
-      progressFill.style.width = progress + '%';
-      progressText.textContent = progressText.textContent.replace(/\\d+%/, Math.round(progress) + '%');
-    } else if (type === 'done') {
-      if (blob) {
-        // Export done
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pixelart.${document.getElementById("exportFormat").value}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        hideProgress();
-        exportBtn.disabled = false;
-      } else {
-        // Create done
-        width = newWidth;
-        height = newHeight;
-        pixelData.clear();
-        pixelSize = 32;
-        zoom = Math.min(800 / width, 800 / height);
-        offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
-        drawGrid();
-        hideProgress();
-        createBtn.disabled = false;
-      }
+    worker.onerror = function(e) {
+      console.error("Worker fatal error:", e);
+      progressText.textContent = "Onverwachte fout in worker.";
+      setTimeout(hideProgress, 3000);
+      createBtn.disabled = false;
+      exportBtn.disabled = false;
+    };
+    return worker;
+  }
+  // ---------- Raster aanmaken ----------
+  document.getElementById("createGrid").onclick = () => {
+    const w = parseInt(document.getElementById("widthInput").value) || 16;
+    const h = parseInt(document.getElementById("heightInput").value) || 16;
+    if (w < 1 || h < 1) {
+      alert("Breedte en hoogte moeten minimaal 1 zijn.");
+      return;
+    }
+    const totalSize = BigInt(w) * BigInt(h);
+   
+    const myWorker = initWorker();
+   
+    if (Number(totalSize) <= 1000000) {
+      // Klein: direct
+      width = w;
+      height = h;
+      pixelData.clear();
+      pixelSize = 32;
+      zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+      offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+      offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+      drawGrid();
+    } else {
+      // Groot: via worker met progress
+      if (!confirm(`Groot raster (${w}x${h}, ${totalSize.toLocaleString()} pixels). Dit kan even duren om te initialiseren. OK?`)) return;
+      createBtn.disabled = true;
+      myWorker.postMessage({ type: 'create', data: { w, h } });
+      showProgress();
+      progressText.textContent = "Raster initialiseren... 0%";
     }
   };
-}
-
-document.getElementById("createGrid").onclick = () => {
-  const w = parseInt(document.getElementById("widthInput").value) || 16;
-  const h = parseInt(document.getElementById("heightInput").value) || 16;
-  const totalSize = w * h;
-  
-  initWorker();
-  
-  if (totalSize <= 1000000) {
-    // Klein: direct
-    width = w;
-    height = h;
-    pixelData.clear();
-    pixelSize = 32;
-    zoom = Math.min(800 / width, 800 / height);
-    offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
-    drawGrid();
-  } else {
-    // Groot: via worker met progress
-    if (!confirm(`Groot raster (${w}x${h}, ${totalSize.toLocaleString()} pixels). Dit kan even duren om te initialiseren. OK?`)) return;
-    createBtn.disabled = true;
-    worker.postMessage({ type: 'create', data: { w, h } });
-    showProgress();
-    progressText.textContent = "Raster initialiseren... 0%";
-  }
-};
-
-// ---------- Overige functionaliteit (ongewijzigd) ----------
-document.getElementById("colorPicker").oninput = e => {
-  color = e.target.value;
-  transparentMode = false;
-};
-document.getElementById("transparentBtn").onclick = () => {
-  transparentMode = true;
-};
-document.getElementById("brushSize").oninput = e => brushSize = parseInt(e.target.value);
-
-canvas.addEventListener("mousedown", e => {
-  const rect = canvas.getBoundingClientRect();
-  if (e.button === 0) {
-    isDrawing = true;
-    drawPixel(e);
-  } else if (e.button === 2) {
-    isPanning = true;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
-    e.preventDefault();
-  }
-});
-canvas.addEventListener("mousemove", e => {
-  if (isDrawing) drawPixel(e);
-  if (isPanning) {
-    const deltaX = e.clientX - lastPanX;
-    const deltaY = e.clientY - lastPanY;
-    offsetX += deltaX;
-    offsetY += deltaY;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
-    drawGrid();
-  }
-});
-canvas.addEventListener("mouseup", () => {
-  isDrawing = false;
-  isPanning = false;
-});
-canvas.addEventListener("mouseleave", () => {
-  isDrawing = false;
-  isPanning = false;
-});
-canvas.addEventListener("contextmenu", e => e.preventDefault());
-
-function drawPixel(e) {
-  const rect = canvas.getBoundingClientRect();
-  const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
-  const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
-  const x = Math.floor(xPos);
-  const y = Math.floor(yPos);
-  const half = Math.floor(brushSize / 2);
-  
-  let updated = false;
-  for (let dy = -half; dy <= half; dy++) {
-    for (let dx = -half; dx <= half; dx++) {
-      const px = x + dx;
-      const py = y + dy;
-      if (px >= 0 && px < width && py >= 0 && py < height) {
-        const key = `${px},${py}`;
-        const isTransparent = transparentMode;
-        const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
-        if (pixelData.get(key) !== newColor) {
-          if (newColor === "rgba(0,0,0,0)") {
-            pixelData.delete(key);
-          } else {
-            pixelData.set(key, newColor);
+  // ---------- Kleuren / penseel ----------
+  document.getElementById("colorPicker").oninput = e => {
+    color = e.target.value;
+    transparentMode = false;
+    document.getElementById("transparentBtn").textContent = "Transparant";
+  };
+  document.getElementById("transparentBtn").onclick = () => {
+    transparentMode = !transparentMode;
+    document.getElementById("transparentBtn").textContent = transparentMode ? "Kleur" : "Transparant";
+  };
+  document.getElementById("brushSize").oninput = e => brushSize = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+  // ---------- Tekenen / pan / zoom ----------
+  canvas.addEventListener("mousedown", e => {
+    const rect = canvas.getBoundingClientRect();
+    if (e.button === 0) {
+      isDrawing = true;
+      drawPixel(e);
+    } else if (e.button === 2) {
+      isPanning = true;
+      lastPanX = e.clientX;
+      lastPanY = e.clientY;
+      e.preventDefault();
+    }
+  });
+  canvas.addEventListener("mousemove", e => {
+    if (isDrawing) drawPixel(e);
+    if (isPanning) {
+      const deltaX = e.clientX - lastPanX;
+      const deltaY = e.clientY - lastPanY;
+      offsetX += deltaX;
+      offsetY += deltaY;
+      lastPanX = e.clientX;
+      lastPanY = e.clientY;
+      drawGrid();
+    }
+  });
+  canvas.addEventListener("mouseup", () => {
+    isDrawing = false;
+    isPanning = false;
+  });
+  canvas.addEventListener("mouseleave", () => {
+    isDrawing = false;
+    isPanning = false;
+  });
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+  function drawPixel(e) {
+    const rect = canvas.getBoundingClientRect();
+    const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+    const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+    const x = Math.floor(xPos);
+    const y = Math.floor(yPos);
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
+    const half = Math.floor(brushSize / 2);
+   
+    let updated = false;
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const px = x + dx;
+        const py = y + dy;
+        if (px >= 0 && px < width && py >= 0 && py < height) {
+          const key = `${px},${py}`;
+          const isTransparent = transparentMode;
+          const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
+          const oldColor = pixelData.get(key);
+          if (oldColor !== newColor) {
+            if (newColor === "rgba(0,0,0,0)") {
+              pixelData.delete(key);
+            } else {
+              pixelData.set(key, newColor);
+            }
+            updated = true;
           }
-          updated = true;
         }
       }
     }
+    if (updated) drawGrid();
   }
-  if (updated) drawGrid();
-}
-
-function applyZoom(zoomFactor, centerX, centerY) {
-  const worldX = (centerX - offsetX) / zoom;
-  const worldY = (centerY - offsetY) / zoom;
-  zoom *= zoomFactor;
-  zoom = Math.min(Math.max(zoom, 0.01), 100);
-  offsetX = centerX - worldX * zoom;
-  offsetY = centerY - worldY * zoom;
-  drawGrid();
-}
-canvas.addEventListener("wheel", e => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const cx = e.clientX - rect.left;
-  const cy = e.clientY - rect.top;
-  const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-  applyZoom(zoomFactor, cx, cy);
-}, { passive: false });
-
-let pinchLastDist = 0;
-canvas.addEventListener("touchstart", e => {
-  if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    pinchLastDist = Math.hypot(dx, dy);
-    isPanning = true;
-  }
-});
-canvas.addEventListener("touchmove", e => {
-  if (e.touches.length === 1 && isPanning) {
-    e.preventDefault();
-    const deltaX = e.touches[0].clientX - lastPanX;
-    const deltaY = e.touches[0].clientY - lastPanY;
-    offsetX += deltaX;
-    offsetY += deltaY;
-    lastPanX = e.touches[0].clientX;
-    lastPanY = e.touches[0].clientY;
+  function applyZoom(zoomFactor, centerX, centerY) {
+    const worldX = (centerX - offsetX) / zoom;
+    const worldY = (centerY - offsetY) / zoom;
+    zoom *= zoomFactor;
+    zoom = Math.min(Math.max(zoom, 0.01), 100);
+    offsetX = centerX - worldX * zoom;
+    offsetY = centerY - worldY * zoom;
     drawGrid();
-  } else if (e.touches.length === 2) {
+  }
+  canvas.addEventListener("wheel", e => {
     e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.hypot(dx, dy);
-    const zoomFactor = dist / pinchLastDist;
-    pinchLastDist = dist;
     const rect = canvas.getBoundingClientRect();
-    const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
-    const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
     applyZoom(zoomFactor, cx, cy);
-  }
-}, { passive: false });
-canvas.addEventListener("touchend", () => {
-  isPanning = false;
-});
-
-// ---------- Export met Web Worker (ongewijzigd) ----------
-document.getElementById("exportImage").onclick = () => {
-  const format = document.getElementById("exportFormat").value;
-  const sparseData = Array.from(pixelData.entries());
-  const totalPixels = sparseData.length;
-  
-  if (totalPixels === 0) {
-    progressText.textContent = "Geen pixels om te exporteren.";
-    showProgress();
-    setTimeout(hideProgress, 1000);
-    return;
-  }
-  
-  const estimatedSize = totalPixels * pixelSize * pixelSize * 4 / 1024 / 1024;
-  if (width * height > 10000 || estimatedSize > 100) {
-    if (!confirm(`Dit is een groot project (${width}x${height}, ~${Math.round(estimatedSize)} MB). Weet je zeker dat je wilt exporteren? Het kan even duren.`)) {
+  }, { passive: false });
+  let pinchLastDist = 0;
+  let pinchInitialZoom = 0;
+  canvas.addEventListener("touchstart", e => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchLastDist = Math.hypot(dx, dy);
+      pinchInitialZoom = zoom;
+      isPanning = false;
+    } else if (e.touches.length === 1) {
+      lastPanX = e.touches[0].clientX;
+      lastPanY = e.touches[0].clientY;
+      isPanning = true;
+    }
+  });
+  canvas.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isPanning) {
+      const deltaX = e.touches[0].clientX - lastPanX;
+      const deltaY = e.touches[0].clientY - lastPanY;
+      offsetX += deltaX;
+      offsetY += deltaY;
+      lastPanX = e.touches[0].clientX;
+      lastPanY = e.touches[0].clientY;
+      drawGrid();
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      if (pinchLastDist > 0) {
+        const zoomFactor = dist / pinchLastDist;
+        const rect = canvas.getBoundingClientRect();
+        const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+        const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+        applyZoom(zoomFactor, cx, cy);
+      }
+      pinchLastDist = dist;
+    }
+  }, { passive: false });
+  canvas.addEventListener("touchend", e => {
+    if (e.touches.length < 2) {
+      pinchLastDist = 0;
+    }
+    if (e.touches.length === 0) {
+      isPanning = false;
+    }
+  });
+  // ---------- Export ----------
+  document.getElementById("exportImage").onclick = () => {
+    const format = document.getElementById("exportFormat").value;
+    const sparseData = Array.from(pixelData.entries());
+    if (sparseData.length === 0) {
+      alert("Geen pixels om te exporteren. Teken eerst iets!");
       return;
     }
+   
+    const estimatedSizeMB = (sparseData.length * 4) / (1024 * 1024);
+    if (width * height > 10000 || estimatedSizeMB > 100) {
+      if (!confirm(`Groot project (${width}x${height}, ~${Math.round(estimatedSizeMB)} MB). Exporteren kan even duren. OK?`)) return;
+    }
+   
+    const myWorker = initWorker();
+    const offscreen = new OffscreenCanvas(width, height);
+    myWorker.postMessage({
+      type: 'export',
+      data: sparseData,
+      format,
+      width,
+      height,
+      canvas: offscreen
+    }, [offscreen]);
+   
+    showProgress();
+    progressText.textContent = "Export starten... 0%";
+    exportBtn.disabled = true;
+  };
+  function showProgress() {
+    progressContainer.style.display = 'block';
+    progressFill.style.width = '0%';
   }
-  
-  const offscreen = new OffscreenCanvas(width * pixelSize, height * pixelSize);
-  worker.postMessage({
-    type: 'export',
-    data: sparseData,
-    format,
-    pixelSize,
-    width,
-    height,
-    canvas: offscreen
-  }, [offscreen]);
-  
-  showProgress();
-  progressText.textContent = "Export starten... 0%";
-  exportBtn.disabled = true;
-};
-
-function showProgress() {
-  progressContainer.style.display = 'block';
-  progressFill.style.width = '0%';
-}
-function hideProgress() {
-  progressContainer.style.display = 'none';
-}
-
-// ---------- Opslaan / laden (ongewijzigd) ----------
-document.getElementById("saveProject").onclick = () => {
-  const name = prompt("Naam van project:");
-  if (!name) return;
-  const sparseData = Array.from(pixelData.entries());
-  const tx = db.transaction("projects", "readwrite");
-  const store = tx.objectStore("projects");
-  store.put({ name, width, height, pixelData: sparseData });
-  tx.oncomplete = loadProjectList;
-};
-document.getElementById("loadProject").onclick = () => {
-  const select = document.getElementById("projectSelect");
-  const name = select.value;
-  if (!name) return;
-  const tx = db.transaction("projects", "readonly");
-  const store = tx.objectStore("projects");
-  const req = store.get(name);
-  req.onsuccess = () => {
-    const proj = req.result;
-    width = proj.width;
-    height = proj.height;
-    pixelData = new Map(proj.pixelData);
-    pixelSize = 32;
-    zoom = Math.min(800 / width, 800 / height);
-    offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
-    drawGrid();
+  function hideProgress() {
+    progressContainer.style.display = 'none';
+  }
+  // ---------- Opslaan / laden ----------
+  document.getElementById("saveProject").onclick = () => {
+    if (!db) {
+      alert("Database niet geladen. Probeer opnieuw.");
+      return;
+    }
+    const name = prompt("Naam van project:");
+    if (!name) return;
+    const sparseData = Array.from(pixelData.entries());
+    const tx = db.transaction("projects", "readwrite");
+    const store = tx.objectStore("projects");
+    const req = store.put({ name, width, height, pixelData: sparseData });
+    req.onerror = e => alert("Opslaan mislukt: " + e.target.error);
+    req.onsuccess = loadProjectList;
   };
-};
-function loadProjectList() {
-  const tx = db.transaction("projects", "readonly");
-  const store = tx.objectStore("projects");
-  const req = store.getAll();
-  req.onsuccess = () => {
+  document.getElementById("loadProject").onclick = () => {
+    if (!db) {
+      alert("Database niet geladen. Probeer opnieuw.");
+      return;
+    }
     const select = document.getElementById("projectSelect");
-    select.innerHTML = "";
-    req.result.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.name;
-      opt.textContent = p.name;
-      select.appendChild(opt);
-    });
+    const name = select.value;
+    if (!name) {
+      alert("Selecteer een project.");
+      return;
+    }
+    const tx = db.transaction("projects", "readonly");
+    const store = tx.objectStore("projects");
+    const req = store.get(name);
+    req.onerror = e => alert("Laden mislukt: " + e.target.error);
+    req.onsuccess = () => {
+      const proj = req.result;
+      if (!proj) return;
+      width = proj.width;
+      height = proj.height;
+      pixelData = new Map(proj.pixelData || []);
+      pixelSize = 32;
+      zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+      offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+      offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+      drawGrid();
+    };
   };
-}
-
-// ---------- Init ----------
-document.getElementById("createGrid").click();
+  function loadProjectList() {
+    if (!db) return;
+    const tx = db.transaction("projects", "readonly");
+    const store = tx.objectStore("projects");
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const select = document.getElementById("projectSelect");
+      select.innerHTML = "";
+      req.result.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p.name;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+      });
+    };
+  }
+  // ---------- Init ----------
+  window.addEventListener('load', () => {
+    document.getElementById("createGrid").click();
+  });
+})();
 </script>
 </body>
 </html>
