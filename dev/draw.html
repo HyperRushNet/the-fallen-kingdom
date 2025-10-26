@@ -164,8 +164,8 @@
     let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
     let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
    
-    // Cap maximale zichtbare world pixels
-    const maxVisible = 500;
+    // Cap maximale zichtbare world pixels op 750x750, zelfs bij extreme zoom out
+    const maxVisible = 750;
     let visibleW = endX - startX;
     let visibleH = endY - startY;
    
@@ -276,15 +276,14 @@
       " self.postMessage({ type: 'error', message: err.message });",
       " });",
       " } else if (type === 'import') {",
-      " const offscreenImg = msg.canvas;",
-      " const offCtxImg = offscreenImg.getContext('2d');",
+      " const imageBitmap = msg.imageBitmap;",
       " const gridWidth = msg.data.gridWidth;",
       " const gridHeight = msg.data.gridHeight;",
       " ",
       " const offscreenResized = new OffscreenCanvas(gridWidth, gridHeight);",
       " const offCtxResized = offscreenResized.getContext('2d');",
       " offCtxResized.imageSmoothingEnabled = false;",
-      " offCtxResized.drawImage(offscreenImg, 0, 0, gridWidth, gridHeight);",
+      " offCtxResized.drawImage(imageBitmap, 0, 0, gridWidth, gridHeight);",
       " ",
       " const chunkSize = 100;",
       " const totalChunks = Math.ceil(gridHeight / chunkSize);",
@@ -318,8 +317,7 @@
       " self.postMessage({ ",
       " type: 'progress', ",
       " progress: (processedChunks / totalChunks) * 100, ",
-      " task: 'import',",
-      " partialData: sparseData.slice(0, sparseData.length)",
+      " task: 'import' ",
       " });",
       " }",
       " ",
@@ -450,18 +448,21 @@
     reader.onload = e => {
       const img = new Image();
       img.onload = () => {
-        const myWorker = initWorker();
-        const offscreenImg = new OffscreenCanvas(img.width, img.height);
-        const offCtxImg = offscreenImg.getContext('2d');
-        offCtxImg.drawImage(img, 0, 0);
-        myWorker.postMessage({
-          type: 'import',
-          data: { gridWidth: width, gridHeight: height },
-          canvas: offscreenImg
-        }, [offscreenImg]);
-        showProgress();
-        progressText.textContent = "Importeren... 0%";
-        importBtn.disabled = true;
+        createImageBitmap(img).then(imageBitmap => {
+          const myWorker = initWorker();
+          myWorker.postMessage({
+            type: 'import',
+            data: { gridWidth: width, gridHeight: height },
+            imageBitmap: imageBitmap
+          }, [imageBitmap]);
+          showProgress();
+          progressText.textContent = "Importeren... 0%";
+          importBtn.disabled = true;
+        }).catch(err => {
+          console.error("ImageBitmap creation failed:", err);
+          alert("Fout bij voorbereiden van afbeelding.");
+          importBtn.disabled = false;
+        });
       };
       img.onerror = () => alert("Fout bij laden van afbeelding.");
       img.src = e.target.result;
