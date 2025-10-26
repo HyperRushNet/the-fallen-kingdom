@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Art Editor — Worker + Progress versie</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #1e1e1e;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    background: #333;
+    padding: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  input[type="number"] { width: 70px; }
+  button, select, input[type="color"] {
+    border-radius: 4px;
+    border: none;
+    background: #444;
+    color: white;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+  }
+  button:hover { background: #666; }
+  button:disabled { background: #222; cursor: not-allowed; }
+  #progressContainer {
+    width: 100%;
+    max-width: 800px;
+    margin: 0.5rem 0;
+    display: none;
+  }
+  #progressBar {
+    width: 100%;
+    height: 20px;
+    background: #444;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  #progressFill {
+    height: 100%;
+    background: #4CAF50;
+    width: 0%;
+    transition: width 0.3s;
+  }
+  #progressText {
+    text-align: center;
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+  }
+  canvas {
+    background: #fff;
+    border: 1px solid #555;
+    margin-top: 1rem;
+    image-rendering: pixelated;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .transparent-checker {
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #ccc 75%),
+                      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <label>Breedte: <input type="number" id="widthInput" value="16" min="1"></label>
+  <label>Hoogte: <input type="number" id="heightInput" value="16" min="1"></label>
+  <button id="createGrid">Nieuw raster</button>
+  <input type="color" id="colorPicker" value="#000000">
+  <button id="transparentBtn">Transparant</button>
+  <label>Penseel: <input type="number" id="brushSize" value="1" min="1" max="10"></label>
+  <button id="saveProject">Opslaan</button>
+  <select id="projectSelect"></select>
+  <button id="loadProject">Laden</button>
+  <label>Export: <select id="exportFormat">
+    <option value="png">PNG</option>
+    <option value="jpg">JPG</option>
+    <option value="webp">WebP</option>
+  </select></label>
+  <button id="exportImage">Exporteer</button>
+</header>
+<div id="progressContainer">
+  <div id="progressBar"><div id="progressFill"></div></div>
+  <div id="progressText">Voorbereiden...</div>
+</div>
+<canvas id="pixelCanvas" width="800" height="800" class="transparent-checker"></canvas>
+
+<script>
+// ---------- Hoofd thread ----------
+const canvas = document.getElementById("pixelCanvas");
+const ctx = canvas.getContext("2d");
+let pixelData = new Map(); // Sparse: key = `${x},${y}`, value = color
+let pixelSize = 32;
+let zoom = 1;
+let offsetX = 0;
+let offsetY = 0;
+let color = "#000000";
+let transparentMode = false;
+let width = 16;
+let height = 16;
+let brushSize = 1;
+let isDrawing = false;
+let isPanning = false;
+let lastPanX = 0;
+let lastPanY = 0;
+let db;
+let canvasWidth = 800;
+let canvasHeight = 800;
+
+// Progress UI
+const progressContainer = document.getElementById("progressContainer");
+const progressFill = document.getElementById("progressFill");
+const progressText = document.getElementById("progressText");
+const createBtn = document.getElementById("createGrid");
+const exportBtn = document.getElementById("exportImage");
+
+// ---------- IndexedDB setup (ongewijzigd) ----------
+const request = indexedDB.open("PixelArtDB", 1);
+request.onupgradeneeded = e => {
+  db = e.target.result;
+  db.createObjectStore("projects", { keyPath: "name" });
+};
+request.onsuccess = e => {
+  db = e.target.result;
+  loadProjectList();
+};
+
+// ---------- Render viewport only (met max resolutie cap) ----------
+function drawGrid() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  
+  let startX = Math.max(0, Math.floor(-offsetX / (pixelSize * zoom)));
+  let endX = Math.min(width, Math.ceil((canvasWidth - offsetX) / (pixelSize * zoom)));
+  let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
+  let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
+  
+  // Cap maximale zichtbare world pixels op 750x750, zelfs bij extreme zoom out
+  const maxVisible = 750;
+  const visibleW = endX - startX;
+  const visibleH = endY - startY;
+  
+  if (visibleW > maxVisible) {
+    const extra = visibleW - maxVisible;
+    const shrinkLeft = Math.floor(extra / 2);
+    const shrinkRight = extra - shrinkLeft;
+    startX += shrinkLeft;
+    endX -= shrinkRight;
+  }
+  if (visibleH > maxVisible) {
+    const extra = visibleH - maxVisible;
+    const shrinkTop = Math.floor(extra / 2);
+    const shrinkBottom = extra - shrinkTop;
+    startY += shrinkTop;
+    endY -= shrinkBottom;
+  }
+  
+  const visibleWorldW = endX - startX;
+  const visibleWorldH = endY - startY;
+  const visiblePixels = visibleWorldW * visibleWorldH;
+  
+  ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+  
+  // Optimalisatie: Bij grote viewports, gebruik solid achtergrond
+  if (visiblePixels > 1000000) {
+    ctx.fillStyle = "#e8e8e8";
+    ctx.fillRect(startX * pixelSize, startY * pixelSize, visibleWorldW * pixelSize, visibleWorldH * pixelSize);
+  } else {
+    // Volledige checkerboard
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const screenX = x * pixelSize;
+        const screenY = y * pixelSize;
+        const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
+        ctx.fillStyle = checkerColor;
+        ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+      }
+    }
+  }
+  
+  // Pixels altijd tekenen (sparse, dus snel)
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      const key = `${x},${y}`;
+      if (pixelData.has(key)) {
+        const pxColor = pixelData.get(key);
+        if (pxColor !== "rgba(0,0,0,0)") {
+          ctx.fillStyle = pxColor;
+          ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+        }
+      }
+    }
+  }
+}
+
+// ---------- Raster aanmaken met Web Worker voor grote grids ----------
+let worker = null;
+function initWorker() {
+  if (worker) return;
+  const workerScript = `
+    self.onmessage = function(e) {
+      const { type, data, format, pixelSize, width, height } = e.data;
+      if (type === 'create') {
+        const { w, h } = data;
+        const totalSteps = Math.max(10, Math.log(w * h) * 5); // Fake steps gebaseerd op grootte
+        let step = 0;
+        const interval = setInterval(() => {
+          step++;
+          self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100 });
+          if (step >= totalSteps) {
+            clearInterval(interval);
+            self.postMessage({ type: 'done', width: w, height: h });
+          }
+        }, 50); // 50ms per step voor zichtbare progress (totaal ~0.5-2s voor grote grids)
+      } else if (type === 'export') {
+        // Export logic (ongewijzigd)
+        const offscreen = e.data.canvas;
+        const offCtx = offscreen.getContext('2d');
+        offCtx.imageSmoothingEnabled = false;
+        
+        const sparseData = data;
+        const totalPixels = sparseData.length;
+        let processed = 0;
+        
+        if (format === 'jpg') {
+          offCtx.fillStyle = "#ffffff";
+          offCtx.fillRect(0, 0, width * pixelSize, height * pixelSize);
+        }
+        
+        sparseData.forEach(([key, pxColor]) => {
+          if (pxColor !== "rgba(0,0,0,0)") {
+            const [x, y] = key.split(',').map(Number);
+            offCtx.fillStyle = pxColor;
+            offCtx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+          }
+          processed++;
+          self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100 });
+        });
+        
+        const mimeType = format === "png" ? "image/png" : format === "jpg" ? "image/jpeg" : "image/webp";
+        const quality = format === "jpg" ? 0.95 : 1.0;
+        
+        offscreen.convertToBlob({ type: mimeType, quality }).then(blob => {
+          self.postMessage({ type: 'done', blob: blob });
+        });
+      }
+    };
+  `;
+  worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
+  
+  worker.onmessage = function(e) {
+    const { type, progress, blob, width: newWidth, height: newHeight } = e.data;
+    if (type === 'progress') {
+      progressFill.style.width = progress + '%';
+      progressText.textContent = progressText.textContent.replace(/\\d+%/, Math.round(progress) + '%');
+    } else if (type === 'done') {
+      if (blob) {
+        // Export done
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pixelart.${document.getElementById("exportFormat").value}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        hideProgress();
+        exportBtn.disabled = false;
+      } else {
+        // Create done
+        width = newWidth;
+        height = newHeight;
+        pixelData.clear();
+        pixelSize = 32;
+        zoom = Math.min(800 / width, 800 / height);
+        offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
+        drawGrid();
+        hideProgress();
+        createBtn.disabled = false;
+      }
+    }
+  };
+}
+
+document.getElementById("createGrid").onclick = () => {
+  const w = parseInt(document.getElementById("widthInput").value) || 16;
+  const h = parseInt(document.getElementById("heightInput").value) || 16;
+  const totalSize = w * h;
+  
+  initWorker();
+  
+  if (totalSize <= 1000000) {
+    // Klein: direct
+    width = w;
+    height = h;
+    pixelData.clear();
+    pixelSize = 32;
+    zoom = Math.min(800 / width, 800 / height);
+    offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
+    drawGrid();
+  } else {
+    // Groot: via worker met progress
+    if (!confirm(`Groot raster (${w}x${h}, ${totalSize.toLocaleString()} pixels). Dit kan even duren om te initialiseren. OK?`)) return;
+    createBtn.disabled = true;
+    worker.postMessage({ type: 'create', data: { w, h } });
+    showProgress();
+    progressText.textContent = "Raster initialiseren... 0%";
+  }
+};
+
+// ---------- Overige functionaliteit (ongewijzigd) ----------
+document.getElementById("colorPicker").oninput = e => {
+  color = e.target.value;
+  transparentMode = false;
+};
+document.getElementById("transparentBtn").onclick = () => {
+  transparentMode = true;
+};
+document.getElementById("brushSize").oninput = e => brushSize = parseInt(e.target.value);
+
+canvas.addEventListener("mousedown", e => {
+  const rect = canvas.getBoundingClientRect();
+  if (e.button === 0) {
+    isDrawing = true;
+    drawPixel(e);
+  } else if (e.button === 2) {
+    isPanning = true;
+    lastPanX = e.clientX;
+    lastPanY = e.clientY;
+    e.preventDefault();
+  }
+});
+canvas.addEventListener("mousemove", e => {
+  if (isDrawing) drawPixel(e);
+  if (isPanning) {
+    const deltaX = e.clientX - lastPanX;
+    const deltaY = e.clientY - lastPanY;
+    offsetX += deltaX;
+    offsetY += deltaY;
+    lastPanX = e.clientX;
+    lastPanY = e.clientY;
+    drawGrid();
+  }
+});
+canvas.addEventListener("mouseup", () => {
+  isDrawing = false;
+  isPanning = false;
+});
+canvas.addEventListener("mouseleave", () => {
+  isDrawing = false;
+  isPanning = false;
+});
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+function drawPixel(e) {
+  const rect = canvas.getBoundingClientRect();
+  const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+  const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+  const x = Math.floor(xPos);
+  const y = Math.floor(yPos);
+  const half = Math.floor(brushSize / 2);
+  
+  let updated = false;
+  for (let dy = -half; dy <= half; dy++) {
+    for (let dx = -half; dx <= half; dx++) {
+      const px = x + dx;
+      const py = y + dy;
+      if (px >= 0 && px < width && py >= 0 && py < height) {
+        const key = `${px},${py}`;
+        const isTransparent = transparentMode;
+        const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
+        if (pixelData.get(key) !== newColor) {
+          if (newColor === "rgba(0,0,0,0)") {
+            pixelData.delete(key);
+          } else {
+            pixelData.set(key, newColor);
+          }
+          updated = true;
+        }
+      }
+    }
+  }
+  if (updated) drawGrid();
+}
+
+function applyZoom(zoomFactor, centerX, centerY) {
+  const worldX = (centerX - offsetX) / zoom;
+  const worldY = (centerY - offsetY) / zoom;
+  zoom *= zoomFactor;
+  zoom = Math.min(Math.max(zoom, 0.01), 100);
+  offsetX = centerX - worldX * zoom;
+  offsetY = centerY - worldY * zoom;
+  drawGrid();
+}
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+  applyZoom(zoomFactor, cx, cy);
+}, { passive: false });
+
+let pinchLastDist = 0;
+canvas.addEventListener("touchstart", e => {
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    pinchLastDist = Math.hypot(dx, dy);
+    isPanning = true;
+  }
+});
+canvas.addEventListener("touchmove", e => {
+  if (e.touches.length === 1 && isPanning) {
+    e.preventDefault();
+    const deltaX = e.touches[0].clientX - lastPanX;
+    const deltaY = e.touches[0].clientY - lastPanY;
+    offsetX += deltaX;
+    offsetY += deltaY;
+    lastPanX = e.touches[0].clientX;
+    lastPanY = e.touches[0].clientY;
+    drawGrid();
+  } else if (e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const zoomFactor = dist / pinchLastDist;
+    pinchLastDist = dist;
+    const rect = canvas.getBoundingClientRect();
+    const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+    const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+    applyZoom(zoomFactor, cx, cy);
+  }
+}, { passive: false });
+canvas.addEventListener("touchend", () => {
+  isPanning = false;
+});
+
+// ---------- Export met Web Worker (ongewijzigd) ----------
+document.getElementById("exportImage").onclick = () => {
+  const format = document.getElementById("exportFormat").value;
+  const sparseData = Array.from(pixelData.entries());
+  const totalPixels = sparseData.length;
+  
+  if (totalPixels === 0) {
+    progressText.textContent = "Geen pixels om te exporteren.";
+    showProgress();
+    setTimeout(hideProgress, 1000);
+    return;
+  }
+  
+  const estimatedSize = totalPixels * pixelSize * pixelSize * 4 / 1024 / 1024;
+  if (width * height > 10000 || estimatedSize > 100) {
+    if (!confirm(`Dit is een groot project (${width}x${height}, ~${Math.round(estimatedSize)} MB). Weet je zeker dat je wilt exporteren? Het kan even duren.`)) {
+      return;
+    }
+  }
+  
+  const offscreen = new OffscreenCanvas(width * pixelSize, height * pixelSize);
+  worker.postMessage({
+    type: 'export',
+    data: sparseData,
+    format,
+    pixelSize,
+    width,
+    height,
+    canvas: offscreen
+  }, [offscreen]);
+  
+  showProgress();
+  progressText.textContent = "Export starten... 0%";
+  exportBtn.disabled = true;
+};
+
+function showProgress() {
+  progressContainer.style.display = 'block';
+  progressFill.style.width = '0%';
+}
+function hideProgress() {
+  progressContainer.style.display = 'none';
+}
+
+// ---------- Opslaan / laden (ongewijzigd) ----------
+document.getElementById("saveProject").onclick = () => {
+  const name = prompt("Naam van project:");
+  if (!name) return;
+  const sparseData = Array.from(pixelData.entries());
+  const tx = db.transaction("projects", "readwrite");
+  const store = tx.objectStore("projects");
+  store.put({ name, width, height, pixelData: sparseData });
+  tx.oncomplete = loadProjectList;
+};
+document.getElementById("loadProject").onclick = () => {
+  const select = document.getElementById("projectSelect");
+  const name = select.value;
+  if (!name) return;
+  const tx = db.transaction("projects", "readonly");
+  const store = tx.objectStore("projects");
+  const req = store.get(name);
+  req.onsuccess = () => {
+    const proj = req.result;
+    width = proj.width;
+    height = proj.height;
+    pixelData = new Map(proj.pixelData);
+    pixelSize = 32;
+    zoom = Math.min(800 / width, 800 / height);
+    offsetX = offsetY = (canvasWidth - width * pixelSize * zoom) / 2;
+    drawGrid();
+  };
+};
+function loadProjectList() {
+  const tx = db.transaction("projects", "readonly");
+  const store = tx.objectStore("projects");
+  const req = store.getAll();
+  req.onsuccess = () => {
+    const select = document.getElementById("projectSelect");
+    select.innerHTML = "";
+    req.result.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.name;
+      opt.textContent = p.name;
+      select.appendChild(opt);
+    });
+  };
+}
+
+// ---------- Init ----------
+document.getElementById("createGrid").click();
+</script>
+</body>
+</html>
