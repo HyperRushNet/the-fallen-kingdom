@@ -23,7 +23,7 @@
     justify-content: center;
     width: 100%;
   }
-  input[type="number"] { width: 70px; }
+  input[type="number"], input[type="file"] { width: 70px; }
   button, select, input[type="color"] {
     border-radius: 4px;
     border: none;
@@ -74,6 +74,12 @@
     background-size: 20px 20px;
     background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   }
+  #eyedropperBtn {
+    background: #555;
+  }
+  #eyedropperBtn.active {
+    background: #4CAF50;
+  }
 </style>
 </head>
 <body>
@@ -81,7 +87,10 @@
   <label>Breedte: <input type="number" id="widthInput" value="16" min="1"></label>
   <label>Hoogte: <input type="number" id="heightInput" value="16" min="1"></label>
   <button id="createGrid">Nieuw raster</button>
+  <input type="file" id="importImage" accept="image/png,image/jpeg,image/webp" style="padding: 0.4rem;">
+  <button id="importBtn">Importeren</button>
   <input type="color" id="colorPicker" value="#000000">
+  <button id="eyedropperBtn">Pipet</button>
   <button id="transparentBtn">Transparant</button>
   <label>Penseel: <input type="number" id="brushSize" value="1" min="1" max="10"></label>
   <button id="saveProject">Opslaan</button>
@@ -101,7 +110,6 @@
 <canvas id="pixelCanvas" width="800" height="800" class="transparent-checker"></canvas>
 <script>
 (function() {
-  // Wrap in IIFE to avoid global scope issues
   'use strict';
   // ---------- Hoofd thread ----------
   const canvas = document.getElementById("pixelCanvas");
@@ -113,6 +121,7 @@
   let offsetY = 0;
   let color = "#000000";
   let transparentMode = false;
+  let eyedropperMode = false;
   let width = 16;
   let height = 16;
   let brushSize = 1;
@@ -128,6 +137,8 @@
   const progressText = document.getElementById("progressText");
   const createBtn = document.getElementById("createGrid");
   const exportBtn = document.getElementById("exportImage");
+  const importBtn = document.getElementById("importBtn");
+  const eyedropperBtn = document.getElementById("eyedropperBtn");
   // ---------- IndexedDB setup ----------
   let db = null;
   const request = indexedDB.open("PixelArtDB", 1);
@@ -142,7 +153,7 @@
     db = e.target.result;
     loadProjectList();
   };
-  // ---------- Render viewport only ----------
+  // ---------- Render viewport only (met max resolutie cap) ----------
   function drawGrid() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -153,23 +164,53 @@
     let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
     let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
    
+    // Cap maximale zichtbare world pixels
+    const maxVisible = 500;
+    let visibleW = endX - startX;
+    let visibleH = endY - startY;
+   
+    if (visibleW > maxVisible) {
+      const extra = visibleW - maxVisible;
+      const shrinkLeft = Math.floor(extra / 2);
+      const shrinkRight = extra - shrinkLeft;
+      startX += shrinkLeft;
+      endX -= shrinkRight;
+      visibleW = maxVisible;
+    }
+    if (visibleH > maxVisible) {
+      const extra = visibleH - maxVisible;
+      const shrinkTop = Math.floor(extra / 2);
+      const shrinkBottom = extra - shrinkTop;
+      startY += shrinkTop;
+      endY -= shrinkBottom;
+      visibleH = maxVisible;
+    }
+   
+    const visiblePixels = visibleW * visibleH;
+   
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
    
-    // Volledige checkerboard
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
-        const screenX = x * pixelSize;
-        const screenY = y * pixelSize;
-        const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
-        ctx.fillStyle = checkerColor;
-        ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+    // Optimalisatie: Bij grote viewports, gebruik solid achtergrond
+    if (visiblePixels > 1000000) {
+      ctx.fillStyle = "#e8e8e8";
+      ctx.fillRect(startX * pixelSize, startY * pixelSize, visibleW * pixelSize, visibleH * pixelSize);
+    } else {
+      // Volledige checkerboard
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const screenX = x * pixelSize;
+          const screenY = y * pixelSize;
+          const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
+          ctx.fillStyle = checkerColor;
+          ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+        }
       }
     }
    
     // Pixels tekenen (sparse)
     for (let y = startY; y < endY; y++) {
       for (let x = startX; x < endX; x++) {
-        const key = `${x},${y}`;
+        const key = x + "," + y;
         if (pixelData.has(key)) {
           const pxColor = pixelData.get(key);
           if (pxColor !== "rgba(0,0,0,0)") {
@@ -184,87 +225,151 @@
   let worker = null;
   function initWorker() {
     if (worker) return worker;
-    const workerScript = `
-      self.onmessage = function(e) {
-        try {
-          const { type, data, format, width, height } = e.data;
-          if (type === 'create') {
-            const { w, h } = data;
-            const totalSteps = Math.max(10, Math.log(w * h) * 5 || 10);
-            let step = 0;
-            const interval = setInterval(() => {
-              step++;
-              self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100, task: 'create' });
-              if (step >= totalSteps) {
-                clearInterval(interval);
-                self.postMessage({ type: 'done', width: w, height: h });
-              }
-            }, 50);
-          } else if (type === 'export') {
-            const offscreen = e.data.canvas;
-            const offCtx = offscreen.getContext('2d');
-            offCtx.imageSmoothingEnabled = false;
-           
-            const sparseData = data;
-            const totalPixels = sparseData.length;
-            let processed = 0;
-           
-            if (format === 'jpg') {
-              offCtx.fillStyle = "#ffffff";
-              offCtx.fillRect(0, 0, width, height);
-            }
-           
-            sparseData.forEach(([key, pxColor]) => {
-              if (pxColor !== "rgba(0,0,0,0)") {
-                const [x, y] = key.split(',').map(Number);
-                offCtx.fillStyle = pxColor;
-                offCtx.fillRect(x, y, 1, 1);
-              }
-              processed++;
-              self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });
-            });
-           
-            const mimeType = format === "png" ? "image/png" : format === "jpg" ? "image/jpeg" : "image/webp";
-            const quality = format === "jpg" ? 0.95 : 1.0;
-           
-            offscreen.convertToBlob({ type: mimeType, quality: quality }).then(blob => {
-              self.postMessage({ type: 'done', blob: blob });
-            }).catch(err => {
-              self.postMessage({ type: 'error', message: err.message });
-            });
-          }
-        } catch (err) {
-          self.postMessage({ type: 'error', message: err.message });
-        }
-      };
-    `;
+    const workerScript = [
+      "self.onmessage = function(e) {",
+      " try {",
+      " const msg = e.data;",
+      " const type = msg.type;",
+      " if (type === 'create') {",
+      " const w = msg.data.w;",
+      " const h = msg.data.h;",
+      " const totalSteps = Math.max(10, Math.log(w * h) * 5 || 10);",
+      " let step = 0;",
+      " const interval = setInterval(() => {",
+      " step++;",
+      " self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100, task: 'create' });",
+      " if (step >= totalSteps) {",
+      " clearInterval(interval);",
+      " self.postMessage({ type: 'done', width: w, height: h });",
+      " }",
+      " }, 50);",
+      " } else if (type === 'export') {",
+      " const offscreen = msg.canvas;",
+      " const offCtx = offscreen.getContext('2d');",
+      " offCtx.imageSmoothingEnabled = false;",
+      " ",
+      " const sparseData = msg.data;",
+      " const totalPixels = sparseData.length;",
+      " let processed = 0;",
+      " ",
+      " if (msg.format === 'jpg') {",
+      " offCtx.fillStyle = '#ffffff';",
+      " offCtx.fillRect(0, 0, msg.width * msg.pixelSize, msg.height * msg.pixelSize);",
+      " }",
+      " ",
+      " sparseData.forEach(([key, pxColor]) => {",
+      " if (pxColor !== 'rgba(0,0,0,0)') {",
+      " const [x, y] = key.split(',').map(Number);",
+      " offCtx.fillStyle = pxColor;",
+      " offCtx.fillRect(x * msg.pixelSize, y * msg.pixelSize, msg.pixelSize, msg.pixelSize);",
+      " }",
+      " processed++;",
+      " self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });",
+      " });",
+      " ",
+      " const mimeType = msg.format === 'png' ? 'image/png' : msg.format === 'jpg' ? 'image/jpeg' : 'image/webp';",
+      " const quality = msg.format === 'jpg' ? 0.95 : 1.0;",
+      " ",
+      " offscreen.convertToBlob({ type: mimeType, quality: quality }).then(blob => {",
+      " self.postMessage({ type: 'done', blob: blob });",
+      " }).catch(err => {",
+      " self.postMessage({ type: 'error', message: err.message });",
+      " });",
+      " } else if (type === 'import') {",
+      " const offscreenImg = msg.canvas;",
+      " const offCtxImg = offscreenImg.getContext('2d');",
+      " const gridWidth = msg.data.gridWidth;",
+      " const gridHeight = msg.data.gridHeight;",
+      " ",
+      " const offscreenResized = new OffscreenCanvas(gridWidth, gridHeight);",
+      " const offCtxResized = offscreenResized.getContext('2d');",
+      " offCtxResized.imageSmoothingEnabled = false;",
+      " offCtxResized.drawImage(offscreenImg, 0, 0, gridWidth, gridHeight);",
+      " ",
+      " const chunkSize = 100;",
+      " const totalChunks = Math.ceil(gridHeight / chunkSize);",
+      " let processedChunks = 0;",
+      " let sparseData = [];",
+      " ",
+      " for (let chunk = 0; chunk < totalChunks; chunk++) {",
+      " const startRow = chunk * chunkSize;",
+      " const endRow = Math.min(startRow + chunkSize, gridHeight);",
+      " ",
+      " const chunkHeight = endRow - startRow;",
+      " const chunkImageData = offCtxResized.getImageData(0, startRow, gridWidth, chunkHeight);",
+      " const chunkData = chunkImageData.data;",
+      " ",
+      " for (let y = startRow; y < endRow; y++) {",
+      " for (let x = 0; x < gridWidth; x++) {",
+      " const localY = y - startRow;",
+      " const idx = (localY * gridWidth + x) * 4;",
+      " const r = chunkData[idx];",
+      " const g = chunkData[idx + 1];",
+      " const b = chunkData[idx + 2];",
+      " const a = chunkData[idx + 3];",
+      " if (a > 128) {",
+      " const hex = '#' + [r, g, b].map(function(c) { return c.toString(16).padStart(2, '0'); }).join('');",
+      " sparseData.push([x + ',' + y, hex]);",
+      " }",
+      " }",
+      " }",
+      " ",
+      " processedChunks++;",
+      " self.postMessage({ ",
+      " type: 'progress', ",
+      " progress: (processedChunks / totalChunks) * 100, ",
+      " task: 'import',",
+      " partialData: sparseData.slice(0, sparseData.length)",
+      " });",
+      " }",
+      " ",
+      " self.postMessage({ type: 'done', sparseData: sparseData });",
+      " }",
+      " } catch (err) {",
+      " self.postMessage({ type: 'error', message: err.message });",
+      " }",
+      "};"
+    ].join('\n');
     worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
    
     worker.onmessage = function(e) {
-      const { type, progress, task, blob, width: newWidth, height: newHeight, message } = e.data;
+      const type = e.data.type;
+      const progress = e.data.progress;
+      const task = e.data.task;
+      const blob = e.data.blob;
+      const newWidth = e.data.width;
+      const newHeight = e.data.height;
+      const message = e.data.message;
+      const sparseData = e.data.sparseData;
       if (type === 'progress') {
         progressFill.style.width = progress + '%';
         const percent = Math.round(progress);
         if (task === 'create') {
-          progressText.textContent = `Raster initialiseren... ${percent}%`;
+          progressText.textContent = "Raster initialiseren... " + percent + "%";
         } else if (task === 'export') {
-          progressText.textContent = `Export... ${percent}%`;
+          progressText.textContent = "Export... " + percent + "%";
+        } else if (task === 'import') {
+          progressText.textContent = "Importeren... " + percent + "%";
         }
       } else if (type === 'done') {
         if (blob) {
           // Export done
           const url = URL.createObjectURL(blob);
-          const format = document.getElementById("exportFormat").value;
-          const timestamp = Date.now();
           const a = document.createElement('a');
           a.href = url;
-          a.download = `pixelart-${timestamp}.${format}`;
+          a.download = "pixelart." + document.getElementById("exportFormat").value;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
           hideProgress();
           exportBtn.disabled = false;
+        } else if (sparseData) {
+          // Import done
+          pixelData = new Map(sparseData);
+          drawGrid();
+          hideProgress();
+          importBtn.disabled = false;
         } else {
           // Create done
           width = newWidth;
@@ -280,10 +385,11 @@
         }
       } else if (type === 'error') {
         console.error("Worker error:", message);
-        progressText.textContent = `Fout: ${message}`;
+        progressText.textContent = "Fout: " + message;
         setTimeout(hideProgress, 3000);
         if (task === 'create') createBtn.disabled = false;
         if (task === 'export') exportBtn.disabled = false;
+        if (task === 'import') importBtn.disabled = false;
       }
     };
     worker.onerror = function(e) {
@@ -292,6 +398,7 @@
       setTimeout(hideProgress, 3000);
       createBtn.disabled = false;
       exportBtn.disabled = false;
+      importBtn.disabled = false;
     };
     return worker;
   }
@@ -303,7 +410,7 @@
       alert("Breedte en hoogte moeten minimaal 1 zijn.");
       return;
     }
-    const totalSize = BigInt(w) * BigInt(h);
+    const totalSize = BigInt(w) * BigInt(h); // Use BigInt for huge numbers to avoid precision loss
    
     const myWorker = initWorker();
    
@@ -319,28 +426,96 @@
       drawGrid();
     } else {
       // Groot: via worker met progress
-      if (!confirm(`Groot raster (${w}x${h}, ${totalSize.toLocaleString()} pixels). Dit kan even duren om te initialiseren. OK?`)) return;
+      if (!confirm("Groot raster (" + w + "x" + h + ", " + totalSize.toLocaleString() + " pixels). Dit kan even duren om te initialiseren. OK?")) return;
       createBtn.disabled = true;
-      myWorker.postMessage({ type: 'create', data: { w, h } });
+      myWorker.postMessage({ type: 'create', data: { w: w, h: h } });
       showProgress();
       progressText.textContent = "Raster initialiseren... 0%";
     }
+  };
+  // ---------- Importeren ----------
+  const importFile = document.getElementById("importImage");
+  const importButton = document.getElementById("importBtn");
+  importButton.onclick = () => {
+    const file = importFile.files[0];
+    if (!file) {
+      alert("Selecteer een afbeelding (PNG, JPG, WebP).");
+      return;
+    }
+    if (width === 0 || height === 0) {
+      alert("Maak eerst een raster aan met breedte en hoogte.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const myWorker = initWorker();
+        const offscreenImg = new OffscreenCanvas(img.width, img.height);
+        const offCtxImg = offscreenImg.getContext('2d');
+        offCtxImg.drawImage(img, 0, 0);
+        myWorker.postMessage({
+          type: 'import',
+          data: { gridWidth: width, gridHeight: height },
+          canvas: offscreenImg
+        }, [offscreenImg]);
+        showProgress();
+        progressText.textContent = "Importeren... 0%";
+        importBtn.disabled = true;
+      };
+      img.onerror = () => alert("Fout bij laden van afbeelding.");
+      img.src = e.target.result;
+    };
+    reader.onerror = () => alert("Fout bij lezen van bestand.");
+    reader.readAsDataURL(file);
   };
   // ---------- Kleuren / penseel ----------
   document.getElementById("colorPicker").oninput = e => {
     color = e.target.value;
     transparentMode = false;
+    eyedropperMode = false;
     document.getElementById("transparentBtn").textContent = "Transparant";
+    eyedropperBtn.classList.remove('active');
   };
   document.getElementById("transparentBtn").onclick = () => {
-    transparentMode = !transparentMode;
-    document.getElementById("transparentBtn").textContent = transparentMode ? "Kleur" : "Transparant";
+    transparentMode = !transparentMode; // Toggle voor gebruiksgemak
+    document.getElementById("transparentBtn").textContent = transparentMode ? "Kleur" : "Transparant"; // Visual feedback
+    eyedropperMode = false;
+    eyedropperBtn.classList.remove('active');
+  };
+  document.getElementById("eyedropperBtn").onclick = () => {
+    eyedropperMode = !eyedropperMode;
+    if (eyedropperMode) {
+      eyedropperBtn.classList.add('active');
+      canvas.style.cursor = 'crosshair';
+      transparentMode = false;
+      document.getElementById("transparentBtn").textContent = "Transparant";
+    } else {
+      eyedropperBtn.classList.remove('active');
+      canvas.style.cursor = 'crosshair';
+    }
   };
   document.getElementById("brushSize").oninput = e => brushSize = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
-  // ---------- Tekenen / pan / zoom ----------
+  // ---------- Tekenen / pan / zoom / eyedropper ----------
   canvas.addEventListener("mousedown", e => {
     const rect = canvas.getBoundingClientRect();
     if (e.button === 0) {
+      if (eyedropperMode) {
+        // Eyedropper: pick color
+        const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+        const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+        const x = Math.floor(xPos);
+        const y = Math.floor(yPos);
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+          const key = x + "," + y;
+          const pickedColor = pixelData.get(key);
+          if (pickedColor && pickedColor !== "rgba(0,0,0,0)") {
+            color = pickedColor;
+            document.getElementById("colorPicker").value = color;
+          }
+        }
+        return;
+      }
       isDrawing = true;
       drawPixel(e);
     } else if (e.button === 2) {
@@ -351,6 +526,10 @@
     }
   });
   canvas.addEventListener("mousemove", e => {
+    if (eyedropperMode) {
+      canvas.style.cursor = 'crosshair';
+      return;
+    }
     if (isDrawing) drawPixel(e);
     if (isPanning) {
       const deltaX = e.clientX - lastPanX;
@@ -386,7 +565,7 @@
         const px = x + dx;
         const py = y + dy;
         if (px >= 0 && px < width && py >= 0 && py < height) {
-          const key = `${px},${py}`;
+          const key = px + "," + py;
           const isTransparent = transparentMode;
           const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
           const oldColor = pixelData.get(key);
@@ -428,7 +607,7 @@
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchLastDist = Math.hypot(dx, dy);
       pinchInitialZoom = zoom;
-      isPanning = false;
+      isPanning = false; // Stop panning during pinch
     } else if (e.touches.length === 1) {
       lastPanX = e.touches[0].clientX;
       lastPanY = e.touches[0].clientY;
@@ -438,6 +617,7 @@
   canvas.addEventListener("touchmove", e => {
     e.preventDefault();
     if (e.touches.length === 1 && isPanning) {
+      // Single touch pan
       const deltaX = e.touches[0].clientX - lastPanX;
       const deltaY = e.touches[0].clientY - lastPanY;
       offsetX += deltaX;
@@ -446,6 +626,7 @@
       lastPanY = e.touches[0].clientY;
       drawGrid();
     } else if (e.touches.length === 2) {
+      // Pinch zoom
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
@@ -476,19 +657,20 @@
       return;
     }
    
-    const estimatedSizeMB = (sparseData.length * 4) / (1024 * 1024);
+    const estimatedSizeMB = (sparseData.length * pixelSize * pixelSize * 4) / (1024 * 1024);
     if (width * height > 10000 || estimatedSizeMB > 100) {
-      if (!confirm(`Groot project (${width}x${height}, ~${Math.round(estimatedSizeMB)} MB). Exporteren kan even duren. OK?`)) return;
+      if (!confirm("Groot project (" + width + "x" + height + ", ~" + Math.round(estimatedSizeMB) + " MB). Exporteren kan even duren. OK?")) return;
     }
    
     const myWorker = initWorker();
-    const offscreen = new OffscreenCanvas(width, height);
+    const offscreen = new OffscreenCanvas(width * pixelSize, height * pixelSize);
     myWorker.postMessage({
       type: 'export',
       data: sparseData,
-      format,
-      width,
-      height,
+      format: format,
+      pixelSize: pixelSize,
+      width: width,
+      height: height,
       canvas: offscreen
     }, [offscreen]);
    
@@ -514,7 +696,7 @@
     const sparseData = Array.from(pixelData.entries());
     const tx = db.transaction("projects", "readwrite");
     const store = tx.objectStore("projects");
-    const req = store.put({ name, width, height, pixelData: sparseData });
+    const req = store.put({ name: name, width: width, height: height, pixelData: sparseData });
     req.onerror = e => alert("Opslaan mislukt: " + e.target.error);
     req.onsuccess = loadProjectList;
   };
