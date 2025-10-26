@@ -254,14 +254,14 @@
       " ",
       " if (msg.format === 'jpg') {",
       " offCtx.fillStyle = '#ffffff';",
-      " offCtx.fillRect(0, 0, msg.width * msg.pixelSize, msg.height * msg.pixelSize);",
+      " offCtx.fillRect(0, 0, msg.width, msg.height);",
       " }",
       " ",
       " sparseData.forEach(([key, pxColor]) => {",
       " if (pxColor !== 'rgba(0,0,0,0)') {",
       " const [x, y] = key.split(',').map(Number);",
       " offCtx.fillStyle = pxColor;",
-      " offCtx.fillRect(x * msg.pixelSize, y * msg.pixelSize, msg.pixelSize, msg.pixelSize);",
+      " offCtx.fillRect(x, y, 1, 1);",
       " }",
       " processed++;",
       " self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });",
@@ -352,10 +352,12 @@
       } else if (type === 'done') {
         if (blob) {
           // Export done
+          const randomId = crypto.randomUUID().slice(0, 8);
+          const format = document.getElementById("exportFormat").value;
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = "pixelart." + document.getElementById("exportFormat").value;
+          a.download = randomId + ".pixelart." + format;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -658,18 +660,17 @@
       return;
     }
    
-    const estimatedSizeMB = (sparseData.length * pixelSize * pixelSize * 4) / (1024 * 1024);
+    const estimatedSizeMB = (sparseData.length * 1 * 1 * 4) / (1024 * 1024);
     if (width * height > 10000 || estimatedSizeMB > 100) {
       if (!confirm("Groot project (" + width + "x" + height + ", ~" + Math.round(estimatedSizeMB) + " MB). Exporteren kan even duren. OK?")) return;
     }
    
     const myWorker = initWorker();
-    const offscreen = new OffscreenCanvas(width * pixelSize, height * pixelSize);
+    const offscreen = new OffscreenCanvas(width, height);
     myWorker.postMessage({
       type: 'export',
       data: sparseData,
       format: format,
-      pixelSize: pixelSize,
       width: width,
       height: height,
       canvas: offscreen
