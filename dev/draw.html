@@ -1,1142 +1,1106 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Art Editor — Snellere versie met Copy-Paste en Panning</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <style>
-        body {
-            margin: 0;
-            font-family: system-ui, sans-serif;
-            background: #1e1e1e;
-            color: #eee;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        header {
-            background: #333;
-            padding: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
-        }
-        input[type="number"], input[type="file"] {
-            width: 70px;
-        }
-        button, select, input[type="color"] {
-            border-radius: 4px;
-            border: none;
-            background: #444;
-            color: white;
-            padding: 0.4rem 0.8rem;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #666;
-        }
-        button:disabled {
-            background: #222;
-            cursor: not-allowed;
-        }
-        #progressContainer {
-            width: 100%;
-            max-width: 800px;
-            margin: 0.5rem 0;
-            display: none;
-        }
-        #progressBar {
-            width: 100%;
-            height: 20px;
-            background: #444;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        #progressFill {
-            height: 100%;
-            background: #4CAF50;
-            width: 0%;
-            transition: width 0.3s;
-        }
-        #progressText {
-            text-align: center;
-            margin-top: 0.25rem;
-            font-size: 0.9rem;
-        }
-        canvas {
-            background: #fff;
-            border: 1px solid #555;
-            margin-top: 1rem;
-            image-rendering: pixelated;
-            cursor: crosshair;
-            touch-action: none;
-        }
-        .transparent-checker {
-            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-        }
-        #eyedropperBtn.active, #selectBtn.active, #panBtn.active {
-            background: #4CAF50;
-        }
-        #eyedropperBtn, #selectBtn, #panBtn {
-            background: #555;
-        }
-        .tool-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        .input-group {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        canvas.grab { cursor: grab; }
-        canvas.grabbing { cursor: grabbing; }
-        #importFileBtn {
-            display: none;
-        }
-    </style>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Pixel Art Editor — Faster version with Copy-Paste and Panning</title>
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+ <style>
+ body { margin: 0; font-family: system-ui, sans-serif; background: #1e1e1e; color: #eee; display: flex; flex-direction: column; align-items: center; }
+ header { background: #333; padding: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; width: 100%; }
+ input[type="number"], input[type="file"] { width: 70px; }
+ button, select, input[type="color"] { border-radius: 4px; border: none; background: #444; color: white; padding: 0.4rem 0.8rem; cursor: pointer; }
+ button:hover { background: #666; }
+ button:disabled { background: #222; cursor: not-allowed; }
+ #progressContainer { width: 100%; max-width: 800px; margin: 0.5rem 0; display: none; }
+ #progressBar { width: 100%; height: 20px; background: #444; border-radius: 10px; overflow: hidden; }
+ #progressFill { height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s; }
+ #progressText { text-align: center; margin-top: 0.25rem; font-size: 0.9rem; }
+ canvas { background: #fff; border: 1px solid #555; margin-top: 1rem; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+ .transparent-checker { background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }
+ #eyedropperBtn.active, #selectBtn.active, #panBtn.active, #replaceBtn.active, #transparentBtn.active { background: #4CAF50; }
+ #eyedropperBtn, #selectBtn, #panBtn, #replaceBtn, #transparentBtn { background: #555; }
+ .tool-group { display: flex; gap: 0.5rem; align-items: center; }
+ .input-group { display: flex; align-items: center; gap: 0.25rem; }
+ canvas.grab { cursor: grab; }
+ canvas.grabbing { cursor: grabbing; }
+ #importFileBtn { display: none; }
+ </style>
 </head>
 <body>
-    <header>
-        <div class="input-group">
-            <i class="fas fa-arrows-alt-h" title="Breedte"></i>
-            <input type="number" id="widthInput" value="16" min="1">
-        </div>
-        <div class="input-group">
-            <i class="fas fa-arrows-alt-v" title="Hoogte"></i>
-            <input type="number" id="heightInput" value="16" min="1">
-        </div>
-        <button id="createGrid" title="Nieuw raster"><i class="fas fa-th"></i></button>
-        <button id="importFileBtn" title="Kies bestand"><i class="fas fa-folder-open"></i></button>
-        <input type="file" id="importImage" accept="image/png,image/jpeg,image/webp" style="display: none;">
-        <button id="importBtn" title="Importeren"><i class="fas fa-file-import"></i></button>
-        <input type="color" id="colorPicker" title="Kleur kiezen">
-        <button id="eyedropperBtn" title="Pipet"><i class="fas fa-eyedropper"></i></button>
-        <button id="transparentBtn" title="Transparant"><i class="fas fa-eraser"></i></button>
-        <div class="input-group">
-            <i class="fas fa-paint-brush" title="Penseelgrootte"></i>
-            <input type="number" id="brushSize" value="1" min="1" max="10">
-        </div>
-        <div class="tool-group">
-            <button id="panBtn" title="Pan"><i class="fas fa-hand-paper"></i></button>
-            <button id="selectBtn" title="Selectie"><i class="fas fa-crop"></i></button>
-            <button id="copyBtn" disabled title="Kopiëren"><i class="fas fa-copy"></i></button>
-            <button id="pasteBtn" disabled title="Plakken"><i class="fas fa-paste"></i></button>
-            <button id="clearSelectionBtn" disabled title="Wis selectie"><i class="fas fa-trash"></i></button>
-        </div>
-        <button id="saveProject" title="Opslaan"><i class="fas fa-save"></i></button>
-        <select id="projectSelect" title="Projecten"></select>
-        <button id="loadProject" title="Laden"><i class="fas fa-folder-open"></i></button>
-        <div class="input-group">
-            <i class="fas fa-download" title="Export formaat"></i>
-            <select id="exportFormat">
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
-                <option value="webp">WebP</option>
-            </select>
-        </div>
-        <button id="exportImage" title="Exporteer"><i class="fas fa-file-export"></i></button>
-    </header>
-    <div id="progressContainer">
-        <div id="progressBar"><div id="progressFill"></div></div>
-        <div id="progressText">Voorbereiden...</div>
-    </div>
-    <canvas id="pixelCanvas" width="800" height="800" class="transparent-checker"></canvas>
-    <script>
-        (function() {
-            'use strict';
-            // ---------- Hoofd thread ----------
-            const canvas = document.getElementById("pixelCanvas");
-            const ctx = canvas.getContext("2d");
-            let pixelData = new Map(); // Sparse: key = `${x},${y}`, value = color
-            let pixelSize = 32;
-            let zoom = 1;
-            let offsetX = 0;
-            let offsetY = 0;
-            let color = "#000000";
-            let transparentMode = false;
-            let eyedropperMode = false;
-            let selectionMode = false;
-            let panMode = false;
-            let width = 16;
-            let height = 16;
-            let brushSize = 1;
-            let isDrawing = false;
-            let isPanning = false;
-            let isSelecting = false;
-            let lastPanX = 0;
-            let lastPanY = 0;
-            let selStartX = 0;
-            let selStartY = 0;
-            let selEndX = 0;
-            let selEndY = 0;
-            let selectedArea = null; // {startX, startY, endX, endY} – blijft zichtbaar na selectie
-            let clipboard = null; // Map for copied pixels, with relative coords
-            let canvasWidth = 800;
-            let canvasHeight = 800;
-            // Progress UI
-            const progressContainer = document.getElementById("progressContainer");
-            const progressFill = document.getElementById("progressFill");
-            const progressText = document.getElementById("progressText");
-            const createBtn = document.getElementById("createGrid");
-            const exportBtn = document.getElementById("exportImage");
-            const importBtn = document.getElementById("importBtn");
-            const eyedropperBtn = document.getElementById("eyedropperBtn");
-            const selectBtn = document.getElementById("selectBtn");
-            const panBtn = document.getElementById("panBtn");
-            const copyBtn = document.getElementById("copyBtn");
-            const pasteBtn = document.getElementById("pasteBtn");
-            const clearSelectionBtn = document.getElementById("clearSelectionBtn");
-            const transparentBtn = document.getElementById("transparentBtn");
-            const importFileBtn = document.getElementById("importFileBtn");
-            const importFile = document.getElementById("importImage");
-            // ---------- IndexedDB setup ----------
-            let db = null;
-            const request = indexedDB.open("PixelArtDB", 1);
-            request.onupgradeneeded = e => {
-                db = e.target.result;
-                if (!db.objectStoreNames.contains("projects")) {
-                    db.createObjectStore("projects", { keyPath: "name" });
-                }
-            };
-            request.onerror = e => console.error("IndexedDB error:", e);
-            request.onsuccess = e => {
-                db = e.target.result;
-                loadProjectList();
-            };
-            // ---------- Render functies ----------
-            function drawGrid() {
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.imageSmoothingEnabled = false;
-                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-                let startX = Math.max(0, Math.floor(-offsetX / (pixelSize * zoom)));
-                let endX = Math.min(width, Math.ceil((canvasWidth - offsetX) / (pixelSize * zoom)));
-                let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
-                let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
-                const visiblePixels = (endX - startX) * (endY - startY);
-                ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
-                // Optimalisatie: Bij grote viewports, gebruik solid achtergrond
-                if (visiblePixels > 10000000) {
-                    ctx.fillStyle = "#e8e8e8";
-                    ctx.fillRect(startX * pixelSize, startY * pixelSize, (endX - startX) * pixelSize, (endY - startY) * pixelSize);
-                } else {
-                    // Volledige checkerboard
-                    for (let y = startY; y < endY; y++) {
-                        for (let x = startX; x < endX; x++) {
-                            const screenX = x * pixelSize;
-                            const screenY = y * pixelSize;
-                            const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
-                            ctx.fillStyle = checkerColor;
-                            ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
-                        }
-                    }
-                }
-                // Pixels tekenen (sparse)
-                for (let y = startY; y < endY; y++) {
-                    for (let x = startX; x < endX; x++) {
-                        const key = x + "," + y;
-                        if (pixelData.has(key)) {
-                            const pxColor = pixelData.get(key);
-                            if (pxColor !== "rgba(0,0,0,0)") {
-                                ctx.fillStyle = pxColor;
-                                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-                            }
-                        }
-                    }
-                }
-                // Selectie rechthoek tekenen als actief (tijdens selectie OF geselecteerd gebied)
-                if (selectionMode && (isSelecting || selectedArea)) {
-                    drawSelectionRect();
-                }
-            }
-            // Nieuwe functie: Herteken alleen een specifiek rechthoekgebied (voor snellere updates)
-            function drawRect(worldX1, worldY1, worldX2, worldY2) {
-                // Bereken zichtbare grenzen voor dit gebied
-                let startX = Math.max(0, Math.floor(worldX1));
-                let endX = Math.min(width, Math.ceil(worldX2 + 1));
-                let startY = Math.max(0, Math.floor(worldY1));
-                let endY = Math.min(height, Math.ceil(worldY2 + 1));
-                // Clear het gebied op het canvas (in screen coords)
-                ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform voor clear
-                const screenLeft = offsetX + startX * pixelSize * zoom;
-                const screenTop = offsetY + startY * pixelSize * zoom;
-                const screenWidth = (endX - startX) * pixelSize * zoom;
-                const screenHeight = (endY - startY) * pixelSize * zoom;
-                ctx.clearRect(screenLeft, screenTop, screenWidth, screenHeight);
-                // Herstel transform en teken checker + pixels
-                ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
-                for (let y = startY; y < endY; y++) {
-                    for (let x = startX; x < endX; x++) {
-                        const screenX = x * pixelSize;
-                        const screenY = y * pixelSize;
-                        const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
-                        ctx.fillStyle = checkerColor;
-                        ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
-                    }
-                }
-                for (let y = startY; y < endY; y++) {
-                    for (let x = startX; x < endX; x++) {
-                        const key = x + "," + y;
-                        if (pixelData.has(key)) {
-                            const pxColor = pixelData.get(key);
-                            if (pxColor !== "rgba(0,0,0,0)") {
-                                ctx.fillStyle = pxColor;
-                                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-                            }
-                        }
-                    }
-                }
-                // Selectie als het overlapt
-                if (selectionMode && (isSelecting || selectedArea) && overlapsSelection(startX, startY, endX, endY)) {
-                    drawSelectionRect();
-                }
-            }
-            function drawSelectionRect() {
-                let sx, sy, ex, ey;
-                if (isSelecting) {
-                    sx = Math.min(selStartX, selEndX);
-                    sy = Math.min(selStartY, selEndY);
-                    ex = Math.max(selStartX, selEndX);
-                    ey = Math.max(selStartY, selEndY);
-                } else if (selectedArea) {
-                    sx = selectedArea.startX;
-                    sy = selectedArea.startY;
-                    ex = selectedArea.endX;
-                    ey = selectedArea.endY;
-                } else {
-                    return;
-                }
-                const screenStartX = sx * pixelSize;
-                const screenStartY = sy * pixelSize;
-                const screenEndX = ex * pixelSize;
-                const screenEndY = ey * pixelSize;
-                ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
-                ctx.strokeStyle = '#ff0000'; // Altijd rood
-                ctx.lineWidth = 2 / zoom; // Schaal lijnbreedte met zoom
-                ctx.setLineDash(isSelecting ? [5, 5] : []); // Gestippeld tijdens selectie, solide als geselecteerd
-                ctx.strokeRect(screenStartX, screenStartY, (ex - sx) * pixelSize, (ey - sy) * pixelSize);
-                ctx.setLineDash([]);
-            }
-            function overlapsSelection(areaX1, areaY1, areaX2, areaY2) {
-                let sx, sy, ex, ey;
-                if (isSelecting) {
-                    sx = Math.min(selStartX, selEndX);
-                    sy = Math.min(selStartY, selEndY);
-                    ex = Math.max(selStartX, selEndX);
-                    ey = Math.max(selStartY, selEndY);
-                } else if (selectedArea) {
-                    sx = selectedArea.startX;
-                    sy = selectedArea.startY;
-                    ex = selectedArea.endX;
-                    ey = selectedArea.endY;
-                } else {
-                    return false;
-                }
-                return !(areaX2 <= sx || areaX1 >= ex || areaY2 <= sy || areaY1 >= ey);
-            }
-            function clearSelection() {
-                selectedArea = null;
-                isSelecting = false;
-                copyBtn.disabled = true;
-                clearSelectionBtn.disabled = true;
-                drawGrid();
-            }
-            function updateCursor() {
-                if (panMode) {
-                    canvas.classList.add('grab');
-                    canvas.style.cursor = isPanning ? 'grabbing' : 'grab';
-                } else {
-                    canvas.classList.remove('grab', 'grabbing');
-                    canvas.style.cursor = 'crosshair';
-                }
-            }
-            function resetTransparentBtn() {
-                transparentMode = false;
-                transparentBtn.innerHTML = '<i class="fas fa-eraser"></i>';
-                transparentBtn.title = "Transparant";
-            }
-            // ---------- Web Worker init (ongewijzigd) ----------
-            let worker = null;
-            function initWorker() {
-                if (worker) return worker;
-                const workerScript = [
-                    "self.onmessage = function(e) {",
-                    " try {",
-                    " const msg = e.data;",
-                    " const type = msg.type;",
-                    " if (type === 'create') {",
-                    " const w = msg.data.w;",
-                    " const h = msg.data.h;",
-                    " const totalSteps = Math.max(10, Math.log(w * h) * 5 || 10);",
-                    " let step = 0;",
-                    " const interval = setInterval(() => {",
-                    " step++;",
-                    " self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100, task: 'create' });",
-                    " if (step >= totalSteps) {",
-                    " clearInterval(interval);",
-                    " self.postMessage({ type: 'done', width: w, height: h });",
-                    " }",
-                    " }, 50);",
-                    " } else if (type === 'export') {",
-                    " const offscreen = msg.canvas;",
-                    " const offCtx = offscreen.getContext('2d');",
-                    " offCtx.imageSmoothingEnabled = false;",
-                    " ",
-                    " const sparseData = msg.data;",
-                    " const totalPixels = sparseData.length;",
-                    " let processed = 0;",
-                    " ",
-                    " if (msg.format === 'jpg') {",
-                    " offCtx.fillStyle = '#ffffff';",
-                    " offCtx.fillRect(0, 0, msg.width, msg.height);",
-                    " }",
-                    " ",
-                    " sparseData.forEach(([key, pxColor]) => {",
-                    " if (pxColor !== 'rgba(0,0,0,0)') {",
-                    " const [x, y] = key.split(',').map(Number);",
-                    " offCtx.fillStyle = pxColor;",
-                    " offCtx.fillRect(x, y, 1, 1);",
-                    " }",
-                    " processed++;",
-                    " self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });",
-                    " });",
-                    " ",
-                    " const mimeType = msg.format === 'png' ? 'image/png' : msg.format === 'jpg' ? 'image/jpeg' : 'image/webp';",
-                    " const quality = msg.format === 'jpg' ? 0.95 : 1.0;",
-                    " ",
-                    " offscreen.convertToBlob({ type: mimeType, quality: quality }).then(blob => {",
-                    " self.postMessage({ type: 'done', blob: blob });",
-                    " }).catch(err => {",
-                    " self.postMessage({ type: 'error', message: err.message });",
-                    " });",
-                    " } else if (type === 'import') {",
-                    " const imageBitmap = msg.imageBitmap;",
-                    " const gridWidth = msg.data.gridWidth;",
-                    " const gridHeight = msg.data.gridHeight;",
-                    " ",
-                    " const offscreenResized = new OffscreenCanvas(gridWidth, gridHeight);",
-                    " const offCtxResized = offscreenResized.getContext('2d');",
-                    " offCtxResized.imageSmoothingEnabled = false;",
-                    " offCtxResized.drawImage(imageBitmap, 0, 0, gridWidth, gridHeight);",
-                    " ",
-                    " const chunkSize = 100;",
-                    " const totalChunks = Math.ceil(gridHeight / chunkSize);",
-                    " let processedChunks = 0;",
-                    " let sparseData = [];",
-                    " ",
-                    " for (let chunk = 0; chunk < totalChunks; chunk++) {",
-                    " const startRow = chunk * chunkSize;",
-                    " const endRow = Math.min(startRow + chunkSize, gridHeight);",
-                    " ",
-                    " const chunkHeight = endRow - startRow;",
-                    " const chunkImageData = offCtxResized.getImageData(0, startRow, gridWidth, chunkHeight);",
-                    " const chunkData = chunkImageData.data;",
-                    " ",
-                    " for (let y = startRow; y < endRow; y++) {",
-                    " for (let x = 0; x < gridWidth; x++) {",
-                    " const localY = y - startRow;",
-                    " const idx = (localY * gridWidth + x) * 4;",
-                    " const r = chunkData[idx];",
-                    " const g = chunkData[idx + 1];",
-                    " const b = chunkData[idx + 2];",
-                    " const a = chunkData[idx + 3];",
-                    " if (a > 128) {",
-                    " const hex = '#' + [r, g, b].map(function(c) { return c.toString(16).padStart(2, '0'); }).join('');",
-                    " sparseData.push([x + ',' + y, hex]);",
-                    " }",
-                    " }",
-                    " }",
-                    " ",
-                    " processedChunks++;",
-                    " self.postMessage({ ",
-                    " type: 'progress', ",
-                    " progress: (processedChunks / totalChunks) * 100, ",
-                    " task: 'import' ",
-                    " });",
-                    " }",
-                    " ",
-                    " self.postMessage({ type: 'done', sparseData: sparseData });",
-                    " }",
-                    " } catch (err) {",
-                    " self.postMessage({ type: 'error', message: err.message });",
-                    " }",
-                    "};"
-                ].join('\n');
-                worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
-                worker.onmessage = function(e) {
-                    const type = e.data.type;
-                    const progress = e.data.progress;
-                    const task = e.data.task;
-                    const blob = e.data.blob;
-                    const newWidth = e.data.width;
-                    const newHeight = e.data.height;
-                    const message = e.data.message;
-                    const sparseData = e.data.sparseData;
-                    if (type === 'progress') {
-                        progressFill.style.width = progress + '%';
-                        const percent = Math.round(progress);
-                        if (task === 'create') {
-                            progressText.textContent = "Raster initialiseren... " + percent + "%";
-                        } else if (task === 'export') {
-                            progressText.textContent = "Export... " + percent + "%";
-                        } else if (task === 'import') {
-                            progressText.textContent = "Importeren... " + percent + "%";
-                        }
-                    } else if (type === 'done') {
-                        if (blob) {
-                            // Export done
-                            const randomId = crypto.randomUUID().slice(0, 8);
-                            const format = document.getElementById("exportFormat").value;
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = randomId + ".pixelart." + format;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            hideProgress();
-                            exportBtn.disabled = false;
-                        } else if (sparseData) {
-                            // Import done
-                            pixelData = new Map(sparseData);
-                            drawGrid();
-                            hideProgress();
-                            importBtn.disabled = false;
-                        } else {
-                            // Create done
-                            width = newWidth;
-                            height = newHeight;
-                            pixelData.clear();
-                            selectedArea = null;
-                            clearSelection();
-                            pixelSize = 32;
-                            zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
-                            offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
-                            offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
-                            drawGrid();
-                            hideProgress();
-                            createBtn.disabled = false;
-                        }
-                    } else if (type === 'error') {
-                        console.error("Worker error:", message);
-                        progressText.textContent = "Fout: " + message;
-                        setTimeout(hideProgress, 3000);
-                        if (task === 'create') createBtn.disabled = false;
-                        if (task === 'export') exportBtn.disabled = false;
-                        if (task === 'import') importBtn.disabled = false;
-                    }
-                };
-                worker.onerror = function(e) {
-                    console.error("Worker fatal error:", e);
-                    progressText.textContent = "Onverwachte fout in worker.";
-                    setTimeout(hideProgress, 3000);
-                    createBtn.disabled = false;
-                    exportBtn.disabled = false;
-                    importBtn.disabled = false;
-                };
-                return worker;
-            }
-            // ---------- Raster aanmaken ----------
-            document.getElementById("createGrid").onclick = () => {
-                const w = parseInt(document.getElementById("widthInput").value) || 16;
-                const h = parseInt(document.getElementById("heightInput").value) || 16;
-                if (w < 1 || h < 1) {
-                    alert("Breedte en hoogte moeten minimaal 1 zijn.");
-                    return;
-                }
-                const totalSize = BigInt(w) * BigInt(h);
-                const myWorker = initWorker();
-                if (Number(totalSize) <= 1000000) {
-                    // Klein: direct
-                    width = w;
-                    height = h;
-                    pixelData.clear();
-                    selectedArea = null;
-                    clearSelection();
-                    pixelSize = 32;
-                    zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
-                    offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
-                    offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
-                    drawGrid();
-                } else {
-                    // Groot: via worker met progress
-                    if (!confirm("Groot raster (" + w + "x" + h + ", " + totalSize.toLocaleString() + " pixels). Dit kan even duren om te initialiseren. OK?")) return;
-                    createBtn.disabled = true;
-                    myWorker.postMessage({ type: 'create', data: { w: w, h: h } });
-                    showProgress();
-                    progressText.textContent = "Raster initialiseren... 0%";
-                }
-            };
-            // ---------- Importeren ----------
-            importFileBtn.onclick = () => {
-                importFile.click();
-            };
-            const importButton = document.getElementById("importBtn");
-            importButton.onclick = () => {
-                const file = importFile.files[0];
-                if (!file) {
-                    alert("Selecteer een afbeelding (PNG, JPG, WebP).");
-                    return;
-                }
-                if (width === 0 || height === 0) {
-                    alert("Maak eerst een raster aan met breedte en hoogte.");
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const img = new Image();
-                    img.onload = () => {
-                        createImageBitmap(img).then(imageBitmap => {
-                            const myWorker = initWorker();
-                            myWorker.postMessage({ type: 'import', data: { gridWidth: width, gridHeight: height }, imageBitmap: imageBitmap }, [imageBitmap]);
-                            showProgress();
-                            progressText.textContent = "Importeren... 0%";
-                            importBtn.disabled = true;
-                            clearSelection(); // Clear selectie bij import
-                        }).catch(err => {
-                            console.error("ImageBitmap creation failed:", err);
-                            alert("Fout bij voorbereiden van afbeelding.");
-                            importBtn.disabled = false;
-                        });
-                    };
-                    img.onerror = () => alert("Fout bij laden van afbeelding.");
-                    img.src = e.target.result;
-                };
-                reader.onerror = () => alert("Fout bij lezen van bestand.");
-                reader.readAsDataURL(file);
-            };
-            // ---------- Kleuren / penseel / modi ----------
-            document.getElementById("colorPicker").oninput = e => {
-                color = e.target.value;
-                eyedropperMode = false;
-                selectionMode = false;
-                panMode = false;
-                eyedropperBtn.classList.remove('active');
-                selectBtn.classList.remove('active');
-                panBtn.classList.remove('active');
-                clearSelection();
-                resetTransparentBtn();
-                updateCursor();
-            };
-            transparentBtn.onclick = () => {
-                transparentMode = !transparentMode;
-                if (transparentMode) {
-                    transparentBtn.innerHTML = '<i class="fas fa-paint-brush"></i>';
-                    transparentBtn.title = "Kleur";
-                } else {
-                    transparentBtn.innerHTML = '<i class="fas fa-eraser"></i>';
-                    transparentBtn.title = "Transparant";
-                }
-                eyedropperMode = false;
-                selectionMode = false;
-                panMode = false;
-                eyedropperBtn.classList.remove('active');
-                selectBtn.classList.remove('active');
-                panBtn.classList.remove('active');
-                clearSelection();
-                updateCursor();
-            };
-            document.getElementById("eyedropperBtn").onclick = () => {
-                eyedropperMode = !eyedropperMode;
-                if (eyedropperMode) {
-                    eyedropperBtn.classList.add('active');
-                    selectionMode = false;
-                    panMode = false;
-                    selectBtn.classList.remove('active');
-                    panBtn.classList.remove('active');
-                    clearSelection();
-                    resetTransparentBtn();
-                } else {
-                    eyedropperBtn.classList.remove('active');
-                }
-                updateCursor();
-            };
-            document.getElementById("panBtn").onclick = () => {
-                panMode = !panMode;
-                if (panMode) {
-                    panBtn.classList.add('active');
-                    eyedropperMode = false;
-                    selectionMode = false;
-                    eyedropperBtn.classList.remove('active');
-                    selectBtn.classList.remove('active');
-                    clearSelection();
-                    resetTransparentBtn();
-                    canvas.style.cursor = 'grab';
-                } else {
-                    panBtn.classList.remove('active');
-                    canvas.style.cursor = 'crosshair';
-                }
-                updateCursor();
-            };
-            document.getElementById("selectBtn").onclick = () => {
-                selectionMode = !selectionMode;
-                if (selectionMode) {
-                    selectBtn.classList.add('active');
-                    eyedropperMode = false;
-                    panMode = false;
-                    eyedropperBtn.classList.remove('active');
-                    panBtn.classList.remove('active');
-                    copyBtn.disabled = selectedArea !== null;
-                    pasteBtn.disabled = !clipboard;
-                    if (selectedArea) {
-                        clearSelectionBtn.disabled = false;
-                    }
-                    resetTransparentBtn();
-                } else {
-                    selectBtn.classList.remove('active');
-                    clearSelection();
-                }
-                updateCursor();
-            };
-            document.getElementById("clearSelectionBtn").onclick = () => {
-                clearSelection();
-            };
-            document.getElementById("brushSize").oninput = e => brushSize = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
-            // Copy
-            copyBtn.onclick = () => {
-                if (!selectedArea && !isSelecting) {
-                    alert("Selecteer eerst een gebied door te slepen.");
-                    return;
-                }
-                let minX, maxX, minY, maxY;
-                if (isSelecting) {
-                    minX = Math.min(selStartX, selEndX);
-                    maxX = Math.max(selStartX, selEndX);
-                    minY = Math.min(selStartY, selEndY);
-                    maxY = Math.max(selStartY, selEndY);
-                } else {
-                    minX = selectedArea.startX;
-                    maxX = selectedArea.endX;
-                    minY = selectedArea.startY;
-                    maxY = selectedArea.endY;
-                }
-                if (maxX === minX && maxY === minY) {
-                    alert("Selecteer een groter gebied.");
-                    return;
-                }
-                clipboard = new Map();
-                let copiedCount = 0;
-                for (let y = minY; y <= maxY; y++) {
-                    for (let x = minX; x <= maxX; x++) {
-                        const key = x + "," + y;
-                        const pxColor = pixelData.get(key);
-                        if (pxColor && pxColor !== "rgba(0,0,0,0)") {
-                            const relX = x - minX;
-                            const relY = y - minY;
-                            const relKey = relX + "," + relY;
-                            clipboard.set(relKey, pxColor);
-                            copiedCount++;
-                        }
-                    }
-                }
-                if (clipboard.size === 0) {
-                    alert("Geen pixels geselecteerd om te kopiëren.");
-                    clipboard = null;
-                } else {
-                    pasteBtn.disabled = false;
-                    alert("Gekopieerd: " + clipboard.size + " pixels.");
-                }
-                if (isSelecting) {
-                    // Als tijdens selectie, finaliseer nu
-                    selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
-                    isSelecting = false;
-                    clearSelectionBtn.disabled = false;
-                    drawGrid();
-                }
-            };
-            // Paste: Gebruik bestaande selectie of prompt
-            pasteBtn.onclick = () => {
-                if (!clipboard) {
-                    alert("Niets om te plakken. Kopieer eerst.");
-                    return;
-                }
-                let pasteX, pasteY;
-                if (selectedArea) {
-                    // Plak op top-left van bestaande selectie
-                    pasteX = selectedArea.startX;
-                    pasteY = selectedArea.startY;
-                } else {
-                    // Vraag positie
-                    pasteX = parseInt(prompt("Plak X positie (0-" + (width - 1) + "):", "0")) || 0;
-                    pasteY = parseInt(prompt("Plak Y positie (0-" + (height - 1) + "):", "0")) || 0;
-                    if (pasteX < 0 || pasteX >= width || pasteY < 0 || pasteY >= height) {
-                        alert("Ongeldige positie.");
-                        return;
-                    }
-                }
-                pasteAt(pasteX, pasteY);
-            };
-            // ---------- Tekenen / selectie / pan / zoom / eyedropper ----------
-            canvas.addEventListener("mousedown", e => {
-                const rect = canvas.getBoundingClientRect();
-                const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
-                const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
-                const x = Math.floor(xPos);
-                const y = Math.floor(yPos);
-                if (panMode && e.button === 0) {
-                    // Pan met links klik in pan mode
-                    isPanning = true;
-                    lastPanX = e.clientX;
-                    lastPanY = e.clientY;
-                    canvas.classList.add('grabbing');
-                    return;
-                }
-                if (x < 0 || x >= width || y < 0 || y >= height) return;
-                if (e.button === 0) {
-                    if (eyedropperMode) {
-                        // Eyedropper
-                        const key = x + "," + y;
-                        const pickedColor = pixelData.get(key);
-                        if (pickedColor && pickedColor !== "rgba(0,0,0,0)") {
-                            color = pickedColor;
-                            document.getElementById("colorPicker").value = color;
-                        }
-                        return;
-                    } else if (selectionMode) {
-                        // Selectie starten
-                        isSelecting = true;
-                        selStartX = x;
-                        selStartY = y;
-                        selEndX = x;
-                        selEndY = y;
-                        return;
-                    } else {
-                        // Tekenen
-                        isDrawing = true;
-                        drawPixel(e);
-                    }
-                } else if (e.button === 2) {
-                    // Altijd right-click voor pan (als fallback)
-                    isPanning = true;
-                    lastPanX = e.clientX;
-                    lastPanY = e.clientY;
-                    e.preventDefault();
-                }
-            });
-            canvas.addEventListener("mousemove", e => {
-                const rect = canvas.getBoundingClientRect();
-                const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
-                const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
-                const x = Math.floor(xPos);
-                const y = Math.floor(yPos);
-                if (eyedropperMode) {
-                    canvas.style.cursor = 'crosshair';
-                    return;
-                }
-                if (isDrawing && !panMode && !selectionMode) {
-                    drawPixel(e);
-                }
-                if (isSelecting && selectionMode) {
-                    selEndX = x;
-                    selEndY = y;
-                    drawGrid(); // Volledige redraw voor selectie update
-                }
-                if (isPanning) {
-                    const deltaX = e.clientX - lastPanX;
-                    const deltaY = e.clientY - lastPanY;
-                    offsetX += deltaX;
-                    offsetY += deltaY;
-                    lastPanX = e.clientX;
-                    lastPanY = e.clientY;
-                    drawGrid();
-                }
-            });
-            canvas.addEventListener("mouseup", () => {
-                isDrawing = false;
-                isPanning = false;
-                canvas.classList.remove('grabbing');
-                if (isSelecting) {
-                    isSelecting = false;
-                    // Finaliseer selectie
-                    const minX = Math.min(selStartX, selEndX);
-                    const minY = Math.min(selStartY, selEndY);
-                    const maxX = Math.max(selStartX, selEndX);
-                    const maxY = Math.max(selStartY, selEndY);
-                    if (maxX > minX || maxY > minY) {
-                        selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
-                        copyBtn.disabled = false;
-                        pasteBtn.disabled = !clipboard;
-                        clearSelectionBtn.disabled = false;
-                    } else {
-                        selectedArea = null;
-                    }
-                    drawGrid();
-                }
-            });
-            canvas.addEventListener("mouseleave", () => {
-                isDrawing = false;
-                isPanning = false;
-                canvas.classList.remove('grabbing');
-                if (isSelecting) {
-                    isSelecting = false;
-                    // Finaliseer ook bij leave
-                    const minX = Math.min(selStartX, selEndX);
-                    const minY = Math.min(selStartY, selEndY);
-                    const maxX = Math.max(selStartX, selEndX);
-                    const maxY = Math.max(selStartY, selEndY);
-                    if (maxX > minX || maxY > minY) {
-                        selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
-                        copyBtn.disabled = false;
-                        pasteBtn.disabled = !clipboard;
-                        clearSelectionBtn.disabled = false;
-                    } else {
-                        selectedArea = null;
-                    }
-                    drawGrid();
-                }
-            });
-            canvas.addEventListener("contextmenu", e => e.preventDefault());
-            // Nieuwe functie: Plak op specifieke positie
-            function pasteAt(pasteX, pasteY) {
-                if (!clipboard) return;
-                let minRelX = Infinity, maxRelX = -Infinity, minRelY = Infinity, maxRelY = -Infinity;
-                clipboard.forEach((_, key) => {
-                    const [relX, relY] = key.split(',').map(Number);
-                    minRelX = Math.min(minRelX, relX);
-                    maxRelX = Math.max(maxRelX, relX);
-                    minRelY = Math.min(minRelY, relY);
-                    maxRelY = Math.max(maxRelY, relY);
-                });
-                const pasteWidth = maxRelX - minRelX + 1;
-                const pasteHeight = maxRelY - minRelY + 1;
-                if (pasteX + pasteWidth > width || pasteY + pasteHeight > height) {
-                    alert("Plakgebied past niet in het raster.");
-                    return;
-                }
-                let updated = false;
-                let redrawMinX = pasteX;
-                let redrawMaxX = pasteX + pasteWidth;
-                let redrawMinY = pasteY;
-                let redrawMaxY = pasteY + pasteHeight;
-                clipboard.forEach((pxColor, relKey) => {
-                    const [relX, relY] = relKey.split(',').map(Number);
-                    const absX = pasteX + relX;
-                    const absY = pasteY + relY;
-                    const absKey = absX + "," + absY;
-                    const oldColor = pixelData.get(absKey);
-                    if (oldColor !== pxColor) {
-                        if (pxColor === "rgba(0,0,0,0)") {
-                            pixelData.delete(absKey);
-                        } else {
-                            pixelData.set(absKey, pxColor);
-                        }
-                        updated = true;
-                    }
-                });
-                if (updated) {
-                    // Herteken het plakgebied
-                    drawRect(redrawMinX, redrawMinY, redrawMaxX, redrawMaxY);
-                    alert("Geplakt op (" + pasteX + ", " + pasteY + ").");
-                } else {
-                    alert("Niets veranderd.");
-                }
-            }
-            function drawPixel(e) {
-                const rect = canvas.getBoundingClientRect();
-                const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
-                const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
-                const x = Math.floor(xPos);
-                const y = Math.floor(yPos);
-                if (x < 0 || x >= width || y < 0 || y >= height) return;
-                const half = Math.floor(brushSize / 2);
-                let minX = x - half;
-                let maxX = x + half + 1;
-                let minY = y - half;
-                let maxY = y + half + 1;
-                let updated = false;
-                for (let dy = -half; dy <= half; dy++) {
-                    for (let dx = -half; dx <= half; dx++) {
-                        const px = x + dx;
-                        const py = y + dy;
-                        if (px >= 0 && px < width && py >= 0 && py < height) {
-                            const key = px + "," + py;
-                            const isTransparent = transparentMode;
-                            const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
-                            const oldColor = pixelData.get(key);
-                            if (oldColor !== newColor) {
-                                if (newColor === "rgba(0,0,0,0)") {
-                                    pixelData.delete(key);
-                                } else {
-                                    pixelData.set(key, newColor);
-                                }
-                                updated = true;
-                            }
-                        }
-                    }
-                }
-                // Update min/max voor redraw
-                minX = Math.max(0, minX);
-                maxX = Math.min(width, maxX);
-                minY = Math.max(0, minY);
-                maxY = Math.min(height, maxY);
-                if (updated) {
-                    // Snelle update: alleen het penseelgebied hertekenen
-                    drawRect(minX, minY, maxX, maxY);
-                }
-            }
-            function applyZoom(zoomFactor, centerX, centerY) {
-                const worldX = (centerX - offsetX) / zoom;
-                const worldY = (centerY - offsetY) / zoom;
-                zoom *= zoomFactor;
-                zoom = Math.min(Math.max(zoom, 0.01), 100);
-                offsetX = centerX - worldX * zoom;
-                offsetY = centerY - worldY * zoom;
-                drawGrid();
-            }
-            canvas.addEventListener("wheel", e => {
-                e.preventDefault();
-                const rect = canvas.getBoundingClientRect();
-                const cx = e.clientX - rect.left;
-                const cy = e.clientY - rect.top;
-                const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                applyZoom(zoomFactor, cx, cy);
-            }, { passive: false });
-            let pinchLastDist = 0;
-            let pinchInitialZoom = 0;
-            canvas.addEventListener("touchstart", e => {
-                if (e.touches.length === 2) {
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    pinchLastDist = Math.hypot(dx, dy);
-                    pinchInitialZoom = zoom;
-                    isPanning = false;
-                } else if (e.touches.length === 1) {
-                    lastPanX = e.touches[0].clientX;
-                    lastPanY = e.touches[0].clientY;
-                    isPanning = true;
-                }
-            });
-            canvas.addEventListener("touchmove", e => {
-                e.preventDefault();
-                if (e.touches.length === 1 && isPanning) {
-                    const deltaX = e.touches[0].clientX - lastPanX;
-                    const deltaY = e.touches[0].clientY - lastPanY;
-                    offsetX += deltaX;
-                    offsetY += deltaY;
-                    lastPanX = e.touches[0].clientX;
-                    lastPanY = e.touches[0].clientY;
-                    drawGrid();
-                } else if (e.touches.length === 2) {
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const dist = Math.hypot(dx, dy);
-                    if (pinchLastDist > 0) {
-                        const zoomFactor = dist / pinchLastDist;
-                        const rect = canvas.getBoundingClientRect();
-                        const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
-                        const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
-                        applyZoom(zoomFactor, cx, cy);
-                    }
-                    pinchLastDist = dist;
-                }
-            }, { passive: false });
-            canvas.addEventListener("touchend", e => {
-                if (e.touches.length < 2) {
-                    pinchLastDist = 0;
-                }
-                if (e.touches.length === 0) {
-                    isPanning = false;
-                }
-            });
-            // ---------- Export ----------
-            document.getElementById("exportImage").onclick = () => {
-                const format = document.getElementById("exportFormat").value;
-                const sparseData = Array.from(pixelData.entries());
-                if (sparseData.length === 0) {
-                    alert("Geen pixels om te exporteren. Teken eerst iets!");
-                    return;
-                }
-                const estimatedSizeMB = (sparseData.length * 1 * 1 * 4) / (1024 * 1024);
-                if (width * height > 10000 || estimatedSizeMB > 100) {
-                    if (!confirm("Groot project (" + width + "x" + height + ", ~" + Math.round(estimatedSizeMB) + " MB). Exporteren kan even duren. OK?")) return;
-                }
-                const myWorker = initWorker();
-                const offscreen = new OffscreenCanvas(width, height);
-                myWorker.postMessage({ type: 'export', data: sparseData, format: format, width: width, height: height, canvas: offscreen }, [offscreen]);
-                showProgress();
-                progressText.textContent = "Export starten... 0%";
-                exportBtn.disabled = true;
-            };
-            function showProgress() {
-                progressContainer.style.display = 'block';
-                progressFill.style.width = '0%';
-            }
-            function hideProgress() {
-                progressContainer.style.display = 'none';
-            }
-            // ---------- Opslaan / laden ----------
-            document.getElementById("saveProject").onclick = () => {
-                if (!db) {
-                    alert("Database niet geladen. Probeer opnieuw.");
-                    return;
-                }
-                const name = prompt("Naam van project:");
-                if (!name) return;
-                const sparseData = Array.from(pixelData.entries());
-                const tx = db.transaction("projects", "readwrite");
-                const store = tx.objectStore("projects");
-                const req = store.put({ name: name, width: width, height: height, pixelData: sparseData });
-                req.onerror = e => alert("Opslaan mislukt: " + e.target.error);
-                req.onsuccess = loadProjectList;
-            };
-            document.getElementById("loadProject").onclick = () => {
-                if (!db) {
-                    alert("Database niet geladen. Probeer opnieuw.");
-                    return;
-                }
-                const select = document.getElementById("projectSelect");
-                const name = select.value;
-                if (!name) {
-                    alert("Selecteer een project.");
-                    return;
-                }
-                const tx = db.transaction("projects", "readonly");
-                const store = tx.objectStore("projects");
-                const req = store.get(name);
-                req.onerror = e => alert("Laden mislukt: " + e.target.error);
-                req.onsuccess = () => {
-                    const proj = req.result;
-                    if (!proj) return;
-                    width = proj.width;
-                    height = proj.height;
-                    pixelData = new Map(proj.pixelData || []);
-                    clearSelection();
-                    pixelSize = 32;
-                    zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
-                    offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
-                    offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
-                    drawGrid();
-                };
-            };
-            function loadProjectList() {
-                if (!db) return;
-                const tx = db.transaction("projects", "readonly");
-                const store = tx.objectStore("projects");
-                const req = store.getAll();
-                req.onsuccess = () => {
-                    const select = document.getElementById("projectSelect");
-                    select.innerHTML = "";
-                    req.result.forEach(p => {
-                        const opt = document.createElement("option");
-                        opt.value = p.name;
-                        opt.textContent = p.name;
-                        select.appendChild(opt);
-                    });
-                };
-            }
-            // ---------- Init ----------
-            window.addEventListener('load', () => {
-                document.getElementById("createGrid").click();
-                updateCursor();
-            });
-        })();
-    </script>
+ <header>
+ <div class="input-group">
+ <i class="fas fa-arrows-alt-h" title="Width"></i>
+ <input type="number" id="widthInput" value="16" min="1">
+ </div>
+ <div class="input-group">
+ <i class="fas fa-arrows-alt-v" title="Height"></i>
+ <input type="number" id="heightInput" value="16" min="1">
+ </div>
+ <button id="createGrid" title="New Grid"><i class="fas fa-th"></i></button>
+ <button id="importFileBtn" title="Choose File"><i class="fas fa-folder-open"></i></button>
+ <input type="file" id="importImage" accept="image/png,image/jpeg,image/webp" style="display: none;">
+ <button id="importBtn" title="Import"><i class="fas fa-file-import"></i></button>
+ <input type="color" id="colorPicker" title="Pick Color">
+ <button id="eyedropperBtn" title="Eyedropper"><i class="fas fa-eyedropper"></i></button>
+ <button id="transparentBtn" title="Eraser"><i class="fas fa-paint-brush"></i></button>
+ <button id="replaceBtn" title="Replace Color"><i class="fas fa-exchange-alt"></i></button>
+ <div class="input-group">
+ <i class="fas fa-paint-brush" title="Brush Size"></i>
+ <input type="number" id="brushSize" value="1" min="1" max="10">
+ </div>
+ <div class="tool-group">
+ <button id="panBtn" title="Pan"><i class="fas fa-hand-paper"></i></button>
+ <button id="selectBtn" title="Select"><i class="fas fa-crop"></i></button>
+ <button id="copyBtn" disabled title="Copy"><i class="fas fa-copy"></i></button>
+ <button id="pasteBtn" disabled title="Paste"><i class="fas fa-paste"></i></button>
+ <button id="clearSelectionBtn" disabled title="Clear Selection"><i class="fas fa-trash"></i></button>
+ </div>
+ <button id="saveProject" title="Save"><i class="fas fa-save"></i></button>
+ <select id="projectSelect" title="Projects"></select>
+ <button id="loadProject" title="Load"><i class="fas fa-folder-open"></i></button>
+ <div class="input-group">
+ <i class="fas fa-download" title="Export Format"></i>
+ <select id="exportFormat">
+ <option value="png">PNG</option>
+ <option value="jpg">JPG</option>
+ <option value="webp">WebP</option>
+ </select>
+ </div>
+ <button id="exportImage" title="Export"><i class="fas fa-file-export"></i></button>
+ </header>
+ <div id="progressContainer">
+ <div id="progressBar"><div id="progressFill"></div></div>
+ <div id="progressText">Preparing...</div>
+ </div>
+ <canvas id="pixelCanvas" width="800" height="800" class="transparent-checker"></canvas>
+ <script>
+ (function() { 'use strict';
+ const canvas = document.getElementById("pixelCanvas");
+ const ctx = canvas.getContext("2d");
+ let pixelData = new Map();
+ let pixelSize = 32;
+ let zoom = 1;
+ let offsetX = 0;
+ let offsetY = 0;
+ let color = "#000000";
+ let transparentMode = false;
+ let eyedropperMode = false;
+ let selectionMode = false;
+ let panMode = false;
+ let replaceMode = false;
+ let sourceColor = null;
+ let width = 16;
+ let height = 16;
+ let brushSize = 1;
+ let isDrawing = false;
+ let isPanning = false;
+ let isSelecting = false;
+ let lastPanX = 0;
+ let lastPanY = 0;
+ let selStartX = 0;
+ let selStartY = 0;
+ let selEndX = 0;
+ let selEndY = 0;
+ let selectedArea = null;
+ let clipboard = null;
+ let canvasWidth = 800;
+ let canvasHeight = 800;
+ const progressContainer = document.getElementById("progressContainer");
+ const progressFill = document.getElementById("progressFill");
+ const progressText = document.getElementById("progressText");
+ const createBtn = document.getElementById("createGrid");
+ const exportBtn = document.getElementById("exportImage");
+ const importBtn = document.getElementById("importBtn");
+ const eyedropperBtn = document.getElementById("eyedropperBtn");
+ const selectBtn = document.getElementById("selectBtn");
+ const panBtn = document.getElementById("panBtn");
+ const copyBtn = document.getElementById("copyBtn");
+ const pasteBtn = document.getElementById("pasteBtn");
+ const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+ const transparentBtn = document.getElementById("transparentBtn");
+ const replaceBtn = document.getElementById("replaceBtn");
+ const importFileBtn = document.getElementById("importFileBtn");
+ const importFile = document.getElementById("importImage");
+ let db = null;
+ const request = indexedDB.open("PixelArtDB", 1);
+ request.onupgradeneeded = e => {
+ db = e.target.result;
+ if (!db.objectStoreNames.contains("projects")) {
+ db.createObjectStore("projects", { keyPath: "name" });
+ }
+ };
+ request.onerror = e => console.error("IndexedDB error:", e);
+ request.onsuccess = e => {
+ db = e.target.result;
+ loadProjectList();
+ };
+ function drawGrid() {
+ ctx.setTransform(1, 0, 0, 1, 0, 0);
+ ctx.imageSmoothingEnabled = false;
+ ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+ let startX = Math.max(0, Math.floor(-offsetX / (pixelSize * zoom)));
+ let endX = Math.min(width, Math.ceil((canvasWidth - offsetX) / (pixelSize * zoom)));
+ let startY = Math.max(0, Math.floor(-offsetY / (pixelSize * zoom)));
+ let endY = Math.min(height, Math.ceil((canvasHeight - offsetY) / (pixelSize * zoom)));
+ const visiblePixels = (endX - startX) * (endY - startY);
+ ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+ if (visiblePixels > 10000000) {
+ ctx.fillStyle = "#e8e8e8";
+ ctx.fillRect(startX * pixelSize, startY * pixelSize, (endX - startX) * pixelSize, (endY - startY) * pixelSize);
+ } else {
+ for (let y = startY; y < endY; y++) {
+ for (let x = startX; x < endX; x++) {
+ const screenX = x * pixelSize;
+ const screenY = y * pixelSize;
+ const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
+ ctx.fillStyle = checkerColor;
+ ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+ }
+ }
+ }
+ for (let y = startY; y < endY; y++) {
+ for (let x = startX; x < endX; x++) {
+ const key = x + "," + y;
+ if (pixelData.has(key)) {
+ const pxColor = pixelData.get(key);
+ if (pxColor !== "rgba(0,0,0,0)") {
+ ctx.fillStyle = pxColor;
+ ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+ }
+ }
+ }
+ }
+ if (selectionMode && (isSelecting || selectedArea)) {
+ drawSelectionRect();
+ }
+ }
+ function drawRect(worldX1, worldY1, worldX2, worldY2) {
+ let startX = Math.max(0, Math.floor(worldX1));
+ let endX = Math.min(width, Math.ceil(worldX2 + 1));
+ let startY = Math.max(0, Math.floor(worldY1));
+ let endY = Math.min(height, Math.ceil(worldY2 + 1));
+ ctx.setTransform(1, 0, 0, 1, 0, 0);
+ const screenLeft = offsetX + startX * pixelSize * zoom;
+ const screenTop = offsetY + startY * pixelSize * zoom;
+ const screenWidth = (endX - startX) * pixelSize * zoom;
+ const screenHeight = (endY - startY) * pixelSize * zoom;
+ ctx.clearRect(screenLeft, screenTop, screenWidth, screenHeight);
+ ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+ for (let y = startY; y < endY; y++) {
+ for (let x = startX; x < endX; x++) {
+ const screenX = x * pixelSize;
+ const screenY = y * pixelSize;
+ const checkerColor = ((x + y) % 2 === 0 ? "#ddd" : "#fff");
+ ctx.fillStyle = checkerColor;
+ ctx.fillRect(screenX, screenY, pixelSize, pixelSize);
+ }
+ }
+ for (let y = startY; y < endY; y++) {
+ for (let x = startX; x < endX; x++) {
+ const key = x + "," + y;
+ if (pixelData.has(key)) {
+ const pxColor = pixelData.get(key);
+ if (pxColor !== "rgba(0,0,0,0)") {
+ ctx.fillStyle = pxColor;
+ ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+ }
+ }
+ }
+ }
+ if (selectionMode && (isSelecting || selectedArea) && overlapsSelection(startX, startY, endX, endY)) {
+ drawSelectionRect();
+ }
+ }
+ function drawSelectionRect() {
+ let sx, sy, ex, ey;
+ if (isSelecting) {
+ sx = Math.min(selStartX, selEndX);
+ sy = Math.min(selStartY, selEndY);
+ ex = Math.max(selStartX, selEndX);
+ ey = Math.max(selStartY, selEndY);
+ } else if (selectedArea) {
+ sx = selectedArea.startX;
+ sy = selectedArea.startY;
+ ex = selectedArea.endX;
+ ey = selectedArea.endY;
+ } else {
+ return;
+ }
+ const screenStartX = sx * pixelSize;
+ const screenStartY = sy * pixelSize;
+ const screenEndX = ex * pixelSize;
+ const screenEndY = ey * pixelSize;
+ ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+ ctx.strokeStyle = '#ff0000';
+ ctx.lineWidth = 2 / zoom;
+ ctx.setLineDash(isSelecting ? [5, 5] : []);
+ ctx.strokeRect(screenStartX, screenStartY, (ex - sx) * pixelSize, (ey - sy) * pixelSize);
+ ctx.setLineDash([]);
+ }
+ function overlapsSelection(areaX1, areaY1, areaX2, areaY2) {
+ let sx, sy, ex, ey;
+ if (isSelecting) {
+ sx = Math.min(selStartX, selEndX);
+ sy = Math.min(selStartY, selEndY);
+ ex = Math.max(selStartX, selEndX);
+ ey = Math.max(selStartY, selEndY);
+ } else if (selectedArea) {
+ sx = selectedArea.startX;
+ sy = selectedArea.startY;
+ ex = selectedArea.endX;
+ ey = selectedArea.endY;
+ } else {
+ return false;
+ }
+ return !(areaX2 <= sx || areaX1 >= ex || areaY2 <= sy || areaY1 >= ey);
+ }
+ function clearSelection() {
+ selectedArea = null;
+ isSelecting = false;
+ copyBtn.disabled = true;
+ clearSelectionBtn.disabled = true;
+ drawGrid();
+ }
+ function updateCursor() {
+ if (panMode) {
+ canvas.classList.add('grab');
+ canvas.style.cursor = isPanning ? 'grabbing' : 'grab';
+ } else {
+ canvas.classList.remove('grab', 'grabbing');
+ canvas.style.cursor = 'crosshair';
+ }
+ }
+ function resetTransparentBtn() {
+ transparentMode = false;
+ transparentBtn.innerHTML = '<i class="fas fa-paint-brush"></i>';
+ transparentBtn.title = "Eraser";
+ transparentBtn.classList.remove('active');
+ }
+ function replaceAll(source, target) {
+ if (source === target) {
+ alert("Source and target colors are the same. No changes made.");
+ return;
+ }
+ let count = 0;
+ const entries = [...pixelData];
+ for (let [key, pxColor] of entries) {
+ if (pxColor === source) {
+ if (target === "rgba(0,0,0,0)") {
+ pixelData.delete(key);
+ } else {
+ pixelData.set(key, target);
+ }
+ count++;
+ }
+ }
+ if (count > 0) {
+ drawGrid();
+ alert(`${count} pixels replaced from ${source} to ${target}.`);
+ } else {
+ alert("No pixels of the source color found.");
+ }
+ }
+ let worker = null;
+ function initWorker() {
+ if (worker) return worker;
+ const workerScript = [
+ "self.onmessage = function(e) {",
+ " try {",
+ " const msg = e.data;",
+ " const type = msg.type;",
+ " if (type === 'create') {",
+ " const w = msg.data.w;",
+ " const h = msg.data.h;",
+ " const totalSteps = Math.max(10, Math.log(w * h) * 5 || 10);",
+ " let step = 0;",
+ " const interval = setInterval(() => {",
+ " step++;",
+ " self.postMessage({ type: 'progress', progress: (step / totalSteps) * 100, task: 'create' });",
+ " if (step >= totalSteps) {",
+ " clearInterval(interval);",
+ " self.postMessage({ type: 'done', width: w, height: h });",
+ " }",
+ " }, 50);",
+ " } else if (type === 'export') {",
+ " const offscreen = msg.canvas;",
+ " const offCtx = offscreen.getContext('2d');",
+ " offCtx.imageSmoothingEnabled = false;",
+ " ",
+ " const sparseData = msg.data;",
+ " const totalPixels = sparseData.length;",
+ " let processed = 0;",
+ " ",
+ " if (msg.format === 'jpg') {",
+ " offCtx.fillStyle = '#ffffff';",
+ " offCtx.fillRect(0, 0, msg.width, msg.height);",
+ " }",
+ " ",
+ " sparseData.forEach(([key, pxColor]) => {",
+ " if (pxColor !== 'rgba(0,0,0,0)') {",
+ " const [x, y] = key.split(',').map(Number);",
+ " offCtx.fillStyle = pxColor;",
+ " offCtx.fillRect(x, y, 1, 1);",
+ " }",
+ " processed++;",
+ " self.postMessage({ type: 'progress', progress: (processed / totalPixels) * 100, task: 'export' });",
+ " });",
+ " ",
+ " const mimeType = msg.format === 'png' ? 'image/png' : msg.format === 'jpg' ? 'image/jpeg' : 'image/webp';",
+ " const quality = msg.format === 'jpg' ? 0.95 : 1.0;",
+ " ",
+ " offscreen.convertToBlob({ type: mimeType, quality: quality }).then(blob => {",
+ " self.postMessage({ type: 'done', blob: blob });",
+ " }).catch(err => {",
+ " self.postMessage({ type: 'error', message: err.message });",
+ " });",
+ " } else if (type === 'import') {",
+ " const imageBitmap = msg.imageBitmap;",
+ " const gridWidth = msg.data.gridWidth;",
+ " const gridHeight = msg.data.gridHeight;",
+ " ",
+ " const offscreenResized = new OffscreenCanvas(gridWidth, gridHeight);",
+ " const offCtxResized = offscreenResized.getContext('2d');",
+ " offCtxResized.imageSmoothingEnabled = false;",
+ " offCtxResized.drawImage(imageBitmap, 0, 0, gridWidth, gridHeight);",
+ " ",
+ " const chunkSize = 100;",
+ " const totalChunks = Math.ceil(gridHeight / chunkSize);",
+ " let processedChunks = 0;",
+ " let sparseData = [];",
+ " ",
+ " for (let chunk = 0; chunk < totalChunks; chunk++) {",
+ " const startRow = chunk * chunkSize;",
+ " const endRow = Math.min(startRow + chunkSize, gridHeight);",
+ " ",
+ " const chunkHeight = endRow - startRow;",
+ " const chunkImageData = offCtxResized.getImageData(0, startRow, gridWidth, chunkHeight);",
+ " const chunkData = chunkImageData.data;",
+ " ",
+ " for (let y = startRow; y < endRow; y++) {",
+ " for (let x = 0; x < gridWidth; x++) {",
+ " const localY = y - startRow;",
+ " const idx = (localY * gridWidth + x) * 4;",
+ " const r = chunkData[idx];",
+ " const g = chunkData[idx + 1];",
+ " const b = chunkData[idx + 2];",
+ " const a = chunkData[idx + 3];",
+ " if (a > 128) {",
+ " const hex = '#' + [r, g, b].map(function(c) { return c.toString(16).padStart(2, '0'); }).join('');",
+ " sparseData.push([x + ',' + y, hex]);",
+ " }",
+ " }",
+ " }",
+ " ",
+ " processedChunks++;",
+ " self.postMessage({ ",
+ " type: 'progress', ",
+ " progress: (processedChunks / totalChunks) * 100, ",
+ " task: 'import' ",
+ " });",
+ " }",
+ " ",
+ " self.postMessage({ type: 'done', sparseData: sparseData });",
+ " }",
+ " } catch (err) {",
+ " self.postMessage({ type: 'error', message: err.message });",
+ " }",
+ "};"
+ ].join('\n');
+ worker = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
+ worker.onmessage = function(e) {
+ const type = e.data.type;
+ const progress = e.data.progress;
+ const task = e.data.task;
+ const blob = e.data.blob;
+ const newWidth = e.data.width;
+ const newHeight = e.data.height;
+ const message = e.data.message;
+ const sparseData = e.data.sparseData;
+ if (type === 'progress') {
+ progressFill.style.width = progress + '%';
+ const percent = Math.round(progress);
+ if (task === 'create') {
+ progressText.textContent = "Initializing grid... " + percent + "%";
+ } else if (task === 'export') {
+ progressText.textContent = "Exporting... " + percent + "%";
+ } else if (task === 'import') {
+ progressText.textContent = "Importing... " + percent + "%";
+ }
+ } else if (type === 'done') {
+ if (blob) {
+ const randomId = crypto.randomUUID().slice(0, 8);
+ const format = document.getElementById("exportFormat").value;
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = randomId + ".pixelart." + format;
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+ URL.revokeObjectURL(url);
+ hideProgress();
+ exportBtn.disabled = false;
+ } else if (sparseData) {
+ pixelData = new Map(sparseData);
+ drawGrid();
+ hideProgress();
+ importBtn.disabled = false;
+ } else {
+ width = newWidth;
+ height = newHeight;
+ pixelData.clear();
+ selectedArea = null;
+ clearSelection();
+ pixelSize = 32;
+ zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+ offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+ offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+ drawGrid();
+ hideProgress();
+ createBtn.disabled = false;
+ }
+ }
+ else if (type === 'error') {
+ console.error("Worker error:", message);
+ progressText.textContent = "Error: " + message;
+ setTimeout(hideProgress, 3000);
+ if (task === 'create') createBtn.disabled = false;
+ if (task === 'export') exportBtn.disabled = false;
+ if (task === 'import') importBtn.disabled = false;
+ }
+ };
+ worker.onerror = function(e) {
+ console.error("Worker fatal error:", e);
+ progressText.textContent = "Unexpected worker error.";
+ setTimeout(hideProgress, 3000);
+ createBtn.disabled = false;
+ exportBtn.disabled = false;
+ importBtn.disabled = false;
+ };
+ return worker;
+ }
+ document.getElementById("createGrid").onclick = () => {
+ const w = parseInt(document.getElementById("widthInput").value) || 16;
+ const h = parseInt(document.getElementById("heightInput").value) || 16;
+ if (w < 1 || h < 1) {
+ alert("Width and height must be at least 1.");
+ return;
+ }
+ const totalSize = BigInt(w) * BigInt(h);
+ const myWorker = initWorker();
+ if (Number(totalSize) <= 1000000) {
+ width = w;
+ height = h;
+ pixelData.clear();
+ selectedArea = null;
+ clearSelection();
+ pixelSize = 32;
+ zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+ offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+ offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+ drawGrid();
+ } else {
+ if (!confirm("Large grid (" + w + "x" + h + ", " + totalSize.toLocaleString() + " pixels). This may take a while to initialize. OK?")) return;
+ createBtn.disabled = true;
+ myWorker.postMessage({ type: 'create', data: { w: w, h: h } });
+ showProgress();
+ progressText.textContent = "Initializing grid... 0%";
+ }
+ };
+ importFileBtn.onclick = () => {
+ importFile.click();
+ };
+ const importButton = document.getElementById("importBtn");
+ importButton.onclick = () => {
+ const file = importFile.files[0];
+ if (!file) {
+ alert("Select an image (PNG, JPG, WebP).");
+ return;
+ }
+ if (width === 0 || height === 0) {
+ alert("Create a grid with width and height first.");
+ return;
+ }
+ const reader = new FileReader();
+ reader.onload = e => {
+ const img = new Image();
+ img.onload = () => {
+ createImageBitmap(img).then(imageBitmap => {
+ const myWorker = initWorker();
+ myWorker.postMessage({ type: 'import', data: { gridWidth: width, gridHeight: height }, imageBitmap: imageBitmap }, [imageBitmap]);
+ showProgress();
+ progressText.textContent = "Importing... 0%";
+ importBtn.disabled = true;
+ clearSelection();
+ }).catch(err => {
+ console.error("ImageBitmap creation failed:", err);
+ alert("Error preparing image.");
+ importBtn.disabled = false;
+ });
+ };
+ img.onerror = () => alert("Error loading image.");
+ img.src = e.target.result;
+ };
+ reader.onerror = () => alert("Error reading file.");
+ reader.readAsDataURL(file);
+ };
+ document.getElementById("colorPicker").oninput = e => {
+ color = e.target.value;
+ eyedropperMode = false;
+ selectionMode = false;
+ panMode = false;
+ replaceMode = false;
+ sourceColor = null;
+ eyedropperBtn.classList.remove('active');
+ selectBtn.classList.remove('active');
+ panBtn.classList.remove('active');
+ replaceBtn.classList.remove('active');
+ clearSelection();
+ resetTransparentBtn();
+ updateCursor();
+ };
+ transparentBtn.onclick = () => {
+ transparentMode = !transparentMode;
+ if (transparentMode) {
+ transparentBtn.innerHTML = '<i class="fas fa-eraser"></i>';
+ transparentBtn.title = "Eraser";
+ transparentBtn.classList.add('active');
+ } else {
+ transparentBtn.innerHTML = '<i class="fas fa-paint-brush"></i>';
+ transparentBtn.title = "Eraser";
+ transparentBtn.classList.remove('active');
+ }
+ eyedropperMode = false;
+ selectionMode = false;
+ panMode = false;
+ replaceMode = false;
+ sourceColor = null;
+ eyedropperBtn.classList.remove('active');
+ selectBtn.classList.remove('active');
+ panBtn.classList.remove('active');
+ replaceBtn.classList.remove('active');
+ clearSelection();
+ updateCursor();
+ };
+ eyedropperBtn.onclick = () => {
+ eyedropperMode = !eyedropperMode;
+ if (eyedropperMode) {
+ eyedropperBtn.classList.add('active');
+ selectionMode = false;
+ panMode = false;
+ replaceMode = false;
+ sourceColor = null;
+ selectBtn.classList.remove('active');
+ panBtn.classList.remove('active');
+ replaceBtn.classList.remove('active');
+ clearSelection();
+ resetTransparentBtn();
+ } else {
+ eyedropperBtn.classList.remove('active');
+ }
+ updateCursor();
+ };
+ panBtn.onclick = () => {
+ panMode = !panMode;
+ if (panMode) {
+ panBtn.classList.add('active');
+ eyedropperMode = false;
+ selectionMode = false;
+ replaceMode = false;
+ sourceColor = null;
+ eyedropperBtn.classList.remove('active');
+ selectBtn.classList.remove('active');
+ replaceBtn.classList.remove('active');
+ clearSelection();
+ resetTransparentBtn();
+ canvas.style.cursor = 'grab';
+ } else {
+ panBtn.classList.remove('active');
+ canvas.style.cursor = 'crosshair';
+ }
+ updateCursor();
+ };
+ selectBtn.onclick = () => {
+ selectionMode = !selectionMode;
+ if (selectionMode) {
+ selectBtn.classList.add('active');
+ eyedropperMode = false;
+ panMode = false;
+ replaceMode = false;
+ sourceColor = null;
+ eyedropperBtn.classList.remove('active');
+ panBtn.classList.remove('active');
+ replaceBtn.classList.remove('active');
+ copyBtn.disabled = selectedArea !== null;
+ pasteBtn.disabled = !clipboard;
+ if (selectedArea) {
+ clearSelectionBtn.disabled = false;
+ }
+ resetTransparentBtn();
+ } else {
+ selectBtn.classList.remove('active');
+ clearSelection();
+ }
+ updateCursor();
+ };
+ clearSelectionBtn.onclick = () => {
+ clearSelection();
+ };
+ replaceBtn.onclick = () => {
+ replaceMode = !replaceMode;
+ sourceColor = null;
+ if (replaceMode) {
+ replaceBtn.classList.add('active');
+ eyedropperMode = false;
+ selectionMode = false;
+ panMode = false;
+ eyedropperBtn.classList.remove('active');
+ selectBtn.classList.remove('active');
+ panBtn.classList.remove('active');
+ clearSelection();
+ resetTransparentBtn();
+ } else {
+ replaceBtn.classList.remove('active');
+ }
+ updateCursor();
+ };
+ document.getElementById("brushSize").oninput = e => brushSize = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+ copyBtn.onclick = () => {
+ if (!selectedArea && !isSelecting) {
+ alert("Select an area first by dragging.");
+ return;
+ }
+ let minX, maxX, minY, maxY;
+ if (isSelecting) {
+ minX = Math.min(selStartX, selEndX);
+ maxX = Math.max(selStartX, selEndX);
+ minY = Math.min(selStartY, selEndY);
+ maxY = Math.max(selStartY, selEndY);
+ } else {
+ minX = selectedArea.startX;
+ maxX = selectedArea.endX;
+ minY = selectedArea.startY;
+ maxY = selectedArea.endY;
+ }
+ if (maxX === minX && maxY === minY) {
+ alert("Select a larger area.");
+ return;
+ }
+ clipboard = new Map();
+ let copiedCount = 0;
+ for (let y = minY; y <= maxY; y++) {
+ for (let x = minX; x <= maxX; x++) {
+ const key = x + "," + y;
+ const pxColor = pixelData.get(key);
+ if (pxColor && pxColor !== "rgba(0,0,0,0)") {
+ const relX = x - minX;
+ const relY = y - minY;
+ const relKey = relX + "," + relY;
+ clipboard.set(relKey, pxColor);
+ copiedCount++;
+ }
+ }
+ }
+ if (clipboard.size === 0) {
+ alert("No pixels selected to copy.");
+ clipboard = null;
+ } else {
+ pasteBtn.disabled = false;
+ alert("Copied: " + clipboard.size + " pixels.");
+ }
+ if (isSelecting) {
+ selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
+ isSelecting = false;
+ clearSelectionBtn.disabled = false;
+ drawGrid();
+ }
+ };
+ pasteBtn.onclick = () => {
+ if (!clipboard) {
+ alert("Nothing to paste. Copy first.");
+ return;
+ }
+ let pasteX, pasteY;
+ if (selectedArea) {
+ pasteX = selectedArea.startX;
+ pasteY = selectedArea.startY;
+ } else {
+ pasteX = parseInt(prompt("Paste X position (0-" + (width - 1) + "):", "0")) || 0;
+ pasteY = parseInt(prompt("Paste Y position (0-" + (height - 1) + "):", "0")) || 0;
+ if (pasteX < 0 || pasteX >= width || pasteY < 0 || pasteY >= height) {
+ alert("Invalid position.");
+ return;
+ }
+ }
+ pasteAt(pasteX, pasteY);
+ };
+ function pasteAt(pasteX, pasteY) {
+ if (!clipboard) return;
+ let minRelX = Infinity, maxRelX = -Infinity, minRelY = Infinity, maxRelY = -Infinity;
+ clipboard.forEach((_, key) => {
+ const [relX, relY] = key.split(',').map(Number);
+ minRelX = Math.min(minRelX, relX);
+ maxRelX = Math.max(maxRelX, relX);
+ minRelY = Math.min(minRelY, relY);
+ maxRelY = Math.max(maxRelY, relY);
+ });
+ const pasteWidth = maxRelX - minRelX + 1;
+ const pasteHeight = maxRelY - minRelY + 1;
+ if (pasteX + pasteWidth > width || pasteY + pasteHeight > height) {
+ alert("Paste area doesn't fit in the grid.");
+ return;
+ }
+ let updated = false;
+ let redrawMinX = pasteX;
+ let redrawMaxX = pasteX + pasteWidth;
+ let redrawMinY = pasteY;
+ let redrawMaxY = pasteY + pasteHeight;
+ clipboard.forEach((pxColor, relKey) => {
+ const [relX, relY] = relKey.split(',').map(Number);
+ const absX = pasteX + relX;
+ const absY = pasteY + relY;
+ const absKey = absX + "," + absY;
+ const oldColor = pixelData.get(absKey);
+ if (oldColor !== pxColor) {
+ if (pxColor === "rgba(0,0,0,0)") {
+ pixelData.delete(absKey);
+ } else {
+ pixelData.set(absKey, pxColor);
+ }
+ updated = true;
+ }
+ });
+ if (updated) {
+ drawRect(redrawMinX, redrawMinY, redrawMaxX, redrawMaxY);
+ alert("Pasted at (" + pasteX + ", " + pasteY + ").");
+ } else {
+ alert("Nothing changed.");
+ }
+ }
+ canvas.addEventListener("mousedown", e => {
+ const rect = canvas.getBoundingClientRect();
+ const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+ const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+ const x = Math.floor(xPos);
+ const y = Math.floor(yPos);
+ if (panMode && e.button === 0) {
+ isPanning = true;
+ lastPanX = e.clientX;
+ lastPanY = e.clientY;
+ canvas.classList.add('grabbing');
+ return;
+ }
+ if (x < 0 || x >= width || y < 0 || y >= height) return;
+ if (replaceMode) {
+ const key = x + "," + y;
+ const pickedColor = pixelData.get(key);
+ if (pickedColor && pickedColor !== "rgba(0,0,0,0)") {
+ if (!sourceColor) {
+ sourceColor = pickedColor;
+ alert(`Source color: ${sourceColor}. Now pick the target color on the canvas.`);
+ } else {
+ const targetColor = pickedColor;
+ replaceAll(sourceColor, targetColor);
+ sourceColor = null;
+ replaceMode = false;
+ replaceBtn.classList.remove('active');
+ }
+ }
+ return;
+ }
+ if (e.button === 0) {
+ if (eyedropperMode) {
+ const key = x + "," + y;
+ const pickedColor = pixelData.get(key);
+ if (pickedColor && pickedColor !== "rgba(0,0,0,0)") {
+ color = pickedColor;
+ document.getElementById("colorPicker").value = color;
+ }
+ return;
+ } else if (selectionMode) {
+ isSelecting = true;
+ selStartX = x;
+ selStartY = y;
+ selEndX = x;
+ selEndY = y;
+ return;
+ } else {
+ isDrawing = true;
+ drawPixel(e);
+ }
+ } else if (e.button === 2) {
+ isPanning = true;
+ lastPanX = e.clientX;
+ lastPanY = e.clientY;
+ e.preventDefault();
+ }
+ });
+ canvas.addEventListener("mousemove", e => {
+ const rect = canvas.getBoundingClientRect();
+ const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+ const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+ const x = Math.floor(xPos);
+ const y = Math.floor(yPos);
+ if (eyedropperMode) {
+ canvas.style.cursor = 'crosshair';
+ return;
+ }
+ if (isDrawing && !panMode && !selectionMode) {
+ drawPixel(e);
+ }
+ if (isSelecting && selectionMode) {
+ selEndX = x;
+ selEndY = y;
+ drawGrid();
+ }
+ if (isPanning) {
+ const deltaX = e.clientX - lastPanX;
+ const deltaY = e.clientY - lastPanY;
+ offsetX += deltaX;
+ offsetY += deltaY;
+ lastPanX = e.clientX;
+ lastPanY = e.clientY;
+ drawGrid();
+ }
+ });
+ canvas.addEventListener("mouseup", () => {
+ isDrawing = false;
+ isPanning = false;
+ canvas.classList.remove('grabbing');
+ if (isSelecting) {
+ isSelecting = false;
+ const minX = Math.min(selStartX, selEndX);
+ const minY = Math.min(selStartY, selEndY);
+ const maxX = Math.max(selStartX, selEndX);
+ const maxY = Math.max(selStartY, selEndY);
+ if (maxX > minX || maxY > minY) {
+ selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
+ copyBtn.disabled = false;
+ pasteBtn.disabled = !clipboard;
+ clearSelectionBtn.disabled = false;
+ } else {
+ selectedArea = null;
+ }
+ drawGrid();
+ }
+ });
+ canvas.addEventListener("mouseleave", () => {
+ isDrawing = false;
+ isPanning = false;
+ canvas.classList.remove('grabbing');
+ if (isSelecting) {
+ isSelecting = false;
+ const minX = Math.min(selStartX, selEndX);
+ const minY = Math.min(selStartY, selEndY);
+ const maxX = Math.max(selStartX, selEndX);
+ const maxY = Math.max(selStartY, selEndY);
+ if (maxX > minX || maxY > minY) {
+ selectedArea = { startX: minX, startY: minY, endX: maxX, endY: maxY };
+ copyBtn.disabled = false;
+ pasteBtn.disabled = !clipboard;
+ clearSelectionBtn.disabled = false;
+ } else {
+ selectedArea = null;
+ }
+ drawGrid();
+ }
+ });
+ canvas.addEventListener("contextmenu", e => e.preventDefault());
+ function drawPixel(e) {
+ const rect = canvas.getBoundingClientRect();
+ const xPos = (e.clientX - rect.left - offsetX) / (pixelSize * zoom);
+ const yPos = (e.clientY - rect.top - offsetY) / (pixelSize * zoom);
+ const x = Math.floor(xPos);
+ const y = Math.floor(yPos);
+ if (x < 0 || x >= width || y < 0 || y >= height) return;
+ const half = Math.floor(brushSize / 2);
+ let minX = x - half;
+ let maxX = x + half + 1;
+ let minY = y - half;
+ let maxY = y + half + 1;
+ let updated = false;
+ for (let dy = -half; dy <= half; dy++) {
+ for (let dx = -half; dx <= half; dx++) {
+ const px = x + dx;
+ const py = y + dy;
+ if (px >= 0 && px < width && py >= 0 && py < height) {
+ const key = px + "," + py;
+ const isTransparent = transparentMode;
+ const newColor = isTransparent ? "rgba(0,0,0,0)" : color;
+ const oldColor = pixelData.get(key);
+ if (oldColor !== newColor) {
+ if (newColor === "rgba(0,0,0,0)") {
+ pixelData.delete(key);
+ } else {
+ pixelData.set(key, newColor);
+ }
+ updated = true;
+ }
+ }
+ }
+ }
+ minX = Math.max(0, minX);
+ maxX = Math.min(width, maxX);
+ minY = Math.max(0, minY);
+ maxY = Math.min(height, maxY);
+ if (updated) {
+ drawRect(minX, minY, maxX, maxY);
+ }
+ }
+ function applyZoom(zoomFactor, centerX, centerY) {
+ const worldX = (centerX - offsetX) / zoom;
+ const worldY = (centerY - offsetY) / zoom;
+ zoom *= zoomFactor;
+ zoom = Math.min(Math.max(zoom, 0.01), 100);
+ offsetX = centerX - worldX * zoom;
+ offsetY = centerY - worldY * zoom;
+ drawGrid();
+ }
+ canvas.addEventListener("wheel", e => {
+ e.preventDefault();
+ const rect = canvas.getBoundingClientRect();
+ const cx = e.clientX - rect.left;
+ const cy = e.clientY - rect.top;
+ const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+ applyZoom(zoomFactor, cx, cy);
+ }, { passive: false });
+ let pinchLastDist = 0;
+ let pinchInitialZoom = 0;
+ canvas.addEventListener("touchstart", e => {
+ if (e.touches.length === 2) {
+ const dx = e.touches[0].clientX - e.touches[1].clientX;
+ const dy = e.touches[0].clientY - e.touches[1].clientY;
+ pinchLastDist = Math.hypot(dx, dy);
+ pinchInitialZoom = zoom;
+ isPanning = false;
+ } else if (e.touches.length === 1) {
+ lastPanX = e.touches[0].clientX;
+ lastPanY = e.touches[0].clientY;
+ isPanning = true;
+ }
+ });
+ canvas.addEventListener("touchmove", e => {
+ e.preventDefault();
+ if (e.touches.length === 1 && isPanning) {
+ const deltaX = e.touches[0].clientX - lastPanX;
+ const deltaY = e.touches[0].clientY - lastPanY;
+ offsetX += deltaX;
+ offsetY += deltaY;
+ lastPanX = e.touches[0].clientX;
+ lastPanY = e.touches[0].clientY;
+ drawGrid();
+ } else if (e.touches.length === 2) {
+ const dx = e.touches[0].clientX - e.touches[1].clientX;
+ const dy = e.touches[0].clientY - e.touches[1].clientY;
+ const dist = Math.hypot(dx, dy);
+ if (pinchLastDist > 0) {
+ const zoomFactor = dist / pinchLastDist;
+ const rect = canvas.getBoundingClientRect();
+ const cx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+ const cy = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+ applyZoom(zoomFactor, cx, cy);
+ }
+ pinchLastDist = dist;
+ }
+ }, { passive: false });
+ canvas.addEventListener("touchend", e => {
+ if (e.touches.length < 2) {
+ pinchLastDist = 0;
+ }
+ if (e.touches.length === 0) {
+ isPanning = false;
+ }
+ });
+ exportBtn.onclick = () => {
+ const format = document.getElementById("exportFormat").value;
+ const sparseData = Array.from(pixelData.entries());
+ if (sparseData.length === 0) {
+ alert("No pixels to export. Draw something first!");
+ return;
+ }
+ const estimatedSizeMB = (sparseData.length * 1 * 1 * 4) / (1024 * 1024);
+ if (width * height > 10000 || estimatedSizeMB > 100) {
+ if (!confirm("Large project (" + width + "x" + height + ", ~" + Math.round(estimatedSizeMB) + " MB). Exporting may take a while. OK?")) return;
+ }
+ const myWorker = initWorker();
+ const offscreen = new OffscreenCanvas(width, height);
+ myWorker.postMessage({ type: 'export', data: sparseData, format: format, width: width, height: height, canvas: offscreen }, [offscreen]);
+ showProgress();
+ progressText.textContent = "Starting export... 0%";
+ exportBtn.disabled = true;
+ };
+ function showProgress() {
+ progressContainer.style.display = 'block';
+ progressFill.style.width = '0%';
+ }
+ function hideProgress() {
+ progressContainer.style.display = 'none';
+ }
+ document.getElementById("saveProject").onclick = () => {
+ if (!db) {
+ alert("Database not loaded. Try again.");
+ return;
+ }
+ const name = prompt("Project name:");
+ if (!name) return;
+ const sparseData = Array.from(pixelData.entries());
+ const tx = db.transaction("projects", "readwrite");
+ const store = tx.objectStore("projects");
+ const req = store.put({ name: name, width: width, height: height, pixelData: sparseData });
+ req.onerror = e => alert("Save failed: " + e.target.error);
+ req.onsuccess = loadProjectList;
+ };
+ document.getElementById("loadProject").onclick = () => {
+ if (!db) {
+ alert("Database not loaded. Try again.");
+ return;
+ }
+ const select = document.getElementById("projectSelect");
+ const name = select.value;
+ if (!name) {
+ alert("Select a project.");
+ return;
+ }
+ const tx = db.transaction("projects", "readonly");
+ const store = tx.objectStore("projects");
+ const req = store.get(name);
+ req.onerror = e => alert("Load failed: " + e.target.error);
+ req.onsuccess = () => {
+ const proj = req.result;
+ if (!proj) return;
+ width = proj.width;
+ height = proj.height;
+ pixelData = new Map(proj.pixelData || []);
+ clearSelection();
+ pixelSize = 32;
+ zoom = Math.min(canvasWidth / (width * pixelSize), canvasHeight / (height * pixelSize));
+ offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
+ offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
+ drawGrid();
+ };
+ };
+ function loadProjectList() {
+ if (!db) return;
+ const tx = db.transaction("projects", "readonly");
+ const store = tx.objectStore("projects");
+ const req = store.getAll();
+ req.onsuccess = () => {
+ const select = document.getElementById("projectSelect");
+ select.innerHTML = "";
+ req.result.forEach(p => {
+ const opt = document.createElement("option");
+ opt.value = p.name;
+ opt.textContent = p.name;
+ select.appendChild(opt);
+ });
+ };
+ }
+ window.addEventListener('load', () => {
+ document.getElementById("createGrid").click();
+ updateCursor();
+ });
+ })();
+ </script>
 </body>
 </html>
