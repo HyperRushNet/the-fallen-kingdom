@@ -131,6 +131,8 @@
             <button id="copyBtn" disabled title="Copy"><i class="fas fa-copy"></i></button>
             <button id="pasteBtn" disabled title="Paste"><i class="fas fa-paste"></i></button>
             <button id="clearSelectionBtn" disabled title="Clear Selection"><i class="fas fa-trash"></i></button>
+            <button id="undoBtn" disabled title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+            <button id="redoBtn" disabled title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
         </div>
         <button id="saveProject" title="Save"><i class="fas fa-save"></i></button>
         <select id="projectSelect" title="Projects"></select>
@@ -171,6 +173,7 @@
             let height = 16;
             let brushSize = 1;
             let isDrawing = false;
+            let drawingStroke = false;
             let isPanning = false;
             let isSelecting = false;
             let lastPanX = 0;
@@ -183,6 +186,8 @@
             let clipboard = null;
             let canvasWidth = 800;
             let canvasHeight = 800;
+            let history = [];
+            let currentHistoryIndex = -1;
             const progressContainer = document.getElementById("progressContainer");
             const progressFill = document.getElementById("progressFill");
             const progressText = document.getElementById("progressText");
@@ -199,6 +204,8 @@
             const replaceBtn = document.getElementById("replaceBtn");
             const importFileBtn = document.getElementById("importFileBtn");
             const importFile = document.getElementById("importImage");
+            const undoBtn = document.getElementById("undoBtn");
+            const redoBtn = document.getElementById("redoBtn");
             let db = null;
             const request = indexedDB.open("PixelArtDB", 1);
             request.onupgradeneeded = e => {
@@ -212,6 +219,38 @@
                 db = e.target.result;
                 loadProjectList();
             };
+            function serializePixelData() {
+                return Array.from(pixelData.entries());
+            }
+            function saveState() {
+                history = history.slice(0, currentHistoryIndex + 1);
+                history.push(serializePixelData());
+                currentHistoryIndex = history.length - 1;
+                updateHistoryButtons();
+            }
+            function restoreState() {
+                if (currentHistoryIndex >= 0 && history[currentHistoryIndex]) {
+                    pixelData = new Map(history[currentHistoryIndex]);
+                    drawGrid();
+                }
+                updateHistoryButtons();
+            }
+            function undo() {
+                if (currentHistoryIndex > 0) {
+                    currentHistoryIndex--;
+                    restoreState();
+                }
+            }
+            function redo() {
+                if (currentHistoryIndex < history.length - 1) {
+                    currentHistoryIndex++;
+                    restoreState();
+                }
+            }
+            function updateHistoryButtons() {
+                undoBtn.disabled = currentHistoryIndex <= 0;
+                redoBtn.disabled = currentHistoryIndex >= history.length - 1;
+            }
             function drawGrid() {
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.imageSmoothingEnabled = false;
@@ -374,6 +413,7 @@
                 if (count > 0) {
                     drawGrid();
                     alert(`${count} pixels replaced from ${source} to ${target}.`);
+                    saveState();
                 } else {
                     alert("No pixels of the source color found.");
                 }
@@ -521,6 +561,7 @@
                         } else if (sparseData) {
                             pixelData = new Map(sparseData);
                             drawGrid();
+                            saveState();
                             hideProgress();
                             importBtn.disabled = true;
                             importFile.value = '';
@@ -535,6 +576,7 @@
                             offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
                             offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
                             drawGrid();
+                            saveState();
                             hideProgress();
                             createBtn.disabled = false;
                         }
@@ -577,6 +619,7 @@
                     offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
                     offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
                     drawGrid();
+                    saveState();
                 } else {
                     if (!confirm("Large grid (" + w + "x" + h + ", " + totalSize.toLocaleString() + " pixels). This may take a while to initialize. OK?")) return;
                     createBtn.disabled = true;
@@ -857,6 +900,7 @@
                 if (updated) {
                     drawRect(redrawMinX, redrawMinY, redrawMaxX, redrawMaxY);
                     alert("Pasted at (" + pasteX + ", " + pasteY + ").");
+                    saveState();
                 } else {
                     alert("Nothing changed.");
                 }
@@ -910,6 +954,7 @@
                         return;
                     } else {
                         isDrawing = true;
+                        drawingStroke = true;
                         drawPixel(e);
                     }
                 } else if (e.button === 2) {
@@ -949,6 +994,10 @@
             });
             canvas.addEventListener("mouseup", () => {
                 isDrawing = false;
+                if (drawingStroke) {
+                    saveState();
+                    drawingStroke = false;
+                }
                 isPanning = false;
                 canvas.classList.remove('grabbing');
                 if (isSelecting) {
@@ -970,6 +1019,10 @@
             });
             canvas.addEventListener("mouseleave", () => {
                 isDrawing = false;
+                if (drawingStroke) {
+                    saveState();
+                    drawingStroke = false;
+                }
                 isPanning = false;
                 canvas.classList.remove('grabbing');
                 if (isSelecting) {
@@ -1161,6 +1214,7 @@
                     offsetX = (canvasWidth - width * pixelSize * zoom) / 2;
                     offsetY = (canvasHeight - height * pixelSize * zoom) / 2;
                     drawGrid();
+                    saveState();
                 };
             };
             function loadProjectList() {
@@ -1179,6 +1233,19 @@
                     });
                 };
             }
+            undoBtn.onclick = () => undo();
+            redoBtn.onclick = () => redo();
+            window.addEventListener('keydown', e => {
+                if (e.ctrlKey) {
+                    if (e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        undo();
+                    } else if (e.key === 'y') {
+                        e.preventDefault();
+                        redo();
+                    }
+                }
+            });
             window.addEventListener('load', () => {
                 document.getElementById("createGrid").click();
                 updateCursor();
