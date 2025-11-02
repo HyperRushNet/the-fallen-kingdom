@@ -404,7 +404,6 @@ this.infiniteJump = false;
 this.noclip = false;
 this.patrolStart = null;
 this.patrolTarget = null;
-this.currentTarget = null;
 this.patrolSpeed = 0;
 if (isStatic) this.updateAABB();
 }
@@ -717,21 +716,20 @@ const viewMaxY = world.player.pos.y + canvas.height / 2;
 const viewAABB = { minX: viewMinX, minY: viewMinY, maxX: viewMaxX, maxY: viewMaxY };
 const overlap = aabbOverlap(this.aabb, viewAABB);
 }
-if (this.patrolStart !== null && this.patrolTarget !== null) {
-let toCurrent = this.currentTarget.sub(this.pos);
-let dist = toCurrent.len();
-if (dist <= this.patrolSpeed * dt + 0.01) {
-this.pos.set(this.currentTarget.x, this.currentTarget.y);
-const atTarget = Math.hypot(this.currentTarget.x - this.patrolTarget.x, this.currentTarget.y - this.patrolTarget.y) < 1;
-this.currentTarget = atTarget ? this.patrolStart.clone() : this.patrolTarget.clone();
-toCurrent = this.currentTarget.sub(this.pos);
-dist = toCurrent.len();
-}
-if (dist > 0) {
-const unit = toCurrent.norm();
-this.vel.set(unit.x * this.patrolSpeed, unit.y * this.patrolSpeed);
+if (this.isMovingPlatform && this.patrolStart && this.patrolTarget) {
+const distVec = this.patrolTarget.sub(this.patrolStart);
+const distance = distVec.len();
+if (distance > 0) {
+const cycleTime = 2 * distance / this.patrolSpeed;
+const frac = (world.globalTime % cycleTime) / cycleTime;
+let phase;
+if (frac <= 0.5) {
+phase = frac / 0.5;
 } else {
-this.vel.set(0, 0);
+phase = 1 - (frac - 0.5) / 0.5;
+}
+this.pos = this.patrolStart.add(distVec.scale(phase));
+this.updateAABB();
 }
 }
 const disp_x = this.vel.x * dt;
@@ -862,6 +860,7 @@ this.allEntities = [];
 this.inventory = new Array(config.maxPlayerSlots).fill(null);
 this.nearbyChest = null;
 this.nearbyRespawnBox = null;
+this.globalTime = 0;
 this.batchPositionBuffer = gl.createBuffer();
 this.batchIndexBuffer = gl.createBuffer();
 this.debugLineBuffer = gl.createBuffer();
@@ -1013,7 +1012,6 @@ if (plat.type === "movingPlatform") {
 e.isMovingPlatform = true;
 e.patrolStart = e.pos.clone();
 e.patrolTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
-e.currentTarget = e.patrolTarget.clone();
 e.patrolSpeed = plat.speed || 100;
 }
 if (plat.type === "deadly") e.deadly = true;
@@ -1217,6 +1215,7 @@ return this.reusableInterpVel;
 }
 }
 update(dt) {
+this.globalTime += dt;
 for (const e of this.dynamics) {
 if (e !== this.player) {
 e.update(dt, this);
