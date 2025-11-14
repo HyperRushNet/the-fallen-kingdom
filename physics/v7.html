@@ -67,938 +67,19 @@
       saveThrottle: 500,
       collisionEpsilon: 0.1
     };
-
-    const mapData = {
-      "playerStart": {
-        "x": 125,
-        "y": -5,
-        "w": 59,
-        "h": 100,
-        "zIndex": 1,
-        "angle": 0
-      },
-      "textures": [
-        "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/jgWo6uTND6pu-Os4J6efGYCzb.png",
-        "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/pTqWy92PbcBF-Pwa8dvWqg7M9.png",
-        "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/1idbLU-ilSWg1t84xuZ.png",
-        "https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg",
-        "https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg",
-        "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm",
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg",
-        "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/HsNHzCP3C4Dt-1K9hrQ34VdzX.png"
-      ],
-      "platforms": [
-        {
-          "id": "jgWo6uTND6pu-Os4J6efGYCzb",
-          "type": "platform",
-          "x": 221,
-          "y": 100,
-          "w": 1200,
-          "h": 100,
-          "angle": 0,
-          "texture": 0,
-          "zIndex": 1
-        },
-        {
-          "id": "kkjpb16uNZiC-wXbrlAZlZh6G",
-          "type": "platform",
-          "x": 750,
-          "y": -360,
-          "w": 100,
-          "h": 200,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 2
-        },
-        {
-          "id": "edCMMNq3n6xB-pQMRIUBnzSQ0",
-          "type": "platform",
-          "x": 900,
-          "y": -210,
-          "w": 200,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 4
-        },
-        {
-          "id": "3rQKxqosrA06-8dkJiryN0Bbm",
-          "type": "platform",
-          "x": 1077,
-          "y": -241,
-          "w": 200,
-          "h": 100,
-          "angle": -20,
-          "texture": null,
-          "zIndex": 5
-        },
-        {
-          "id": "X2Qnky1oVNud-IjZmQYypmDHg",
-          "type": "platform",
-          "x": 1211,
-          "y": -281,
-          "w": 100,
-          "h": 100,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 6
-        },
-        {
-          "id": "2KGvRRd1pYqF-lf6mZxwt59dc",
-          "type": "platform",
-          "x": 1302,
-          "y": -289,
-          "w": 100,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 7
-        },
-        {
-          "id": "oWxYgmS6AQWg-kyNXNHFKVwAI",
-          "type": "platform",
-          "x": 1392,
-          "y": -281,
-          "w": 100,
-          "h": 100,
-          "angle": 10,
-          "texture": null,
-          "zIndex": 8
-        },
-        {
-          "id": "8peAJm7lGCkV-kzrYFYGaCTDC",
-          "type": "platform",
-          "x": 1526,
-          "y": -240,
-          "w": 200,
-          "h": 100,
-          "angle": 20,
-          "texture": null,
-          "zIndex": 9
-        },
-        {
-          "id": "9vCbybOEpKba-kxu7XvSfB8SD",
-          "type": "platform",
-          "x": 1410,
-          "y": 100,
-          "w": 1200,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 1
-        },
-        {
-          "id": "MS1PZMAEiRFM-dZFkoEtwGk7j",
-          "type": "platform",
-          "x": 1250,
-          "y": -360,
-          "w": 900,
-          "h": 200,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 11
-        },
-        {
-          "id": "mB9AGahnURyG-SRwduaagJUTa",
-          "type": "platform",
-          "x": 1491,
-          "y": -510,
-          "w": 780,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 12
-        },
-        {
-          "id": "4mSqoDGYUcVg-uVvKKDYiEFyL",
-          "type": "platform",
-          "x": 860,
-          "y": -781,
-          "w": 200,
-          "h": 100,
-          "angle": -20,
-          "texture": null,
-          "zIndex": 13
-        },
-        {
-          "id": "0vTEKctsJJgh-bojJAgRYlkSz",
-          "type": "platform",
-          "x": 1093,
-          "y": -839,
-          "w": 300,
-          "h": 100,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 14
-        },
-        {
-          "id": "CmBavJ0hZhFq-GrwUXjNqhTpr",
-          "type": "platform",
-          "x": 1311,
-          "y": -909,
-          "w": 200,
-          "h": 100,
-          "angle": -30,
-          "texture": null,
-          "zIndex": 15
-        },
-        {
-          "id": "VqLONgs03hiY-ogv3zTN5M3dK",
-          "type": "platform",
-          "x": 786,
-          "y": -245,
-          "w": 141,
-          "h": 100,
-          "angle": 45,
-          "texture": null,
-          "zIndex": 16
-        },
-        {
-          "id": "Vb8HWAKBdL6Z-aIoE71xlQDgI",
-          "type": "platform",
-          "x": 1650,
-          "y": -210,
-          "w": 100,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 17
-        },
-        {
-          "id": "84t3a75ooIRX-T1OnrwMWNA6B",
-          "type": "platform",
-          "x": 1529,
-          "y": -979,
-          "w": 300,
-          "h": 100,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 18
-        },
-        {
-          "id": "gE7XXXicjEat-mnS07sjDfPvx",
-          "type": "platform",
-          "x": 1739,
-          "y": -913,
-          "w": 300,
-          "h": 100,
-          "angle": 45,
-          "texture": null,
-          "zIndex": 19
-        },
-        {
-          "id": "wR44RJanvFEX-xjzmUm1QIC83",
-          "type": "platform",
-          "x": 1831,
-          "y": -701,
-          "w": 100,
-          "h": 283,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 20
-        },
-        {
-          "id": "9RsFfEXShyPx-L3bz8ljUsu0C",
-          "type": "platform",
-          "x": 2310,
-          "y": 50,
-          "w": 600,
-          "h": 200,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 1
-        },
-        {
-          "id": "wFUMitBwRH8N-jaQEV6NVDoea",
-          "type": "platform",
-          "x": 1795,
-          "y": -394,
-          "w": 450,
-          "h": 235,
-          "angle": -40,
-          "texture": null,
-          "zIndex": 22
-        },
-        {
-          "id": "IAJZ6SZzR4YH-bq4lnwKOYhsj",
-          "type": "platform",
-          "x": 1969,
-          "y": -515,
-          "w": 355,
-          "h": 175,
-          "angle": -20,
-          "texture": null,
-          "zIndex": 23
-        },
-        {
-          "id": "h8UAI1ADfe9H-R4jmVGaQc9xO",
-          "type": "platform",
-          "x": 2295,
-          "y": -605,
-          "w": 355,
-          "h": 175,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 24
-        },
-        {
-          "id": "rZaZix5aGw88-qwNz0CJUpQKs",
-          "type": "platform",
-          "x": 3441,
-          "y": -186,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 27
-        },
-        {
-          "id": "zlUUglmdDa54-WEb8AuvqA7xS",
-          "type": "platform",
-          "x": 3771,
-          "y": -237,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 28
-        },
-        {
-          "id": "pTqWy92PbcBF-Pwa8dvWqg7M9",
-          "type": "platform",
-          "x": 2910,
-          "y": -42,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 29
-        },
-        {
-          "id": "A3ckQ4o67yQp-xqTd68CPc0Vx",
-          "type": "platform",
-          "x": 3199,
-          "y": -52,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 30
-        },
-        {
-          "id": "GWX8BWSXmc7L-d30Ee41JSOpy",
-          "type": "platform",
-          "x": 3984,
-          "y": -417,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 31
-        },
-        {
-          "id": "F3cbLQKZGswe-OzeWvsmhx3KC",
-          "type": "platform",
-          "x": 3673,
-          "y": -574,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 32
-        },
-        {
-          "id": "jURZ7N1idbLU-ilSWg1t84xuZ",
-          "type": "deadly",
-          "x": 2910,
-          "y": -22,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 33
-        },
-        {
-          "id": "hwOm68RaIRHX-zEXB3Ze04DaI",
-          "type": "deadly",
-          "x": 3199,
-          "y": -32,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 34
-        },
-        {
-          "id": "zzmsdIG86uol-ifMTnU8xQMB1",
-          "type": "deadly",
-          "x": 3441,
-          "y": -166,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 35
-        },
-        {
-          "id": "872NIw92j9aD-hA8iQGKGtXbU",
-          "type": "deadly",
-          "x": 3771,
-          "y": -217,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 36
-        },
-        {
-          "id": "BlhZ9dgvWdWB-kiHylVXZiObj",
-          "type": "deadly",
-          "x": 3984,
-          "y": -397,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 37
-        },
-        {
-          "id": "z39vM1L7cE5Q-bB9RBVbfTk8a",
-          "type": "deadly",
-          "x": 3673,
-          "y": -554,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 38
-        },
-        {
-          "id": "raAYBYWQSgvh-2ULmY9IOfiNv",
-          "type": "platform",
-          "x": 3385,
-          "y": 450,
-          "w": 2750,
-          "h": 600,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 39
-        },
-        {
-          "id": "p8jDcXstfhOM-QSNUJnBykSV3",
-          "type": "platform",
-          "x": 4460,
-          "y": 50,
-          "w": 600,
-          "h": 200,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 40
-        },
-        {
-          "id": "v0WiMvC6M2qK-kDjUXzqeANwX",
-          "type": "platform",
-          "x": 4650,
-          "y": -371,
-          "w": 800,
-          "h": 400,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 41
-        },
-        {
-          "id": "uCFZiV6yv4UN-SadspmUsg5FV",
-          "type": "platform",
-          "x": 3957,
-          "y": -682,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": 1,
-          "zIndex": 42
-        },
-        {
-          "id": "W3GH8M6LJkLs-TZBvsjZntFjg",
-          "type": "deadly",
-          "x": 3957,
-          "y": -662,
-          "w": 98,
-          "h": 20,
-          "angle": 0,
-          "texture": 2,
-          "zIndex": 43
-        },
-        {
-          "id": "W0fXvWWTxMol-OMpY660ni3d1",
-          "type": "platform",
-          "x": 4150,
-          "y": -1030,
-          "w": 600,
-          "h": 200,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 44
-        },
-        {
-          "id": "UVRO79gn60Fa-qR4McfpfUNuv",
-          "type": "platform",
-          "x": 4648,
-          "y": -1006,
-          "w": 721,
-          "h": 200,
-          "angle": 7,
-          "texture": null,
-          "zIndex": 45
-        },
-        {
-          "id": "1BUqI8Ofi6ms-oRamBygx0D9l",
-          "type": "platform",
-          "x": 4200,
-          "y": -420,
-          "w": 100,
-          "h": 300,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 46
-        },
-        {
-          "id": "6gehgTx3BD6O-xXi9vvMSMLBI",
-          "type": "platform",
-          "x": 4229,
-          "y": -249,
-          "w": 141,
-          "h": 80,
-          "angle": 45,
-          "texture": null,
-          "zIndex": 47
-        },
-        {
-          "id": "pkpDsWpzctKL-5OwQigDTbIma",
-          "type": "platform",
-          "x": 3551,
-          "y": -1070,
-          "w": 721,
-          "h": 200,
-          "angle": 15,
-          "texture": null,
-          "zIndex": 48
-        },
-        {
-          "id": "3LmKr3UGZEbo-oZqx3tKCAMDs",
-          "type": "platform",
-          "x": 2952,
-          "y": -1109,
-          "w": 600,
-          "h": 200,
-          "angle": -10,
-          "texture": null,
-          "zIndex": 49
-        },
-        {
-          "id": "eoyRw3WubzR1-DbMIf038kjjL",
-          "type": "platform",
-          "x": 2576,
-          "y": -855,
-          "w": 600,
-          "h": 200,
-          "angle": -55,
-          "texture": null,
-          "zIndex": 50
-        },
-        {
-          "id": "7KIgFCDRwdF8-U0yUPGrWyEqm",
-          "type": "platform",
-          "x": 4366,
-          "y": -639,
-          "w": 433,
-          "h": 138,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 53
-        },
-        {
-          "id": "VOvckp2nyAe5-Q8U76TEKoQeO",
-          "type": "deadly",
-          "x": 3385,
-          "y": 140,
-          "w": 1550,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 54
-        },
-        {
-          "id": "udUfT3MNj0Cq-KJ7Zsh70Ue5q",
-          "type": "platform",
-          "x": 1308,
-          "y": -88,
-          "w": 220,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 57
-        },
-        {
-          "id": "SGG8pcYQm6mQ-KelDCAx3MBhP",
-          "type": "chest",
-          "x": 1309,
-          "y": -135,
-          "w": 75,
-          "h": 75,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 1,
-          "detectionRadius": 100,
-          "items": ["resin"],
-          "closedTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg",
-          "openTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg",
-          "openingTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm",
-          "closingTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm",
-          "closedTextureId": 3,
-          "openTextureId": 4,
-          "openingTextureId": 5,
-          "closingTextureId": 5
-        },
-        {
-          "id": "1QDwJg388Lnv-bRNjkmuWhFaJ",
-          "type": "platform",
-          "x": 2156,
-          "y": -739,
-          "w": 700,
-          "h": 300,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 59
-        },
-        {
-          "id": "grUfrpf3npIq-vvdKdShPsT0r",
-          "type": "platform",
-          "x": 2174,
-          "y": -1035,
-          "w": 948,
-          "h": 300,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 60
-        },
-        {
-          "id": "PUWunsdRlN0O-JKgeIBhYmDtE",
-          "type": "platform",
-          "x": 4810,
-          "y": 350,
-          "w": 100,
-          "h": 800,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 1
-        },
-        {
-          "id": "bUCHEPHsDCZW-Ox8b1I5c4cng",
-          "type": "platform",
-          "x": 5010,
-          "y": 350,
-          "w": 100,
-          "h": 800,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 62
-        },
-        {
-          "id": "f3m3R5o2BQzW-fI3gFRtTA3ER",
-          "type": "respawn",
-          "x": 1731,
-          "y": -610,
-          "w": 100,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 0,
-          "detectionRadius": 100,
-          "passThrough": true,
-          "respawnX": 1731,
-          "respawnY": -610,
-          "inactiveTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg",
-          "activeTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm",
-          "inactiveTextureId": 6,
-          "activeTextureId": 5
-        },
-        {
-          "id": "s4ftRYK69unh-IKn2TTHVOxnO",
-          "type": "platform",
-          "x": 4737,
-          "y": 742,
-          "w": 225,
-          "h": 100,
-          "angle": -20,
-          "texture": null,
-          "zIndex": 63
-        },
-        {
-          "id": "rN7172iSnntt-GLPMwjrY0lfi",
-          "type": "platform",
-          "x": 4690,
-          "y": 1120,
-          "w": 1000,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 64
-        },
-        {
-          "id": "zI1dgj8I8BWA-6uDB6qk0FfSt",
-          "type": "platform",
-          "x": 4909,
-          "y": 1051,
-          "w": 100,
-          "h": 120,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 65
-        },
-        {
-          "id": "aoRvamxwYmdf-mxZJkk6XQuSJ",
-          "type": "platform",
-          "x": 4653,
-          "y": 1050,
-          "w": 100,
-          "h": 120,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 66
-        },
-        {
-          "id": "HN2pjwU9h3pR-zDc5QMtfn1Cl",
-          "type": "deadly",
-          "x": 4781,
-          "y": 1100,
-          "w": 156,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 67
-        },
-        {
-          "id": "ncegTFgLA2ie-UIS0Jz3UxrTa",
-          "type": "platform",
-          "x": 5009,
-          "y": 1060,
-          "w": 100,
-          "h": 101,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 68
-        },
-        {
-          "id": "N5uU5DI901jp-pmNVd2UagSY0",
-          "type": "platform",
-          "x": 5421,
-          "y": 783,
-          "w": 264,
-          "h": 250,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 70
-        },
-        {
-          "id": "YuOloEFFHQcJ-lKIRAOclyWAg",
-          "type": "platform",
-          "x": 5239,
-          "y": 894,
-          "w": 100,
-          "h": 472,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 71
-        },
-        {
-          "id": "Hb9Cl8lLcBc1-9G31QRE5ybJ1",
-          "type": "deadly",
-          "x": 5124,
-          "y": 1100,
-          "w": 131,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 72
-        },
-        {
-          "id": "XFq6ZVIzm7Ac-ndQ2zZT5HCSE",
-          "type": "platform",
-          "x": -382,
-          "y": 466,
-          "w": 300,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 73
-        },
-        {
-          "id": "yxmgiobxKZeL-gE30ir34LWWK",
-          "type": "platform",
-          "x": 613,
-          "y": 466,
-          "w": 100,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 75
-        },
-        {
-          "id": "YDIGbq0LRqdW-eUVxNHBKOIjz",
-          "type": "movingPlatform",
-          "x": -132,
-          "y": 506,
-          "w": 200,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 76,
-          "targetX": 479,
-          "targetY": 506,
-          "speed": 100
-        },
-        {
-          "id": "kyIhny9f5HPH-wK5N3oZPrnwi",
-          "type": "platform",
-          "x": -222,
-          "y": 476,
-          "w": 20,
-          "h": 40,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 77,
-          "linkedTo": "YDIGbq0LRqdW-eUVxNHBKOIjz"
-        },
-        {
-          "id": "i5BkT3yaVVCI-uG0ca6HlUJJT",
-          "type": "platform",
-          "x": -42,
-          "y": 476,
-          "w": 20,
-          "h": 40,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 78,
-          "linkedTo": "YDIGbq0LRqdW-eUVxNHBKOIjz"
-        },
-        {
-          "id": "9Oau6Rfx7tMN-hWaqCnOmflCC",
-          "type": "platform",
-          "x": 573,
-          "y": 496,
-          "w": 20,
-          "h": 40,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 79
-        },
-        {
-          "id": "3fMTbpjBMr3X-Ue8ijWGfoZiX",
-          "type": "platform",
-          "x": -222,
-          "y": 486,
-          "w": 20,
-          "h": 60,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 80
-        },
-        {
-          "id": "ioqMQ5eT63L3-ghV1tpbKlJVL",
-          "type": "deadly",
-          "x": 4550,
-          "y": 760,
-          "w": 156,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 62
-        },
-        {
-          "id": "0m1n0Domtkx4-x6qh2qn8nrpK",
-          "type": "deadly",
-          "x": 4394,
-          "y": 760,
-          "w": 156,
-          "h": 20,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 81
-        },
-        {
-          "id": "TUqf6q6TgQnm-6xdKbFfWFHo3",
-          "type": "platform",
-          "x": 4207,
-          "y": 742,
-          "w": 225,
-          "h": 100,
-          "angle": 20,
-          "texture": null,
-          "zIndex": 82
-        },
-        {
-          "id": "wo3voL0R5AZb-6RrYukjhhSpU",
-          "type": "platform",
-          "x": 4453,
-          "y": 1035,
-          "w": 300,
-          "h": 150,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 83
-        },
-        {
-          "id": "bytnbRNMKjg3-jDcSiuKErjkX",
-          "type": "platform",
-          "x": 5310,
-          "y": 450,
-          "w": 500,
-          "h": 100,
-          "angle": 0,
-          "texture": null,
-          "zIndex": 84
-        }
-      ],
-      "decor": [
-        {
-          "id": "HOJZq7kFaugY-LxBMwFAE7Nd0",
-          "x": 1408,
-          "y": -168,
-          "w": 20,
-          "h": 150,
-          "angle": 0,
-          "texture": 7,
-          "zIndex": 7,
-          "parallaxSpeed": 1
-        },
-        {
-          "id": "HsNHzCP3C4Dt-1K9hrQ34VdzX",
-          "x": 1208,
-          "y": -168,
-          "w": 20,
-          "h": 150,
-          "angle": 0,
-          "texture": 7,
-          "zIndex": 5,
-          "parallaxSpeed": 1
-        }
-      ]
-    };
-
+    const mapData = {"playerStart":{"x":125,"y":-5,"w":59,"h":100,"zIndex":1,"angle":0},"textures":["https://raw.githubusercontent.com/HyperRushNet/the-fallen-kingdom/refs/heads/main/assets/textures/static/2025_11_14_11d_Kleki.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/pTqWy92PbcBF-Pwa8dvWqg7M9.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/1idbLU-ilSWg1t84xuZ.png","https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/HsNHzCP3C4Dt-1K9hrQ34VdzX.png"],"platforms":[{"id":"jgWo6uTND6pu-Os4J6efGYCzb","type":"platform","x":811,"y":100,"w":2400,"h":100,"angle":0,"texture":0,"zIndex":1},{"id":"kkjpb16uNZiC-wXbrlAZlZh6G","type":"platform","x":750,"y":-360,"w":100,"h":200,"angle":0,"texture":null,"zIndex":2},{"id":"edCMMNq3n6xB-pQMRIUBnzSQ0","type":"platform","x":900,"y":-210,"w":200,"h":100,"angle":0,"texture":null,"zIndex":4},{"id":"3rQKxqosrA06-8dkJiryN0Bbm","type":"platform","x":1077,"y":-241,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":5},{"id":"X2Qnky1oVNud-IjZmQYypmDHg","type":"platform","x":1211,"y":-281,"w":100,"h":100,"angle":-10,"texture":null,"zIndex":6},{"id":"2KGvRRd1pYqF-lf6mZxwt59dc","type":"platform","x":1302,"y":-289,"w":100,"h":100,"angle":0,"texture":null,"zIndex":7},{"id":"oWxYgmS6AQWg-kyNXNHFKVwAI","type":"platform","x":1392,"y":-281,"w":100,"h":100,"angle":10,"texture":null,"zIndex":8},{"id":"8peAJm7lGCkV-kzrYFYGaCTDC","type":"platform","x":1526,"y":-240,"w":200,"h":100,"angle":20,"texture":null,"zIndex":9},{"id":"MS1PZMAEiRFM-dZFkoEtwGk7j","type":"platform","x":1250,"y":-360,"w":900,"h":200,"angle":0,"texture":null,"zIndex":11},{"id":"mB9AGahnURyG-SRwduaagJUTa","type":"platform","x":1491,"y":-510,"w":780,"h":100,"angle":0,"texture":null,"zIndex":12},{"id":"4mSqoDGYUcVg-uVvKKDYiEFyL","type":"platform","x":860,"y":-781,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":13},{"id":"0vTEKctsJJgh-bojJAgRYlkSz","type":"platform","x":1093,"y":-839,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":14},{"id":"CmBavJ0hZhFq-GrwUXjNqhTpr","type":"platform","x":1311,"y":-909,"w":200,"h":100,"angle":-30,"texture":null,"zIndex":15},{"id":"VqLONgs03hiY-ogv3zTN5M3dK","type":"platform","x":786,"y":-245,"w":141,"h":100,"angle":45,"texture":null,"zIndex":16},{"id":"Vb8HWAKBdL6Z-aIoE71xlQDgI","type":"platform","x":1650,"y":-210,"w":100,"h":100,"angle":0,"texture":null,"zIndex":17},{"id":"84t3a75ooIRX-T1OnrwMWNA6B","type":"platform","x":1529,"y":-979,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":18},{"id":"gE7XXXicjEat-mnS07sjDfPvx","type":"platform","x":1739,"y":-913,"w":300,"h":100,"angle":45,"texture":null,"zIndex":19},{"id":"wR44RJanvFEX-xjzmUm1QIC83","type":"platform","x":1831,"y":-701,"w":100,"h":283,"angle":0,"texture":null,"zIndex":20},{"id":"9RsFfEXShyPx-L3bz8ljUsu0C","type":"platform","x":2310,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":1},{"id":"wFUMitBwRH8N-jaQEV6NVDoea","type":"platform","x":1795,"y":-394,"w":450,"h":235,"angle":-40,"texture":null,"zIndex":22},{"id":"IAJZ6SZzR4YH-bq4lnwKOYhsj","type":"platform","x":1969,"y":-515,"w":355,"h":175,"angle":-20,"texture":null,"zIndex":23},{"id":"h8UAI1ADfe9H-R4jmVGaQc9xO","type":"platform","x":2295,"y":-605,"w":355,"h":175,"angle":-10,"texture":null,"zIndex":24},{"id":"rZaZix5aGw88-qwNz0CJUpQKs","type":"platform","x":3441,"y":-186,"w":100,"h":20,"angle":0,"texture":1,"zIndex":27},{"id":"zlUUglmdDa54-WEb8AuvqA7xS","type":"platform","x":3771,"y":-237,"w":100,"h":20,"angle":0,"texture":1,"zIndex":28},{"id":"pTqWy92PbcBF-Pwa8dvWqg7M9","type":"platform","x":2910,"y":-42,"w":100,"h":20,"angle":0,"texture":1,"zIndex":29},{"id":"A3ckQ4o67yQp-xqTd68CPc0Vx","type":"platform","x":3199,"y":-52,"w":100,"h":20,"angle":0,"texture":1,"zIndex":30},{"id":"GWX8BWSXmc7L-d30Ee41JSOpy","type":"platform","x":3984,"y":-417,"w":100,"h":20,"angle":0,"texture":1,"zIndex":31},{"id":"F3cbLQKZGswe-OzeWvsmhx3KC","type":"platform","x":3673,"y":-574,"w":100,"h":20,"angle":0,"texture":1,"zIndex":32},{"id":"jURZ7N1idbLU-ilSWg1t84xuZ","type":"deadly","x":2910,"y":-22,"w":98,"h":20,"angle":0,"texture":2,"zIndex":33},{"id":"hwOm68RaIRHX-zEXB3Ze04DaI","type":"deadly","x":3199,"y":-32,"w":98,"h":20,"angle":0,"texture":2,"zIndex":34},{"id":"zzmsdIG86uol-ifMTnU8xQMB1","type":"deadly","x":3441,"y":-166,"w":98,"h":20,"angle":0,"texture":2,"zIndex":35},{"id":"872NIw92j9aD-hA8iQGKGtXbU","type":"deadly","x":3771,"y":-217,"w":98,"h":20,"angle":0,"texture":2,"zIndex":36},{"id":"BlhZ9dgvWdWB-kiHylVXZiObj","type":"deadly","x":3984,"y":-397,"w":98,"h":20,"angle":0,"texture":2,"zIndex":37},{"id":"z39vM1L7cE5Q-bB9RBVbfTk8a","type":"deadly","x":3673,"y":-554,"w":98,"h":20,"angle":0,"texture":2,"zIndex":38},{"id":"raAYBYWQSgvh-2ULmY9IOfiNv","type":"platform","x":3385,"y":450,"w":2750,"h":600,"angle":0,"texture":null,"zIndex":39},{"id":"p8jDcXstfhOM-QSNUJnBykSV3","type":"platform","x":4460,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":40},{"id":"v0WiMvC6M2qK-kDjUXzqeANwX","type":"platform","x":4650,"y":-371,"w":800,"h":400,"angle":0,"texture":null,"zIndex":41},{"id":"uCFZiV6yv4UN-SadspmUsg5FV","type":"platform","x":3957,"y":-682,"w":100,"h":20,"angle":0,"texture":1,"zIndex":42},{"id":"W3GH8M6LJkLs-TZBvsjZntFjg","type":"deadly","x":3957,"y":-662,"w":98,"h":20,"angle":0,"texture":2,"zIndex":43},{"id":"W0fXvWWTxMol-OMpY660ni3d1","type":"platform","x":4150,"y":-1030,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":44},{"id":"UVRO79gn60Fa-qR4McfpfUNuv","type":"platform","x":4648,"y":-1006,"w":721,"h":200,"angle":7,"texture":null,"zIndex":45},{"id":"1BUqI8Ofi6ms-oRamBygx0D9l","type":"platform","x":4200,"y":-420,"w":100,"h":300,"angle":0,"texture":null,"zIndex":46},{"id":"6gehgTx3BD6O-xXi9vvMSMLBI","type":"platform","x":4229,"y":-249,"w":141,"h":80,"angle":45,"texture":null,"zIndex":47},{"id":"pkpDsWpzctKL-5OwQigDTbIma","type":"platform","x":3551,"y":-1070,"w":721,"h":200,"angle":15,"texture":null,"zIndex":48},{"id":"3LmKr3UGZEbo-oZqx3tKCAMDs","type":"platform","x":2952,"y":-1109,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":49},{"id":"eoyRw3WubzR1-DbMIf038kjjL","type":"platform","x":2576,"y":-855,"w":600,"h":200,"angle":-55,"texture":null,"zIndex":50},{"id":"7KIgFCDRwdF8-U0yUPGrWyEqm","type":"platform","x":4366,"y":-639,"w":433,"h":138,"angle":0,"texture":null,"zIndex":53},{"id":"VOvckp2nyAe5-Q8U76TEKoQeO","type":"deadly","x":3385,"y":140,"w":1550,"h":20,"angle":0,"texture":null,"zIndex":54},{"id":"udUfT3MNj0Cq-KJ7Zsh70Ue5q","type":"platform","x":1308,"y":-88,"w":220,"h":20,"angle":0,"texture":null,"zIndex":57},{"id":"SGG8pcYQm6mQ-KelDCAx3MBhP","type":"chest","x":1309,"y":-135,"w":75,"h":75,"angle":0,"texture":null,"zIndex":1,"detectionRadius":100,"items":["resin"],"closedTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","openTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","openingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closedTextureId":3,"openTextureId":4,"openingTextureId":5,"closingTextureId":5},{"id":"1QDwJg388Lnv-bRNjkmuWhFaJ","type":"platform","x":2156,"y":-739,"w":700,"h":300,"angle":0,"texture":null,"zIndex":59},{"id":"grUfrpf3npIq-vvdKdShPsT0r","type":"platform","x":2174,"y":-1035,"w":948,"h":300,"angle":0,"texture":null,"zIndex":60},{"id":"PUWunsdRlN0O-JKgeIBhYmDtE","type":"platform","x":4810,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":1},{"id":"bUCHEPHsDCZW-Ox8b1I5c4cng","type":"platform","x":5010,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":62},{"id":"f3m3R5o2BQzW-fI3gFRtTA3ER","type":"respawn","x":1731,"y":-610,"w":100,"h":100,"angle":0,"texture":null,"zIndex":0,"detectionRadius":100,"passThrough":true,"respawnX":1731,"respawnY":-610,"inactiveTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","activeTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","inactiveTextureId":6,"activeTextureId":5},{"id":"s4ftRYK69unh-IKn2TTHVOxnO","type":"platform","x":4737,"y":742,"w":225,"h":100,"angle":-20,"texture":null,"zIndex":63},{"id":"rN7172iSnntt-GLPMwjrY0lfi","type":"platform","x":4690,"y":1120,"w":1000,"h":20,"angle":0,"texture":null,"zIndex":64},{"id":"zI1dgj8I8BWA-6uDB6qk0FfSt","type":"platform","x":4909,"y":1051,"w":100,"h":120,"angle":0,"texture":null,"zIndex":65},{"id":"aoRvamxwYmdf-mxZJkk6XQuSJ","type":"platform","x":4653,"y":1050,"w":100,"h":120,"angle":0,"texture":null,"zIndex":66},{"id":"HN2pjwU9h3pR-zDc5QMtfn1Cl","type":"deadly","x":4781,"y":1100,"w":156,"h":20,"angle":0,"texture":null,"zIndex":67},{"id":"ncegTFgLA2ie-UIS0Jz3UxrTa","type":"platform","x":5009,"y":1060,"w":100,"h":101,"angle":0,"texture":null,"zIndex":68},{"id":"N5uU5DI901jp-pmNVd2UagSY0","type":"platform","x":5421,"y":783,"w":264,"h":250,"angle":0,"texture":null,"zIndex":70},{"id":"YuOloEFFHQcJ-lKIRAOclyWAg","type":"platform","x":5239,"y":894,"w":100,"h":472,"angle":0,"texture":null,"zIndex":71},{"id":"Hb9Cl8lLcBc1-9G31QRE5ybJ1","type":"deadly","x":5124,"y":1100,"w":131,"h":20,"angle":0,"texture":null,"zIndex":72},{"id":"XFq6ZVIzm7Ac-ndQ2zZT5HCSE","type":"platform","x":-382,"y":466,"w":300,"h":20,"angle":0,"texture":null,"zIndex":73},{"id":"yxmgiobxKZeL-gE30ir34LWWK","type":"platform","x":613,"y":466,"w":100,"h":20,"angle":0,"texture":null,"zIndex":75},{"id":"YDIGbq0LRqdW-eUVxNHBKOIjz","type":"movingPlatform","x":-132,"y":506,"w":200,"h":20,"angle":0,"texture":null,"zIndex":76,"targetX":479,"targetY":506,"speed":100},{"id":"kyIhny9f5HPH-wK5N3oZPrnwi","type":"platform","x":-222,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":77,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"i5BkT3yaVVCI-uG0ca6HlUJJT","type":"platform","x":-42,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":78,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"9Oau6Rfx7tMN-hWaqCnOmflCC","type":"platform","x":573,"y":496,"w":20,"h":40,"angle":0,"texture":null,"zIndex":79},{"id":"3fMTbpjBMr3X-Ue8ijWGfoZiX","type":"platform","x":-222,"y":486,"w":20,"h":60,"angle":0,"texture":null,"zIndex":80},{"id":"ioqMQ5eT63L3-ghV1tpbKlJVL","type":"deadly","x":4550,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":62},{"id":"0m1n0Domtkx4-x6qh2qn8nrpK","type":"deadly","x":4394,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":81},{"id":"TUqf6q6TgQnm-6xdKbFfWFHo3","type":"platform","x":4207,"y":742,"w":225,"h":100,"angle":20,"texture":null,"zIndex":82},{"id":"wo3voL0R5AZb-6RrYukjhhSpU","type":"platform","x":4453,"y":1035,"w":300,"h":150,"angle":0,"texture":null,"zIndex":83},{"id":"bytnbRNMKjg3-jDcSiuKErjkX","type":"platform","x":5310,"y":450,"w":500,"h":100,"angle":0,"texture":null,"zIndex":84}],"decor":[{"id":"HOJZq7kFaugY-LxBMwFAE7Nd0","x":1408,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":7,"parallaxSpeed":1},{"id":"HsNHzCP3C4Dt-1K9hrQ34VdzX","x":1208,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":5,"parallaxSpeed":1}]};
     const allItems = new Set();
     mapData.platforms.forEach(plat => {
       if (plat.type === "chest" && plat.items) {
         plat.items.forEach(item => allItems.add(item));
       }
     });
-
     const itemImages = {};
     Array.from(allItems).forEach(item => {
       const img = new Image();
       img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
       itemImages[item] = img;
     });
-
     class Vec2 {
       constructor(x = 0, y = 0) {
         this.x = x;
@@ -1038,11 +119,9 @@
         return this;
       }
     }
-
     function aabbOverlap(a, b) {
       return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
     }
-
     class Polygon {
       constructor(points) {
         this.points = points.map(p => new Vec2(p.x, p.y));
@@ -1113,14 +192,12 @@
         return { axis: { x: axisX, y: axisY }, overlap };
       }
     }
-
     function hexToRgb(hex) {
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
       return new Float32Array([r, g, b, 1]);
     }
-
     function createShader(gl, type, source) {
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -1131,7 +208,6 @@
       }
       return shader;
     }
-
     function createProgram(gl, vsource, fsource) {
       const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
       if (!vs) return null;
@@ -1147,9 +223,7 @@
       }
       return program;
     }
-
     const projviewMatrix = new Float32Array(12);
-
     function getProjViewMatrix(width, height, camX, camY, matrix, isUI = false) {
       if (isUI) {
         matrix[0] = 2 / width;
@@ -1180,7 +254,6 @@
       }
       return matrix;
     }
-
     const vsSource = `#version 300 es
 precision mediump float;
 layout(std140) uniform Matrices {
@@ -1196,7 +269,6 @@ void main() {
   v_texcoord = a_texcoord;
   v_color = a_color;
 }`;
-
     const fsSource = `#version 300 es
 precision mediump float;
 in vec2 v_texcoord;
@@ -1211,7 +283,6 @@ void main() {
     fragColor = v_color;
   }
 }`;
-
     function isTextureReady(texObj) {
       if (!texObj) return false;
       if (texObj && texObj.ready) return true;
@@ -1223,7 +294,6 @@ void main() {
       }
       return false;
     }
-
     class BaseShape {
       constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false, parallaxSpeed = 0.7) {
         this.pos = new Vec2(x, y);
@@ -1329,7 +399,6 @@ void main() {
         return idx;
       }
     }
-
     class Entity extends BaseShape {
       constructor(x, y, w, h, angleDeg, color, isStatic = false, z, textureIndex, parallaxSpeed) {
         super(x, y, w, h, angleDeg, z, textureIndex, false, parallaxSpeed);
@@ -1672,7 +741,6 @@ void main() {
         this.oldDashTimer = this.dashTimer;
       }
     }
-
     class Chest extends Entity {
       constructor(x, y, w, h, angleDeg, items, z, detectionRadius = config.chestDetectionRadius, closedTex = 0, openTex = 1, openingTex = 2, closingTex = 3) {
         super(x, y, w, h, angleDeg, "#8B4513", true, z, closedTex);
@@ -1693,7 +761,6 @@ void main() {
         this.id = '';
       }
     }
-
     class RespawnBox extends Entity {
       constructor(x, y, w, h, angleDeg, z, detectionRadius = config.respawnDetectionRadius, passThrough = false, respawnX = x, respawnY = y, inactiveTex = -1, activeTex = -1) {
         super(x, y, w, h, angleDeg, "#FFD700", true, z, inactiveTex);
@@ -1715,7 +782,6 @@ void main() {
         }
       }
     }
-
     function waitForTextures(textures) {
       return Promise.all(textures.map((texObj) => {
         if (texObj && texObj.ready) {
@@ -1738,7 +804,6 @@ void main() {
         return Promise.resolve();
       }));
     }
-
     class World {
       constructor(gl) {
         this.gl = gl;
@@ -2127,6 +1192,7 @@ void main() {
           this.reusableInterpPos.set(entity.pos.x, entity.pos.y);
           return this.reusableInterpPos;
         }
+        alpha = Math.max(0, Math.min(1, alpha));
         const dx = entity.pos.x - this.prevPlayerPos.x;
         const dy = entity.pos.y - this.prevPlayerPos.y;
         this.reusableInterpPos.set(this.prevPlayerPos.x + dx * alpha, this.prevPlayerPos.y + dy * alpha);
@@ -2369,7 +1435,6 @@ void main() {
         }
       }
     }
-
     function createItemDiv(item, slotIdx, invType) {
       if (!item || typeof item !== 'string' || item === 'undefined') return null;
       const div = document.createElement('div');
@@ -2406,7 +1471,6 @@ void main() {
       div.addEventListener('dragend', (e) => {});
       return div;
     }
-
     function updateSlots(gridId, itemsArray, invType) {
       const grid = document.getElementById(gridId);
       if (!grid) return;
@@ -2441,7 +1505,6 @@ void main() {
         }
       }
     }
-
     function handleDrop(e) {
       e.preventDefault();
       const item = e.dataTransfer.getData('text/plain');
@@ -2490,7 +1553,6 @@ void main() {
       }
       world.scheduleSave();
     }
-
     function populateGrid(gridId, itemsArray, numSlots, invType) {
       const grid = document.getElementById(gridId);
       if (!grid) return;
@@ -2507,19 +1569,16 @@ void main() {
         grid.appendChild(slot);
       }
     }
-
     function initUIGrids() {
       populateGrid('inventoryGrid', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
       populateGrid('playerGridInChest', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
       populateGrid('chestGrid', new Array(config.maxChestSlots).fill(null), config.maxChestSlots, 'chest');
     }
-
     function populateChestUI() {
       if (!currentOpenChest) return;
       updateSlots('chestGrid', currentOpenChest.items, 'chest');
       updateSlots('playerGridInChest', world.inventory, 'player');
     }
-
     const canvas = document.getElementById("game");
     const fadeOverlay = document.getElementById("fadeOverlay");
     const loadingSpinner = document.getElementById("loadingSpinner");
@@ -2609,9 +1668,7 @@ void main() {
       textures.push(textureObj);
       glTextures.push(tex);
     });
-
     initUIGrids();
-
     closeChestBtn.addEventListener('click', () => {
       if (currentOpenChest) {
         const chest = currentOpenChest;
@@ -2628,7 +1685,6 @@ void main() {
         world.scheduleSave();
       }
     });
-
     async function clearSave() {
       try {
         localStorage.removeItem('gameSave');
@@ -2659,30 +1715,24 @@ void main() {
         }
       } catch (e) {}
     }
-
     debugDiv.addEventListener('click', (e) => {
       if (e.target.id === 'clearSave') clearSave();
     });
-
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       gl.viewport(0, 0, canvas.width, canvas.height);
     }
-
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     document.addEventListener('contextmenu', e => e.preventDefault());
-
     let debugMode = false;
     let inventoryOpen = false;
     let gameReady = false;
     let paused = false;
-
     document.addEventListener('visibilitychange', () => {
       paused = document.hidden;
     });
-
     window.addEventListener("keydown", async (e) => {
       const keyCode = e.code;
       if (keyCode === config.debugKey) {
@@ -2724,20 +1774,16 @@ void main() {
       }
       if (keyCode === config.jumpKey) e.preventDefault();
     });
-
     window.addEventListener("keyup", e => world.keys[e.code] = false);
-
     closeInventoryBtn.addEventListener('click', () => {
       inventoryOpen = false;
       inventoryDiv.style.display = 'none';
       world.scheduleSave();
     });
-
     world.updateInventoryUI = () => {
       updateSlots('inventoryGrid', world.inventory, 'player');
       updateSlots('playerGridInChest', world.inventory, 'player');
     };
-
     async function initializeGame() {
       await waitForTextures(textures);
       textures.forEach((texObj, i) => {
@@ -2755,26 +1801,21 @@ void main() {
       gameReady = true;
       loadingSpinner.style.display = 'none';
     }
-
     initializeGame().catch(() => {});
-
     let shakeTime = 0;
     let shakeDuration = 0;
     let shakeIntensity = 0;
-
     function shakeScreen(intensity) {
       shakeIntensity = intensity;
       shakeDuration = 1.0;
       shakeTime = 0;
     }
-
     let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
     let lastDebugTime = lastTime;
     let camX = 0, camY = 0;
     const cameraSmoothingRate = config.cameraSmoothing * 60;
     let accumulator = 0;
     const fixedDt = 1 / 60;
-
     function loop(currentTime) {
       frameCount++;
       if (currentTime - lastFPSTime >= 1000) {
@@ -2782,7 +1823,8 @@ void main() {
         frameCount = 0;
         lastFPSTime = currentTime;
       }
-      const delta = (currentTime - lastTime) / 1000;
+      let delta = (currentTime - lastTime) / 1000;
+      delta = Math.min(delta, 1 / 30);
       lastTime = currentTime;
       if (gameReady && world.player && !paused) {
         world.prevPlayerPos.set(world.player.pos.x, world.player.pos.y);
@@ -2841,7 +1883,6 @@ void main() {
       }
       requestAnimationFrame(loop);
     }
-
     requestAnimationFrame(loop);
   </script>
 </body>
