@@ -8,39 +8,311 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <title>Game Engine</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{overflow:hidden;background:#0a0a0a;color:#b0d0ff;font-family:'Orbitron','Courier New',monospace;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;}
-canvas{background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);display:block;width:100vw;height:100vh;}
-#fadeOverlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;opacity:0;z-index:10000;pointer-events:none;}
-#loadingSpinner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:50px;height:50px;border:5px solid rgba(176,208,255,0.3);border-top:5px solid #b0d0ff;border-radius:50%;animation:spin 1s linear infinite;z-index:10001;display:block;}
-@keyframes spin{0%{transform:translate(-50%,-50%) rotate(0deg);}100%{transform:translate(-50%,-50%) rotate(360deg);}}
-#debug{position:fixed;top:20px;right:20px;background:rgba(0,0,0,0.4);padding:12px;border:1px dashed #b0d0ff;border-radius:8px;width:260px;font-size:11px;line-height:1.1;box-shadow:0 4px 15px rgba(0,0,0,0.1);backdrop-filter:blur(8px);user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;transition:all 0.3s ease;}
-#debug:hover{box-shadow:0 0 20px rgba(176,208,255,0.3);border-color:#ffffff;}
-#debug button{display:block;width:100%;padding:8px;background:linear-gradient(145deg,rgba(255,0,0,0.3),rgba(255,0,0,0.1));color:#ff6b6b;border:none;border-radius:0 0 8px 8px;cursor:pointer;font-family:inherit;font-size:12px;transition:all 0.2s;margin-bottom:12px;}
-#debug button:hover{background:linear-gradient(145deg,rgba(255,0,0,0.5),rgba(255,0,0,0.2));color:white;}
-#inventory{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.9);width:450px;height:350px;background:linear-gradient(145deg,rgba(10,10,10,0.95),rgba(20,20,20,0.95));border:2px solid #b0d0ff;border-radius:16px;padding:24px;color:#b0d0ff;font-family:'Orbitron',monospace;font-size:14px;z-index:1000;display:none;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.3),0 0 15px rgba(176,208,255,0.05);animation:uiSlideIn 0.2s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform;}
-@keyframes uiSlideIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.9);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-#inventory h2{margin-bottom:16px;text-align:center;font-weight:700;font-size:18px;background:linear-gradient(90deg,#b0d0ff,#ffffff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:0 0 10px rgba(176,208,255,0.5);}
-#inventoryGrid{margin:16px 0;padding:12px;background:rgba(176,208,255,0.05);border-radius:12px;border:1px solid rgba(176,208,255,0.1);}
-#chestUI{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:500px;height:550px;background:linear-gradient(145deg,rgba(10,10,10,0.95),rgba(20,20,20,0.95));border:2px solid #b0d0ff;border-radius:16px;padding:24px;color:#b0d0ff;font-family:'Orbitron',monospace;font-size:14px;z-index:1000;display:none;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,0.3),0 0 15px rgba(176,208,255,0.05);will-change:transform;}
-#chestUI h2{margin-bottom:16px;text-align:center;font-weight:700;font-size:18px;background:linear-gradient(90deg,#b0d0ff,#ffffff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:0 0 10px rgba(176,208,255,0.5);}
-#chestSection,#playerSection{margin-bottom:24px;display:flex;flex-direction:column;background:rgba(176,208,255,0.05);border-radius:12px;padding:16px;border:1px solid rgba(176,208,255,0.1);}
-#chestSection h3,#playerSection h3{margin-bottom:8px;font-weight:600;font-size:14px;color:#ffffff;}
-.grid-inventory{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;}
-.grid-chest{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
-.slot{width:48px;height:48px;border:2px solid rgba(176,208,255,0.3);display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02));border-radius:8px;cursor:pointer;transition:all 0.2s ease;position:relative;overflow:hidden;}
-.slot::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(176,208,255,0.1),transparent);transition:left 0.5s;}
-.slot:hover::before{left:100%;}
-.slot:hover{border-color:#b0d0ff;box-shadow:0 0 15px rgba(176,208,255,0.3);transform:scale(1.05);}
-.slot.has-item{border-color:#ffffff;box-shadow:inset 0 0 10px rgba(176,208,255,0.2);}
-.item{display:flex;align-items:center;cursor:grab;transition:transform 0.2s ease;z-index:10;}
-.item:hover{transform:scale(1.1);}
-.item:active{cursor:grabbing;}
-.item img{width:36px;height:36px;border-radius:6px;box-shadow:0 4px 8px rgba(0,0,0,0.3);filter:drop-shadow(0 0 5px rgba(176,208,255,0.5));}
-#closeInventory,#closeChest{position:absolute;top:12px;right:12px;background:linear-gradient(145deg,rgba(255,0,0,0.2),rgba(255,0,0,0.1));border:1px solid rgba(255,0,0,0.5);border-radius:50%;width:24px;height:24px;color:#ff6b6b;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s ease;}
-#closeInventory:hover,#closeChest:hover{background:linear-gradient(145deg,rgba(255,0,0,0.4),rgba(255,0,0,0.2));color:#ffffff;transform:scale(1.1);box-shadow:0 0 10px rgba(255,0,0,0.5);}
-.tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);color:#b0d0ff;padding:6px 10px;border-radius:6px;font-size:12px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:20;backdrop-filter:blur(10px);}
-.slot:hover .tooltip{opacity:1;}
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    overflow: hidden;
+    background: #0a0a0a;
+    color: #b0d0ff;
+    font-family: 'Orbitron', 'Courier New', monospace;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+  canvas {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #fadeOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    opacity: 0;
+    z-index: 10000;
+    pointer-events: none;
+  }
+  #loadingSpinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(176, 208, 255, 0.3);
+    border-top: 5px solid #b0d0ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 10001;
+    display: block;
+  }
+  @keyframes spin {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+  #debug {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 12px;
+    border: 1px dashed #b0d0ff;
+    border-radius: 8px;
+    width: 260px;
+    font-size: 11px;
+    line-height: 1.1;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(8px);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    transition: all 0.3s ease;
+  }
+  #debug:hover {
+    box-shadow: 0 0 20px rgba(176, 208, 255, 0.3);
+    border-color: #ffffff;
+  }
+  #debug button {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    background: linear-gradient(145deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.1));
+    color: #ff6b6b;
+    border: none;
+    border-radius: 0 0 8px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+  }
+  #debug button:hover {
+    background: linear-gradient(145deg, rgba(255, 0, 0, 0.5), rgba(255, 0, 0, 0.2));
+    color: white;
+  }
+  #inventory {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 450px;
+    height: 350px;
+    background: linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.95));
+    border: 2px solid #b0d0ff;
+    border-radius: 16px;
+    padding: 24px;
+    color: #b0d0ff;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    z-index: 1000;
+    display: none;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+    animation: uiSlideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform;
+  }
+  @keyframes uiSlideIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  #inventory h2 {
+    margin-bottom: 16px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 18px;
+    background: linear-gradient(90deg, #b0d0ff, #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 10px rgba(176, 208, 255, 0.5);
+  }
+  #inventoryGrid {
+    margin: 16px 0;
+    padding: 12px;
+    background: rgba(176, 208, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(176, 208, 255, 0.1);
+  }
+  #chestUI {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    height: 550px;
+    background: linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.95));
+    border: 2px solid #b0d0ff;
+    border-radius: 16px;
+    padding: 24px;
+    color: #b0d0ff;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    z-index: 1000;
+    display: none;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(176, 208, 255, 0.05);
+    will-change: transform;
+  }
+  #chestUI h2 {
+    margin-bottom: 16px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 18px;
+    background: linear-gradient(90deg, #b0d0ff, #ffffff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 10px rgba(176, 208, 255, 0.5);
+  }
+  #chestSection,
+  #playerSection {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    background: rgba(176, 208, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(176, 208, 255, 0.1);
+  }
+  #chestSection h3,
+  #playerSection h3 {
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #ffffff;
+  }
+  .grid-inventory {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .grid-chest {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .slot {
+    width: 48px;
+    height: 48px;
+    border: 2px solid rgba(176, 208, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .slot::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(176, 208, 255, 0.1), transparent);
+    transition: left 0.5s;
+  }
+  .slot:hover::before {
+    left: 100%;
+  }
+  .slot:hover {
+    border-color: #b0d0ff;
+    box-shadow: 0 0 15px rgba(176, 208, 255, 0.3);
+    transform: scale(1.05);
+  }
+  .slot.has-item {
+    border-color: #ffffff;
+    box-shadow: inset 0 0 10px rgba(176, 208, 255, 0.2);
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    transition: transform 0.2s ease;
+    z-index: 10;
+  }
+  .item:hover {
+    transform: scale(1.1);
+  }
+  .item:active {
+    cursor: grabbing;
+  }
+  .item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    filter: drop-shadow(0 0 5px rgba(176, 208, 255, 0.5));
+  }
+  #closeInventory,
+  #closeChest {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: linear-gradient(145deg, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0.1));
+    border: 1px solid rgba(255, 0, 0, 0.5);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    color: #ff6b6b;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+  #closeInventory:hover,
+  #closeChest:hover {
+    background: linear-gradient(145deg, rgba(255, 0, 0, 0.4), rgba(255, 0, 0, 0.2));
+    color: #ffffff;
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  }
+  .tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #b0d0ff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+  }
+  .slot:hover .tooltip {
+    opacity: 1;
+  }
 </style>
 </head>
 <body>
@@ -49,21 +321,21 @@ canvas{background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);display:block;
 <div id="fadeOverlay"></div>
 <div id="debug"></div>
 <div id="inventory">
-<button id="closeInventory">&times;</button>
-<h2>Inventory</h2>
-<div id="inventoryGrid"></div>
+  <button id="closeInventory">&times;</button>
+  <h2>Inventory</h2>
+  <div id="inventoryGrid"></div>
 </div>
 <div id="chestUI">
-<button id="closeChest">&times;</button>
-<h2>Chest Interactions</h2>
-<div id="chestSection">
-<h3>Chest Contents</h3>
-<div id="chestGrid" class="grid-chest"></div>
-</div>
-<div id="playerSection">
-<h3>Your Inventory</h3>
-<div id="playerGridInChest" class="grid-inventory"></div>
-</div>
+  <button id="closeChest">&times;</button>
+  <h2>Chest Interactions</h2>
+  <div id="chestSection">
+    <h3>Chest Contents</h3>
+    <div id="chestGrid" class="grid-chest"></div>
+  </div>
+  <div id="playerSection">
+    <h3>Your Inventory</h3>
+    <div id="playerGridInChest" class="grid-inventory"></div>
+  </div>
 </div>
 <script>
 const config = {
@@ -96,32 +368,13 @@ const config = {
   noclipKey: "KeyN",
   maxPhysicsSubSteps: 2,
   maxPhysicsStepsPerFrame: 2,
-  cellSize: 400,
+  cellSize: 600,
   maxVisibleEntities: 1000,
-  saveThrottle: 500,
+  saveThrottle: 2000,
   collisionEpsilon: 0.1
 };
 const mapData =
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
-{"playerStart":{"x":125,"y":-5,"w":59,"h":100,"zIndex":1,"angle":0},"textures":["http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/dirt-ground.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/parkour-platform-ground.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/spikes-1.png","https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/iron-chain.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-1.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/cage-1.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png"],"platforms":[{"id":"jgWo6uTND6pu-Os4J6efGYCzb","type":"platform","x":811,"y":100,"w":2400,"h":100,"angle":0,"texture":0,"zIndex":1},{"id":"kkjpb16uNZiC-wXbrlAZlZh6G","type":"platform","x":750,"y":-360,"w":100,"h":200,"angle":0,"texture":null,"zIndex":65},{"id":"edCMMNq3n6xB-pQMRIUBnzSQ0","type":"platform","x":900,"y":-210,"w":200,"h":100,"angle":0,"texture":null,"zIndex":4},{"id":"3rQKxqosrA06-8dkJiryN0Bbm","type":"platform","x":1077,"y":-241,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":5},{"id":"X2Qnky1oVNud-IjZmQYypmDHg","type":"platform","x":1211,"y":-281,"w":100,"h":100,"angle":-10,"texture":null,"zIndex":6},{"id":"2KGvRRd1pYqF-lf6mZxwt59dc","type":"platform","x":1302,"y":-289,"w":100,"h":100,"angle":0,"texture":null,"zIndex":7},{"id":"oWxYgmS6AQWg-kyNXNHFKVwAI","type":"platform","x":1392,"y":-281,"w":100,"h":100,"angle":10,"texture":null,"zIndex":8},{"id":"8peAJm7lGCkV-kzrYFYGaCTDC","type":"platform","x":1526,"y":-240,"w":200,"h":100,"angle":20,"texture":null,"zIndex":9},{"id":"MS1PZMAEiRFM-dZFkoEtwGk7j","type":"platform","x":1250,"y":-360,"w":900,"h":200,"angle":0,"texture":null,"zIndex":11},{"id":"mB9AGahnURyG-SRwduaagJUTa","type":"platform","x":1491,"y":-510,"w":780,"h":100,"angle":0,"texture":null,"zIndex":12},{"id":"4mSqoDGYUcVg-uVvKKDYiEFyL","type":"platform","x":860,"y":-781,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":13},{"id":"0vTEKctsJJgh-bojJAgRYlkSz","type":"platform","x":1093,"y":-839,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":14},{"id":"CmBavJ0hZhFq-GrwUXjNqhTpr","type":"platform","x":1311,"y":-909,"w":200,"h":100,"angle":-30,"texture":null,"zIndex":15},{"id":"VqLONgs03hiY-ogv3zTN5M3dK","type":"platform","x":786,"y":-245,"w":141,"h":100,"angle":45,"texture":null,"zIndex":16},{"id":"Vb8HWAKBdL6Z-aIoE71xlQDgI","type":"platform","x":1650,"y":-210,"w":100,"h":100,"angle":0,"texture":null,"zIndex":17},{"id":"84t3a75ooIRX-T1OnrwMWNA6B","type":"platform","x":1529,"y":-979,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":18},{"id":"gE7XXXicjEat-mnS07sjDfPvx","type":"platform","x":1739,"y":-913,"w":300,"h":100,"angle":45,"texture":null,"zIndex":19},{"id":"wR44RJanvFEX-xjzmUm1QIC83","type":"platform","x":1831,"y":-701,"w":100,"h":283,"angle":0,"texture":null,"zIndex":20},{"id":"9RsFfEXShyPx-L3bz8ljUsu0C","type":"platform","x":2310,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":1},{"id":"wFUMitBwRH8N-jaQEV6NVDoea","type":"platform","x":1795,"y":-394,"w":450,"h":235,"angle":-40,"texture":null,"zIndex":22},{"id":"IAJZ6SZzR4YH-bq4lnwKOYhsj","type":"platform","x":1969,"y":-515,"w":355,"h":175,"angle":-20,"texture":null,"zIndex":23},{"id":"h8UAI1ADfe9H-R4jmVGaQc9xO","type":"platform","x":2295,"y":-605,"w":355,"h":175,"angle":-10,"texture":null,"zIndex":24},{"id":"rZaZix5aGw88-qwNz0CJUpQKs","type":"platform","x":3441,"y":-186,"w":100,"h":20,"angle":0,"texture":1,"zIndex":27},{"id":"zlUUglmdDa54-WEb8AuvqA7xS","type":"platform","x":3771,"y":-237,"w":100,"h":20,"angle":0,"texture":1,"zIndex":28},{"id":"pTqWy92PbcBF-Pwa8dvWqg7M9","type":"platform","x":2910,"y":-42,"w":100,"h":20,"angle":0,"texture":1,"zIndex":29},{"id":"A3ckQ4o67yQp-xqTd68CPc0Vx","type":"platform","x":3199,"y":-52,"w":100,"h":20,"angle":0,"texture":1,"zIndex":30},{"id":"GWX8BWSXmc7L-d30Ee41JSOpy","type":"platform","x":3984,"y":-417,"w":100,"h":20,"angle":0,"texture":1,"zIndex":31},{"id":"F3cbLQKZGswe-OzeWvsmhx3KC","type":"platform","x":3673,"y":-574,"w":100,"h":20,"angle":0,"texture":1,"zIndex":32},{"id":"jURZ7N1idbLU-ilSWg1t84xuZ","type":"deadly","x":2910,"y":-22,"w":98,"h":20,"angle":0,"texture":2,"zIndex":33},{"id":"hwOm68RaIRHX-zEXB3Ze04DaI","type":"deadly","x":3199,"y":-32,"w":98,"h":20,"angle":0,"texture":2,"zIndex":34},{"id":"zzmsdIG86uol-ifMTnU8xQMB1","type":"deadly","x":3441,"y":-166,"w":98,"h":20,"angle":0,"texture":2,"zIndex":35},{"id":"872NIw92j9aD-hA8iQGKGtXbU","type":"deadly","x":3771,"y":-217,"w":98,"h":20,"angle":0,"texture":2,"zIndex":36},{"id":"BlhZ9dgvWdWB-kiHylVXZiObj","type":"deadly","x":3984,"y":-397,"w":98,"h":20,"angle":0,"texture":2,"zIndex":37},{"id":"z39vM1L7cE5Q-bB9RBVbfTk8a","type":"deadly","x":3673,"y":-554,"w":98,"h":20,"angle":0,"texture":2,"zIndex":38},{"id":"raAYBYWQSgvh-2ULmY9IOfiNv","type":"platform","x":3385,"y":450,"w":2750,"h":600,"angle":0,"texture":null,"zIndex":39},{"id":"p8jDcXstfhOM-QSNUJnBykSV3","type":"platform","x":4460,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":40},{"id":"v0WiMvC6M2qK-kDjUXzqeANwX","type":"platform","x":4650,"y":-371,"w":800,"h":400,"angle":0,"texture":null,"zIndex":41},{"id":"uCFZiV6yv4UN-SadspmUsg5FV","type":"platform","x":3957,"y":-682,"w":100,"h":20,"angle":0,"texture":1,"zIndex":42},{"id":"W3GH8M6LJkLs-TZBvsjZntFjg","type":"deadly","x":3957,"y":-662,"w":98,"h":20,"angle":0,"texture":2,"zIndex":43},{"id":"W0fXvWWTxMol-OMpY660ni3d1","type":"platform","x":4150,"y":-1030,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":44},{"id":"UVRO79gn60Fa-qR4McfpfUNuv","type":"platform","x":4648,"y":-1006,"w":721,"h":200,"angle":7,"texture":null,"zIndex":45},{"id":"1BUqI8Ofi6ms-oRamBygx0D9l","type":"platform","x":4200,"y":-420,"w":100,"h":300,"angle":0,"texture":null,"zIndex":46},{"id":"6gehgTx3BD6O-xXi9vvMSMLBI","type":"platform","x":4229,"y":-249,"w":141,"h":80,"angle":45,"texture":null,"zIndex":47},{"id":"pkpDsWpzctKL-5OwQigDTbIma","type":"platform","x":3551,"y":-1070,"w":721,"h":200,"angle":15,"texture":null,"zIndex":48},{"id":"3LmKr3UGZEbo-oZqx3tKCAMDs","type":"platform","x":2952,"y":-1109,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":49},{"id":"eoyRw3WubzR1-DbMIf038kjjL","type":"platform","x":2576,"y":-855,"w":600,"h":200,"angle":-55,"texture":null,"zIndex":50},{"id":"7KIgFCDRwdF8-U0yUPGrWyEqm","type":"platform","x":4366,"y":-639,"w":433,"h":138,"angle":0,"texture":null,"zIndex":53},{"id":"VOvckp2nyAe5-Q8U76TEKoQeO","type":"deadly","x":3385,"y":140,"w":1550,"h":20,"angle":0,"texture":null,"zIndex":54},{"id":"udUfT3MNj0Cq-KJ7Zsh70Ue5q","type":"platform","x":1308,"y":-88,"w":220,"h":20,"angle":0,"texture":null,"zIndex":57},{"id":"SGG8pcYQm6mQ-KelDCAx3MBhP","type":"chest","x":1309,"y":-135,"w":75,"h":75,"angle":0,"texture":null,"zIndex":1,"detectionRadius":100,"items":["resin"],"closedTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","openTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","openingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closedTextureId":3,"openTextureId":4,"openingTextureId":5,"closingTextureId":5},{"id":"1QDwJg388Lnv-bRNjkmuWhFaJ","type":"platform","x":2156,"y":-739,"w":700,"h":300,"angle":0,"texture":null,"zIndex":59},{"id":"grUfrpf3npIq-vvdKdShPsT0r","type":"platform","x":2174,"y":-1035,"w":948,"h":300,"angle":0,"texture":null,"zIndex":60},{"id":"PUWunsdRlN0O-JKgeIBhYmDtE","type":"platform","x":4810,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":1},{"id":"bUCHEPHsDCZW-Ox8b1I5c4cng","type":"platform","x":5010,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":62},{"id":"f3m3R5o2BQzW-fI3gFRtTA3ER","type":"respawn","x":1731,"y":-610,"w":100,"h":100,"angle":0,"texture":null,"zIndex":0,"detectionRadius":100,"passThrough":true,"respawnX":1731,"respawnY":-610,"inactiveTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","activeTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","inactiveTextureId":6,"activeTextureId":5},{"id":"s4ftRYK69unh-IKn2TTHVOxnO","type":"platform","x":4737,"y":742,"w":225,"h":100,"angle":-20,"texture":null,"zIndex":63},{"id":"rN7172iSnntt-GLPMwjrY0lfi","type":"platform","x":4690,"y":1120,"w":1000,"h":20,"angle":0,"texture":null,"zIndex":64},{"id":"zI1dgj8I8BWA-6uDB6qk0FfSt","type":"platform","x":4909,"y":1051,"w":100,"h":120,"angle":0,"texture":null,"zIndex":65},{"id":"aoRvamxwYmdf-mxZJkk6XQuSJ","type":"platform","x":4653,"y":1050,"w":100,"h":120,"angle":0,"texture":null,"zIndex":66},{"id":"HN2pjwU9h3pR-zDc5QMtfn1Cl","type":"deadly","x":4781,"y":1100,"w":156,"h":20,"angle":0,"texture":null,"zIndex":67},{"id":"ncegTFgLA2ie-UIS0Jz3UxrTa","type":"platform","x":5009,"y":1060,"w":100,"h":101,"angle":0,"texture":null,"zIndex":68},{"id":"N5uU5DI901jp-pmNVd2UagSY0","type":"platform","x":5421,"y":783,"w":264,"h":250,"angle":0,"texture":null,"zIndex":70},{"id":"YuOloEFFHQcJ-lKIRAOclyWAg","type":"platform","x":5239,"y":894,"w":100,"h":472,"angle":0,"texture":null,"zIndex":71},{"id":"Hb9Cl8lLcBc1-9G31QRE5ybJ1","type":"deadly","x":5124,"y":1100,"w":131,"h":20,"angle":0,"texture":null,"zIndex":72},{"id":"XFq6ZVIzm7Ac-ndQ2zZT5HCSE","type":"platform","x":-382,"y":466,"w":300,"h":20,"angle":0,"texture":null,"zIndex":73},{"id":"yxmgiobxKZeL-gE30ir34LWWK","type":"platform","x":613,"y":466,"w":100,"h":20,"angle":0,"texture":null,"zIndex":75},{"id":"YDIGbq0LRqdW-eUVxNHBKOIjz","type":"movingPlatform","x":-132,"y":506,"w":200,"h":20,"angle":0,"texture":null,"zIndex":76,"targetX":479,"targetY":506,"speed":100},{"id":"kyIhny9f5HPH-wK5N3oZPrnwi","type":"platform","x":-222,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":77,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"i5BkT3yaVVCI-uG0ca6HlUJJT","type":"platform","x":-42,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":78,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"9Oau6Rfx7tMN-hWaqCnOmflCC","type":"platform","x":573,"y":496,"w":20,"h":40,"angle":0,"texture":null,"zIndex":79},{"id":"3fMTbpjBMr3X-Ue8ijWGfoZiX","type":"platform","x":-222,"y":486,"w":20,"h":60,"angle":0,"texture":null,"zIndex":80},{"id":"ioqMQ5eT63L3-ghV1tpbKlJVL","type":"deadly","x":4550,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":62},{"id":"0m1n0Domtkx4-x6qh2qn8nrpK","type":"deadly","x":4394,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":81},{"id":"TUqf6q6TgQnm-6xdKbFfWFHo3","type":"platform","x":4207,"y":742,"w":225,"h":100,"angle":20,"texture":null,"zIndex":82},{"id":"wo3voL0R5AZb-6RrYukjhhSpU","type":"platform","x":4453,"y":1035,"w":300,"h":150,"angle":0,"texture":null,"zIndex":83},{"id":"bytnbRNMKjg3-jDcSiuKErjkX","type":"platform","x":5310,"y":450,"w":500,"h":100,"angle":0,"texture":null,"zIndex":84}],"decor":[{"id":"HOJZq7kFaugY-LxBMwFAE7Nd0","x":1408,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":7,"parallaxSpeed":1},{"id":"HsNHzCP3C4Dt-1K9hrQ34VdzX","x":1208,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":5,"parallaxSpeed":1},{"id":"bFIRKwP3cEiu-LsH3wxEZm7iY","x":-314,"y":90,"w":150,"h":100,"angle":0,"texture":8,"zIndex":86,"parallaxSpeed":1},{"id":"QfO354DBwXlI-z324E3WChP7m","x":-184,"y":100,"w":150,"h":100,"angle":0,"texture":8,"zIndex":87,"parallaxSpeed":1},{"id":"F0h6oJWl1qiY-484AY2l7HSie","x":-104,"y":120,"w":150,"h":100,"angle":0,"texture":9,"zIndex":88,"parallaxSpeed":1},{"id":"VYDsmNuCNH90-2ISa6jqoCcx6","x":-14,"y":90,"w":150,"h":100,"angle":0,"texture":8,"zIndex":87,"parallaxSpeed":1},{"id":"HfrP1IPuSDoQ-n5J5jYTprypZ","x":106,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":89,"parallaxSpeed":1},{"id":"EFPaVACvOjdZ-iM2aNrFk11XH","x":176,"y":81,"w":150,"h":100,"angle":0,"texture":8,"zIndex":90,"parallaxSpeed":1},{"id":"AtJ6vC48SFa9-7Rwo8chEao6V","x":246,"y":110,"w":150,"h":100,"angle":0,"texture":9,"zIndex":91,"parallaxSpeed":1},{"id":"Bt0v38SUhZ49-9H8k1RNK1L5O","x":357,"y":110,"w":150,"h":100,"angle":0,"texture":8,"zIndex":92,"parallaxSpeed":1},{"id":"cPr24Ce3J8p2-SrqIVi0JiEpl","x":500,"y":-48,"w":450,"h":300,"angle":-25,"texture":10,"zIndex":0,"parallaxSpeed":1},{"id":"NH9j6pwbSPG0-nsivdxJKvFU0","x":427,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":93,"parallaxSpeed":1},{"id":"bnJFXgbDjcgY-xyIMe2NfF4aU","x":527,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":94,"parallaxSpeed":1},{"id":"Zbxh2DJZfgLv-1rhXkjC3bOmE","x":627,"y":60,"w":150,"h":100,"angle":0,"texture":8,"zIndex":95,"parallaxSpeed":1},{"id":"1fSwx2usiv0X-t1Ww4uIa7XqS","x":708,"y":81,"w":150,"h":100,"angle":0,"texture":8,"zIndex":96,"parallaxSpeed":1},{"id":"uDH9dqLXYHAs-RQ9eKWey4CL1","x":818,"y":71,"w":150,"h":100,"angle":0,"texture":8,"zIndex":92,"parallaxSpeed":1},{"id":"S0Qvi1OkQijH-KxHfq2JzkPTv","x":908,"y":101,"w":150,"h":100,"angle":0,"texture":8,"zIndex":97,"parallaxSpeed":1},{"id":"lCouKABXxMUn-GlxT0U4q0mUe","x":1018,"y":91,"w":150,"h":100,"angle":0,"texture":8,"zIndex":98,"parallaxSpeed":1},{"id":"aTV16BpoPtcy-N3egWpmpGaWM","x":1118,"y":121,"w":150,"h":100,"angle":0,"texture":9,"zIndex":99,"parallaxSpeed":1},{"id":"ntBfFzAeIfvs-uCYA2nVIFZYV","x":1218,"y":131,"w":150,"h":100,"angle":0,"texture":8,"zIndex":97,"parallaxSpeed":1},{"id":"IK27GNQmonwB-VCD8mnEiMqbV","x":507,"y":121,"w":150,"h":100,"angle":0,"texture":9,"zIndex":100,"parallaxSpeed":1},{"id":"uYN3UUmZWnxV-z0W2ss7hfo3n","x":-264,"y":120,"w":150,"h":100,"angle":0,"texture":8,"zIndex":101,"parallaxSpeed":1},{"id":"7C90uNLh9gGp-EFCRqwC6u6fg","x":36,"y":120,"w":150,"h":100,"angle":0,"texture":8,"zIndex":102,"parallaxSpeed":1},{"id":"4TTBDA6V3I9X-A5fSlbZfebIh","x":166,"y":121,"w":150,"h":100,"angle":0,"texture":8,"zIndex":90,"parallaxSpeed":1},{"id":"z6I4K91FwIj0-c9QG2rWulMFX","x":880,"y":-182,"w":150,"h":100,"angle":180,"texture":8,"zIndex":103,"parallaxSpeed":1},{"id":"qODQzvNdLzSg-Yih3yYuMituy","x":960,"y":-192,"w":150,"h":100,"angle":180,"texture":9,"zIndex":104,"parallaxSpeed":1},{"id":"WvIWSEjanGVM-EWm8YLn3riQB","x":1076,"y":-212,"w":150,"h":100,"angle":160,"texture":8,"zIndex":103,"parallaxSpeed":1},{"id":"K4YFfLGAXXGh-V4eYLbh3pmvE","x":1166,"y":-252,"w":150,"h":100,"angle":170,"texture":8,"zIndex":105,"parallaxSpeed":1},{"id":"Uv0oHa50GXib-KzUA0ew1NM4v","x":1281,"y":-266,"w":150,"h":100,"angle":170,"texture":11,"zIndex":106,"parallaxSpeed":1},{"id":"72XuYiVNbWWG-0Pf32nZ6E709","x":1389,"y":-253,"w":150,"h":100,"angle":180,"texture":8,"zIndex":107,"parallaxSpeed":1},{"id":"CpWljMYMShfT-vRI7vPpHFvWa","x":800,"y":-202,"w":150,"h":100,"angle":180,"texture":8,"zIndex":108,"parallaxSpeed":1},{"id":"uMiYe3gpiZmz-fhBxV5GntJd3","x":766,"y":-231,"w":150,"h":100,"angle":220,"texture":8,"zIndex":110,"parallaxSpeed":1},{"id":"tu3FJfuT1Ygn-NZLjG8yEqZ2s","x":1138,"y":71,"w":150,"h":100,"angle":170,"texture":11,"zIndex":46,"parallaxSpeed":1},{"id":"cMIB7rngiJAx-EqdloA8LRvX3","x":1261,"y":76,"w":150,"h":100,"angle":0,"texture":8,"zIndex":96,"parallaxSpeed":1}]} 
- 
- 
- 
- 
- 
- 
- 
- 
+{"playerStart":{"x":125,"y":-5,"w":59,"h":100,"zIndex":1,"angle":0},"textures":["http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/dirt-ground.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/parkour-platform-ground.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/spikes-1.png","https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/iron-chain.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-1.png","https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/cage-1.png","http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png"],"platforms":[{"id":"jgWo6uTND6pu-Os4J6efGYCzb","type":"platform","x":811,"y":100,"w":2400,"h":100,"angle":0,"texture":0,"zIndex":1},{"id":"kkjpb16uNZiC-wXbrlAZlZh6G","type":"platform","x":750,"y":-360,"w":100,"h":200,"angle":0,"texture":null,"zIndex":65},{"id":"edCMMNq3n6xB-pQMRIUBnzSQ0","type":"platform","x":900,"y":-210,"w":200,"h":100,"angle":0,"texture":null,"zIndex":4},{"id":"3rQKxqosrA06-8dkJiryN0Bbm","type":"platform","x":1077,"y":-241,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":5},{"id":"X2Qnky1oVNud-IjZmQYypmDHg","type":"platform","x":1211,"y":-281,"w":100,"h":100,"angle":-10,"texture":null,"zIndex":6},{"id":"2KGvRRd1pYqF-lf6mZxwt59dc","type":"platform","x":1302,"y":-289,"w":100,"h":100,"angle":0,"texture":null,"zIndex":7},{"id":"oWxYgmS6AQWg-kyNXNHFKVwAI","type":"platform","x":1392,"y":-281,"w":100,"h":100,"angle":10,"texture":null,"zIndex":8},{"id":"8peAJm7lGCkV-kzrYFYGaCTDC","type":"platform","x":1526,"y":-240,"w":200,"h":100,"angle":20,"texture":null,"zIndex":9},{"id":"MS1PZMAEiRFM-dZFkoEtwGk7j","type":"platform","x":1250,"y":-360,"w":900,"h":200,"angle":0,"texture":null,"zIndex":11},{"id":"mB9AGahnURyG-SRwduaagJUTa","type":"platform","x":1491,"y":-510,"w":780,"h":100,"angle":0,"texture":null,"zIndex":12},{"id":"4mSqoDGYUcVg-uVvKKDYiEFyL","type":"platform","x":860,"y":-781,"w":200,"h":100,"angle":-20,"texture":null,"zIndex":13},{"id":"0vTEKctsJJgh-bojJAgRYlkSz","type":"platform","x":1093,"y":-839,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":14},{"id":"CmBavJ0hZhFq-GrwUXjNqhTpr","type":"platform","x":1311,"y":-909,"w":200,"h":100,"angle":-30,"texture":null,"zIndex":15},{"id":"VqLONgs03hiY-ogv3zTN5M3dK","type":"platform","x":786,"y":-245,"w":141,"h":100,"angle":45,"texture":null,"zIndex":16},{"id":"Vb8HWAKBdL6Z-aIoE71xlQDgI","type":"platform","x":1650,"y":-210,"w":100,"h":100,"angle":0,"texture":null,"zIndex":17},{"id":"84t3a75ooIRX-T1OnrwMWNA6B","type":"platform","x":1529,"y":-979,"w":300,"h":100,"angle":-10,"texture":null,"zIndex":18},{"id":"gE7XXXicjEat-mnS07sjDfPvx","type":"platform","x":1739,"y":-913,"w":300,"h":100,"angle":45,"texture":null,"zIndex":19},{"id":"wR44RJanvFEX-xjzmUm1QIC83","type":"platform","x":1831,"y":-701,"w":100,"h":283,"angle":0,"texture":null,"zIndex":20},{"id":"9RsFfEXShyPx-L3bz8ljUsu0C","type":"platform","x":2310,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":1},{"id":"wFUMitBwRH8N-jaQEV6NVDoea","type":"platform","x":1795,"y":-394,"w":450,"h":235,"angle":-40,"texture":null,"zIndex":22},{"id":"IAJZ6SZzR4YH-bq4lnwKOYhsj","type":"platform","x":1969,"y":-515,"w":355,"h":175,"angle":-20,"texture":null,"zIndex":23},{"id":"h8UAI1ADfe9H-R4jmVGaQc9xO","type":"platform","x":2295,"y":-605,"w":355,"h":175,"angle":-10,"texture":null,"zIndex":24},{"id":"rZaZix5aGw88-qwNz0CJUpQKs","type":"platform","x":3441,"y":-186,"w":100,"h":20,"angle":0,"texture":1,"zIndex":27},{"id":"zlUUglmdDa54-WEb8AuvqA7xS","type":"platform","x":3771,"y":-237,"w":100,"h":20,"angle":0,"texture":1,"zIndex":28},{"id":"pTqWy92PbcBF-Pwa8dvWqg7M9","type":"platform","x":2910,"y":-42,"w":100,"h":20,"angle":0,"texture":1,"zIndex":29},{"id":"A3ckQ4o67yQp-xqTd68CPc0Vx","type":"platform","x":3199,"y":-52,"w":100,"h":20,"angle":0,"texture":1,"zIndex":30},{"id":"GWX8BWSXmc7L-d30Ee41JSOpy","type":"platform","x":3984,"y":-417,"w":100,"h":20,"angle":0,"texture":1,"zIndex":31},{"id":"F3cbLQKZGswe-OzeWvsmhx3KC","type":"platform","x":3673,"y":-574,"w":100,"h":20,"angle":0,"texture":1,"zIndex":32},{"id":"jURZ7N1idbLU-ilSWg1t84xuZ","type":"deadly","x":2910,"y":-22,"w":98,"h":20,"angle":0,"texture":2,"zIndex":33},{"id":"hwOm68RaIRHX-zEXB3Ze04DaI","type":"deadly","x":3199,"y":-32,"w":98,"h":20,"angle":0,"texture":2,"zIndex":34},{"id":"zzmsdIG86uol-ifMTnU8xQMB1","type":"deadly","x":3441,"y":-166,"w":98,"h":20,"angle":0,"texture":2,"zIndex":35},{"id":"872NIw92j9aD-hA8iQGKGtXbU","type":"deadly","x":3771,"y":-217,"w":98,"h":20,"angle":0,"texture":2,"zIndex":36},{"id":"BlhZ9dgvWdWB-kiHylVXZiObj","type":"deadly","x":3984,"y":-397,"w":98,"h":20,"angle":0,"texture":2,"zIndex":37},{"id":"z39vM1L7cE5Q-bB9RBVbfTk8a","type":"deadly","x":3673,"y":-554,"w":98,"h":20,"angle":0,"texture":2,"zIndex":38},{"id":"raAYBYWQSgvh-2ULmY9IOfiNv","type":"platform","x":3385,"y":450,"w":2750,"h":600,"angle":0,"texture":null,"zIndex":39},{"id":"p8jDcXstfhOM-QSNUJnBykSV3","type":"platform","x":4460,"y":50,"w":600,"h":200,"angle":0,"texture":null,"zIndex":40},{"id":"v0WiMvC6M2qK-kDjUXzqeANwX","type":"platform","x":4650,"y":-371,"w":800,"h":400,"angle":0,"texture":null,"zIndex":41},{"id":"uCFZiV6yv4UN-SadspmUsg5FV","type":"platform","x":3957,"y":-682,"w":100,"h":20,"angle":0,"texture":1,"zIndex":42},{"id":"W3GH8M6LJkLs-TZBvsjZntFjg","type":"deadly","x":3957,"y":-662,"w":98,"h":20,"angle":0,"texture":2,"zIndex":43},{"id":"W0fXvWWTxMol-OMpY660ni3d1","type":"platform","x":4150,"y":-1030,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":44},{"id":"UVRO79gn60Fa-qR4McfpfUNuv","type":"platform","x":4648,"y":-1006,"w":721,"h":200,"angle":7,"texture":null,"zIndex":45},{"id":"1BUqI8Ofi6ms-oRamBygx0D9l","type":"platform","x":4200,"y":-420,"w":100,"h":300,"angle":0,"texture":null,"zIndex":46},{"id":"6gehgTx3BD6O-xXi9vvMSMLBI","type":"platform","x":4229,"y":-249,"w":141,"h":80,"angle":45,"texture":null,"zIndex":47},{"id":"pkpDsWpzctKL-5OwQigDTbIma","type":"platform","x":3551,"y":-1070,"w":721,"h":200,"angle":15,"texture":null,"zIndex":48},{"id":"3LmKr3UGZEbo-oZqx3tKCAMDs","type":"platform","x":2952,"y":-1109,"w":600,"h":200,"angle":-10,"texture":null,"zIndex":49},{"id":"eoyRw3WubzR1-DbMIf038kjjL","type":"platform","x":2576,"y":-855,"w":600,"h":200,"angle":-55,"texture":null,"zIndex":50},{"id":"7KIgFCDRwdF8-U0yUPGrWyEqm","type":"platform","x":4366,"y":-639,"w":433,"h":138,"angle":0,"texture":null,"zIndex":53},{"id":"VOvckp2nyAe5-Q8U76TEKoQeO","type":"deadly","x":3385,"y":140,"w":1550,"h":20,"angle":0,"texture":null,"zIndex":54},{"id":"udUfT3MNj0Cq-KJ7Zsh70Ue5q","type":"platform","x":1308,"y":-88,"w":220,"h":20,"angle":0,"texture":null,"zIndex":57},{"id":"SGG8pcYQm6mQ-KelDCAx3MBhP","type":"chest","x":1309,"y":-135,"w":75,"h":75,"angle":0,"texture":null,"zIndex":1,"detectionRadius":100,"items":["resin"],"closedTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg","openTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg","openingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closingTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","closedTextureId":3,"openTextureId":4,"openingTextureId":5,"closingTextureId":5},{"id":"1QDwJg388Lnv-bRNjkmuWhFaJ","type":"platform","x":2156,"y":-739,"w":700,"h":300,"angle":0,"texture":null,"zIndex":59},{"id":"grUfrpf3npIq-vvdKdShPsT0r","type":"platform","x":2174,"y":-1035,"w":948,"h":300,"angle":0,"texture":null,"zIndex":60},{"id":"PUWunsdRlN0O-JKgeIBhYmDtE","type":"platform","x":4810,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":1},{"id":"bUCHEPHsDCZW-Ox8b1I5c4cng","type":"platform","x":5010,"y":350,"w":100,"h":800,"angle":0,"texture":null,"zIndex":62},{"id":"f3m3R5o2BQzW-fI3gFRtTA3ER","type":"respawn","x":1731,"y":-610,"w":100,"h":100,"angle":0,"texture":null,"zIndex":0,"detectionRadius":100,"passThrough":true,"respawnX":1731,"respawnY":-610,"inactiveTextureUrl":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg","activeTextureUrl":"https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm","inactiveTextureId":6,"activeTextureId":5},{"id":"s4ftRYK69unh-IKn2TTHVOxnO","type":"platform","x":4737,"y":742,"w":225,"h":100,"angle":-20,"texture":null,"zIndex":63},{"id":"rN7172iSnntt-GLPMwjrY0lfi","type":"platform","x":4690,"y":1120,"w":1000,"h":20,"angle":0,"texture":null,"zIndex":64},{"id":"zI1dgj8I8BWA-6uDB6qk0FfSt","type":"platform","x":4909,"y":1051,"w":100,"h":120,"angle":0,"texture":null,"zIndex":65},{"id":"aoRvamxwYmdf-mxZJkk6XQuSJ","type":"platform","x":4653,"y":1050,"w":100,"h":120,"angle":0,"texture":null,"zIndex":66},{"id":"HN2pjwU9h3pR-zDc5QMtfn1Cl","type":"deadly","x":4781,"y":1100,"w":156,"h":20,"angle":0,"texture":null,"zIndex":67},{"id":"ncegTFgLA2ie-UIS0Jz3UxrTa","type":"platform","x":5009,"y":1060,"w":100,"h":101,"angle":0,"texture":null,"zIndex":68},{"id":"N5uU5DI901jp-pmNVd2UagSY0","type":"platform","x":5421,"y":783,"w":264,"h":250,"angle":0,"texture":null,"zIndex":70},{"id":"YuOloEFFHQcJ-lKIRAOclyWAg","type":"platform","x":5239,"y":894,"w":100,"h":472,"angle":0,"texture":null,"zIndex":71},{"id":"Hb9Cl8lLcBc1-9G31QRE5ybJ1","type":"deadly","x":5124,"y":1100,"w":131,"h":20,"angle":0,"texture":null,"zIndex":72},{"id":"XFq6ZVIzm7Ac-ndQ2zZT5HCSE","type":"platform","x":-382,"y":466,"w":300,"h":20,"angle":0,"texture":null,"zIndex":73},{"id":"yxmgiobxKZeL-gE30ir34LWWK","type":"platform","x":613,"y":466,"w":100,"h":20,"angle":0,"texture":null,"zIndex":75},{"id":"YDIGbq0LRqdW-eUVxNHBKOIjz","type":"movingPlatform","x":-132,"y":506,"w":200,"h":20,"angle":0,"texture":null,"zIndex":76,"targetX":479,"targetY":506,"speed":100},{"id":"kyIhny9f5HPH-wK5N3oZPrnwi","type":"platform","x":-222,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":77,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"i5BkT3yaVVCI-uG0ca6HlUJJT","type":"platform","x":-42,"y":476,"w":20,"h":40,"angle":0,"texture":null,"zIndex":78,"linkedTo":"YDIGbq0LRqdW-eUVxNHBKOIjz"},{"id":"9Oau6Rfx7tMN-hWaqCnOmflCC","type":"platform","x":573,"y":496,"w":20,"h":40,"angle":0,"texture":null,"zIndex":79},{"id":"3fMTbpjBMr3X-Ue8ijWGfoZiX","type":"platform","x":-222,"y":486,"w":20,"h":60,"angle":0,"texture":null,"zIndex":80},{"id":"ioqMQ5eT63L3-ghV1tpbKlJVL","type":"deadly","x":4550,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":62},{"id":"0m1n0Domtkx4-x6qh2qn8nrpK","type":"deadly","x":4394,"y":760,"w":156,"h":20,"angle":0,"texture":null,"zIndex":81},{"id":"TUqf6q6TgQnm-6xdKbFfWFHo3","type":"platform","x":4207,"y":742,"w":225,"h":100,"angle":20,"texture":null,"zIndex":82},{"id":"wo3voL0R5AZb-6RrYukjhhSpU","type":"platform","x":4453,"y":1035,"w":300,"h":150,"angle":0,"texture":null,"zIndex":83},{"id":"bytnbRNMKjg3-jDcSiuKErjkX","type":"platform","x":5310,"y":450,"w":500,"h":100,"angle":0,"texture":null,"zIndex":84}],"decor":[{"id":"HOJZq7kFaugY-LxBMwFAE7Nd0","x":1408,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":7,"parallaxSpeed":1},{"id":"HsNHzCP3C4Dt-1K9hrQ34VdzX","x":1208,"y":-168,"w":20,"h":150,"angle":0,"texture":7,"zIndex":5,"parallaxSpeed":1},{"id":"bFIRKwP3cEiu-LsH3wxEZm7iY","x":-314,"y":90,"w":150,"h":100,"angle":0,"texture":8,"zIndex":86,"parallaxSpeed":1},{"id":"QfO354DBwXlI-z324E3WChP7m","x":-184,"y":100,"w":150,"h":100,"angle":0,"texture":8,"zIndex":87,"parallaxSpeed":1},{"id":"F0h6oJWl1qiY-484AY2l7HSie","x":-104,"y":120,"w":150,"h":100,"angle":0,"texture":9,"zIndex":88,"parallaxSpeed":1},{"id":"VYDsmNuCNH90-2ISa6jqoCcx6","x":-14,"y":90,"w":150,"h":100,"angle":0,"texture":8,"zIndex":87,"parallaxSpeed":1},{"id":"HfrP1IPuSDoQ-n5J5jYTprypZ","x":106,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":89,"parallaxSpeed":1},{"id":"EFPaVACvOjdZ-iM2aNrFk11XH","x":176,"y":81,"w":150,"h":100,"angle":0,"texture":8,"zIndex":90,"parallaxSpeed":1},{"id":"AtJ6vC48SFa9-7Rwo8chEao6V","x":246,"y":110,"w":150,"h":100,"angle":0,"texture":9,"zIndex":91,"parallaxSpeed":1},{"id":"Bt0v38SUhZ49-9H8k1RNK1L5O","x":357,"y":110,"w":150,"h":100,"angle":0,"texture":8,"zIndex":92,"parallaxSpeed":1},{"id":"cPr24Ce3J8p2-SrqIVi0JiEpl","x":500,"y":-48,"w":450,"h":300,"angle":-25,"texture":10,"zIndex":0,"parallaxSpeed":1},{"id":"NH9j6pwbSPG0-nsivdxJKvFU0","x":427,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":93,"parallaxSpeed":1},{"id":"bnJFXgbDjcgY-xyIMe2NfF4aU","x":527,"y":80,"w":150,"h":100,"angle":0,"texture":8,"zIndex":94,"parallaxSpeed":1},{"id":"Zbxh2DJZfgLv-1rhXkjC3bOmE","x":627,"y":60,"w":150,"h":100,"angle":0,"texture":8,"zIndex":95,"parallaxSpeed":1},{"id":"1fSwx2usiv0X-t1Ww4uIa7XqS","x":708,"y":81,"w":150,"h":100,"angle":0,"texture":8,"zIndex":96,"parallaxSpeed":1},{"id":"uDH9dqLXYHAs-RQ9eKWey4CL1","x":818,"y":71,"w":150,"h":100,"angle":0,"texture":8,"zIndex":92,"parallaxSpeed":1},{"id":"S0Qvi1OkQijH-KxHfq2JzkPTv","x":908,"y":101,"w":150,"h":100,"angle":0,"texture":8,"zIndex":97,"parallaxSpeed":1},{"id":"lCouKABXxMUn-GlxT0U4q0mUe","x":1018,"y":91,"w":150,"h":100,"angle":0,"texture":8,"zIndex":98,"parallaxSpeed":1},{"id":"aTV16BpoPtcy-N3egWpmpGaWM","x":1118,"y":121,"w":150,"h":100,"angle":0,"texture":9,"zIndex":99,"parallaxSpeed":1},{"id":"ntBfFzAeIfvs-uCYA2nVIFZYV","x":1218,"y":131,"w":150,"h":100,"angle":0,"texture":8,"zIndex":97,"parallaxSpeed":1},{"id":"IK27GNQmonwB-VCD8mnEiMqbV","x":507,"y":121,"w":150,"h":100,"angle":0,"texture":9,"zIndex":100,"parallaxSpeed":1},{"id":"uYN3UUmZWnxV-z0W2ss7hfo3n","x":-264,"y":120,"w":150,"h":100,"angle":0,"texture":8,"zIndex":101,"parallaxSpeed":1},{"id":"7C90uNLh9gGp-EFCRqwC6u6fg","x":36,"y":120,"w":150,"h":100,"angle":0,"texture":8,"zIndex":102,"parallaxSpeed":1},{"id":"4TTBDA6V3I9X-A5fSlbZfebIh","x":166,"y":121,"w":150,"h":100,"angle":0,"texture":8,"zIndex":90,"parallaxSpeed":1},{"id":"z6I4K91FwIj0-c9QG2rWulMFX","x":880,"y":-182,"w":150,"h":100,"angle":180,"texture":8,"zIndex":103,"parallaxSpeed":1},{"id":"qODQzvNdLzSg-Yih3yYuMituy","x":960,"y":-192,"w":150,"h":100,"angle":180,"texture":9,"zIndex":104,"parallaxSpeed":1},{"id":"WvIWSEjanGVM-EWm8YLn3riQB","x":1076,"y":-212,"w":150,"h":100,"angle":160,"texture":8,"zIndex":103,"parallaxSpeed":1},{"id":"K4YFfLGAXXGh-V4eYLbh3pmvE","x":1166,"y":-252,"w":150,"h":100,"angle":170,"texture":8,"zIndex":105,"parallaxSpeed":1},{"id":"Uv0oHa50GXib-KzUA0ew1NM4v","x":1281,"y":-266,"w":150,"h":100,"angle":170,"texture":11,"zIndex":106,"parallaxSpeed":1},{"id":"72XuYiVNbWWG-0Pf32nZ6E709","x":1389,"y":-253,"w":150,"h":100,"angle":180,"texture":8,"zIndex":107,"parallaxSpeed":1},{"id":"CpWljMYMShfT-vRI7vPpHFvWa","x":800,"y":-202,"w":150,"h":100,"angle":180,"texture":8,"zIndex":108,"parallaxSpeed":1},{"id":"uMiYe3gpiZmz-fhBxV5GntJd3","x":766,"y":-231,"w":150,"h":100,"angle":220,"texture":8,"zIndex":110,"parallaxSpeed":1},{"id":"tu3FJfuT1Ygn-NZLjG8yEqZ2s","x":1138,"y":71,"w":150,"h":100,"angle":170,"texture":11,"zIndex":46,"parallaxSpeed":1},{"id":"cMIB7rngiJAx-EqdloA8LRvX3","x":1261,"y":76,"w":150,"h":100,"angle":0,"texture":8,"zIndex":96,"parallaxSpeed":1}]}
   ;
 const allItems = new Set();
 mapData.platforms.forEach(plat => {
@@ -1389,10 +1642,7 @@ class World {
       }
     }
     if (this.visibleEntitiesBuffer.length > config.maxVisibleEntities) {
-      this.visibleEntitiesBuffer.sort((a, b) => a.z - b.z);
       this.visibleEntitiesBuffer.length = config.maxVisibleEntities;
-    } else {
-      this.visibleEntitiesBuffer.sort((a, b) => a.z - b.z);
     }
     this.sortedVisible = this.visibleEntitiesBuffer;
     const now = performance.now() / 1000;
@@ -1401,10 +1651,13 @@ class World {
       const texObj = textures[i];
       if (texObj && texObj.tagName === 'VIDEO') {
         const last = this.lastVideoUpdate.get(i) || 0;
-        if (now - last > updateInterval) {
+        const currentTime = texObj.currentTime;
+        const lastTime = this.lastVideoUpdate.get(i + '_time') || 0;
+        if (now - last > updateInterval || Math.abs(currentTime - lastTime) > 0.033) {
           gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texObj);
           this.lastVideoUpdate.set(i, now);
+          this.lastVideoUpdate.set(i + '_time', currentTime);
         }
       }
     }
@@ -1422,21 +1675,6 @@ class World {
     const whiteColor = new Float32Array([1, 1, 1, 1]);
     let drewPlayer = false;
     for (const e of this.sortedVisible) {
-      const aabb = e.aabb;
-      let checkMinX = aabb.minX;
-      let checkMaxX = aabb.maxX;
-      let checkMinY = aabb.minY;
-      let checkMaxY = aabb.maxY;
-      if (e.isDecor) {
-        const offsetX = camX * (1 - e.parallaxSpeed);
-        const offsetY = camY * (1 - e.parallaxSpeed);
-        checkMinX += offsetX;
-        checkMaxX += offsetX;
-        checkMinY += offsetY;
-        checkMaxY += offsetY;
-      }
-      if (checkMaxX < this.reusableVisibleAABB.minX || checkMinX > this.reusableVisibleAABB.maxX ||
-          checkMaxY < this.reusableVisibleAABB.minY || checkMinY > this.reusableVisibleAABB.maxY) continue;
       const interpPos = this.getInterpolatedPosition(e, renderAlpha);
       let renderPosX = interpPos.x;
       let renderPosY = interpPos.y;
@@ -1930,6 +2168,7 @@ async function initializeGame() {
   world.updateInventoryUI();
   gameReady = true;
   loadingSpinner.style.display = 'none';
+  requestAnimationFrame(loop);
 }
 initializeGame().catch(() => {});
 let shakeTime = 0;
@@ -1940,12 +2179,12 @@ function shakeScreen(intensity) {
   shakeDuration = 1.0;
   shakeTime = 0;
 }
-let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 60;
+let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 120;
 let lastDebugTime = lastTime;
 let camX = 0, camY = 0;
-const cameraSmoothingRate = config.cameraSmoothing * 60;
+const cameraSmoothingRate = config.cameraSmoothing * 120;
 let accumulator = 0;
-const fixedDt = 1 / 60;
+const fixedDt = 1 / 120;
 function loop(currentTime) {
   frameCount++;
   if (currentTime - lastFPSTime >= 1000) {
@@ -1987,7 +2226,7 @@ function loop(currentTime) {
       }
     }
     world.draw(debugMode, camX, camY, frameCount, textures, alpha, canvas.width, canvas.height);
-    if (currentTime - lastDebugTime >= 500 && debugMode) {
+    if (currentTime - lastDebugTime >= 1000 && debugMode) {
       const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
       const interpPos = world.getInterpolatedPosition(world.player, alpha);
       const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
@@ -1998,7 +2237,7 @@ function loop(currentTime) {
     }
   } else if (gameReady && world.player) {
     world.draw(debugMode, camX, camY, frameCount, textures, 0, canvas.width, canvas.height);
-    if (currentTime - lastDebugTime >= 500 && debugMode) {
+    if (currentTime - lastDebugTime >= 1000 && debugMode) {
       const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
       const interpPos = world.getInterpolatedPosition(world.player, 0);
       const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
@@ -2013,7 +2252,6 @@ function loop(currentTime) {
   }
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 </script>
 </body>
 </html>
