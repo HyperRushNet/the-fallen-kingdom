@@ -2574,94 +2574,114 @@ void main() {
                     this.allEntities.push(this.player);
                 }
                 const platforms = data.platforms || [];
-                for (const plat of platforms) {
-                    let color = "#555";
-                    if (plat.type === "wall") color = "#666";
-                    else if (plat.type === "deadly") color = "#f00";
-                    else if (plat.type === "teleporter") color = "#00f";
-                    else if (plat.type === "jumpPad") color = "#0f0";
-                    else if (plat.type === "chest") {
-                        const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
-                        const closedTex = plat.closedTextureId !== undefined ? plat.closedTextureId : 0;
-                        const openTex = plat.openTextureId !== undefined ? plat.openTextureId : 1;
-                        const openingTex = plat.openingTextureId !== undefined ? plat.openingTextureId : 2;
-                        const closingTex = plat.closingTextureId !== undefined ? plat.closingTextureId : 3;
-                        const chestItems = new Array(config.maxChestSlots).fill(null);
-                        if (plat.items) {
-                            plat.items.slice(0, config.maxChestSlots).forEach((item, idx) => {
-                                chestItems[idx] = item;
-                            });
+                let staticEntities = [];
+                let platIdx = 0;
+                while (platIdx < platforms.length) {
+                    const batchEnd = Math.min(platIdx + 10, platforms.length);
+                    for (let j = platIdx; j < batchEnd; j++) {
+                        const plat = platforms[j];
+                        let e;
+                        let isChest = false;
+                        let isRespawn = false;
+                        let isMoving = false;
+                        if (plat.type === "chest") {
+                            isChest = true;
+                            const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
+                            const closedTex = plat.closedTextureId !== undefined ? plat.closedTextureId : 3;
+                            const openTex = plat.openTextureId !== undefined ? plat.openTextureId : 4;
+                            const openingTex = plat.openingTextureId !== undefined ? plat.openingTextureId : 5;
+                            const closingTex = plat.closingTextureId !== undefined ? plat.closingTextureId : 5;
+                            const chestItems = new Array(config.maxChestSlots).fill(null);
+                            if (plat.items) {
+                                for (let k = 0; k < Math.min(plat.items.length, config.maxChestSlots); k++) {
+                                    chestItems[k] = plat.items[k];
+                                }
+                            }
+                            e = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius, closedTex, openTex, openingTex, closingTex);
+                            e.id = plat.id;
+                            this.chests.push(e);
+                        } else if (plat.type === "respawn") {
+                            isRespawn = true;
+                            const detectionRadius = plat.detectionRadius || config.respawnDetectionRadius;
+                            const passThrough = plat.passThrough !== undefined ? plat.passThrough : false;
+                            const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
+                            const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
+                            const inactiveTex = plat.inactiveTextureId !== undefined ? plat.inactiveTextureId : 6;
+                            const activeTex = plat.activeTextureId !== undefined ? plat.activeTextureId : 5;
+                            e = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY, inactiveTex, activeTex);
+                            e.id = plat.id;
+                            e.passThrough = passThrough;
+                            this.respawnBoxes.push(e);
+                        } else if (plat.type === "movingPlatform") {
+                            isMoving = true;
+                            let color = "#555";
+                            e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
+                            e.id = plat.id;
+                            e.isMovingPlatform = true;
+                            e.startPos = e.pos.clone();
+                            e.targetPos = new Vec2(plat.targetX || e.pos.x, plat.targetY || e.pos.y);
+                            e.speed = plat.speed || 100;
+                            e.isGoingToTarget = true;
+                            e.linked = [];
+                            this.movingPlatforms.push(e);
+                        } else {
+                            let color = "#555";
+                            if (plat.type === "wall") color = "#666";
+                            else if (plat.type === "deadly") color = "#f00";
+                            else if (plat.type === "teleporter") color = "#00f";
+                            else if (plat.type === "jumpPad") color = "#0f0";
+                            e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
+                            e.id = plat.id;
+                            if (plat.type === "deadly") e.deadly = true;
+                            if (plat.passThrough !== undefined) e.passThrough = plat.passThrough;
+                            if (plat.type === "teleporter") {
+                                e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
+                                e.teleportDelay = plat.teleportDelay || 0;
+                            }
+                            if (plat.type === "jumpPad") {
+                                e.jumpBoost = plat.jumpBoost || 800;
+                            }
                         }
-                        const chest = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius, closedTex, openTex, openingTex, closingTex);
-                        chest.id = plat.id;
-                        this.add(chest);
-                        this.chests.push(chest);
-                        this.allEntities.push(chest);
-                        continue;
-                    } else if (plat.type === "respawn") {
-                        const detectionRadius = plat.detectionRadius || config.respawnDetectionRadius;
-                        const passThrough = plat.passThrough || false;
-                        const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
-                        const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
-                        const inactiveTex = plat.inactiveTextureId !== undefined ? plat.inactiveTextureId : -1;
-                        const activeTex = plat.activeTextureId !== undefined ? plat.activeTextureId : -1;
-                        const respawnBox = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY, inactiveTex, activeTex);
-                        respawnBox.id = plat.id;
-                        respawnBox.passThrough = passThrough;
-                        this.add(respawnBox);
-                        this.respawnBoxes.push(respawnBox);
-                        this.allEntities.push(respawnBox);
-                        continue;
-                    } else if (plat.type === "movingPlatform") {
-                        const mp = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
-                        mp.id = plat.id;
-                        mp.isMovingPlatform = true;
-                        mp.startPos = mp.pos.clone();
-                        mp.targetPos = new Vec2(plat.targetX || mp.pos.x, plat.targetY || mp.pos.y);
-                        mp.speed = plat.speed || 100;
-                        mp.isGoingToTarget = true;
-                        mp.linked = [];
-                        this.movingPlatforms.push(mp);
-                        this.add(mp);
-                        this.allEntities.push(mp);
-                        continue;
+                        this.allEntities.push(e);
+                        if (!isChest && !isRespawn) {
+                            staticEntities.push(e);
+                        }
                     }
-                    const e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
-                    e.id = plat.id;
-                    if (plat.type === "deadly") e.deadly = true;
-                    if (plat.passThrough) e.passThrough = true;
-                    if (plat.type === "teleporter") {
-                        e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
-                        e.teleportDelay = plat.teleportDelay || 0;
+                    platIdx = batchEnd;
+                    if (platIdx < platforms.length) {
+                        await new Promise(resolve => setTimeout(resolve, 16));
                     }
-                    if (plat.type === "jumpPad") {
-                        e.jumpBoost = plat.jumpBoost || 800;
-                    }
-                    this.add(e);
-                    this.allEntities.push(e);
                 }
+                const decorsData = data.decor || [];
+                let decorIdx = 0;
+                while (decorIdx < decorsData.length) {
+                    const batchEnd = Math.min(decorIdx + 10, decorsData.length);
+                    for (let j = decorIdx; j < batchEnd; j++) {
+                        const d = decorsData[j];
+                        const dd = new BaseShape(d.x || 0, d.y || 0, d.w || 100, d.h || 100, d.angle || 0, d.zIndex || 0, d.texture !== null ? d.texture : -1, true, d.parallaxSpeed || 0.7);
+                        this.decors.push(dd);
+                        this.allEntities.push(dd);
+                    }
+                    decorIdx = batchEnd;
+                    if (decorIdx < decorsData.length) {
+                        await new Promise(resolve => setTimeout(resolve, 16));
+                    }
+                }
+                this.statics.push(...staticEntities);
                 const entityById = new Map();
                 for (const e of this.allEntities) {
                     if (e.id) entityById.set(e.id, e);
                 }
                 for (const plat of platforms) {
                     if (plat.linkedTo) {
-                        const linkedPlatId = plat.id;
-                        const linkedE = entityById.get(linkedPlatId);
-                        if (linkedE) {
-                            const mp = entityById.get(plat.linkedTo);
-                            if (mp && mp.isMovingPlatform) {
-                                mp.linked.push(linkedE);
-                                linkedE.isLinkedPlatform = true;
-                                linkedE.movingParent = mp;
-                            }
+                        const linkedE = entityById.get(plat.id);
+                        const mp = entityById.get(plat.linkedTo);
+                        if (mp && mp.isMovingPlatform) {
+                            mp.linked.push(linkedE);
+                            linkedE.isLinkedPlatform = true;
+                            linkedE.movingParent = mp;
                         }
                     }
-                }
-                for (const d of data.decor || []) {
-                    const dd = new BaseShape(d.x || 0, d.y || 0, d.w || 100, d.h || 100, d.angle || 0, d.zIndex || 0, d.texture !== null ? d.texture : -1, true, d.parallaxSpeed || 0.7);
-                    this.decors.push(dd);
-                    this.allEntities.push(dd);
                 }
                 this.chests.forEach(chest => {
                     chest.state = 'closed';
@@ -2672,14 +2692,13 @@ void main() {
                 const saved = await this.loadProgress();
                 if (saved) {
                     this.player.pos.set(saved.position.x, saved.position.y);
-                    this.inventory = [...saved.inventory];
-                    this.currentRespawnPos.set(saved.respawnPos.x, saved.respawnPos.y);
+                    this.player.updateAABB();
+                    this.currentRespawnPos.set(saved.respawnPos.x || this.playerStartPos.x, saved.respawnPos.y || this.playerStartPos.y);
                     this.respawnBoxes.forEach(box => box.setActive(false));
-                    this.respawnBoxes.forEach(box => {
-                        if (Math.abs(box.respawnPos.x - this.currentRespawnPos.x) < 10 && Math.abs(box.respawnPos.y - this.currentRespawnPos.y) < 10) {
-                            box.setActive(true);
-                        }
-                    });
+                    const activeBox = this.respawnBoxes.find(box =>
+                        Math.hypot(box.respawnPos.x - this.currentRespawnPos.x, box.respawnPos.y - this.currentRespawnPos.y) < 10
+                    );
+                    if (activeBox) activeBox.setActive(true);
                     this.updateInventoryUI();
                 }
             }
@@ -2833,7 +2852,7 @@ void main() {
                             linked.updateAABB();
                         }
                         mp.deltaThisFrame = moveVec.clone();
-                        if (moveVec.lenSq() > 25) {
+                        if (moveVec.lenSq() > 100) {
                             this.spatialHashNeedsRebuild = true;
                         }
                     }
