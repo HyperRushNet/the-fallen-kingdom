@@ -1,0 +1,3073 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="/assets/images/favicon/000000.png" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="/assets/images/favicon/ffffff.png" media="(prefers-color-scheme: dark)">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://hyperrushnet.github.io" crossorigin>
+    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
+    <link rel="preconnect" href="https://placehold.co">
+    <title>The Fallen Kingdom</title>
+    <style>
+        #fadeOverlay,
+        canvas {
+            width: 100vw;
+            height: 100vh
+        }
+
+        #chestUI,
+        #loadingSpinner {
+            transform: translate(-50%, -50%)
+        }
+
+        #chestUI,
+        #inventory {
+            position: fixed;
+            top: 50%;
+            background: linear-gradient(145deg, rgba(10, 10, 10, .95), rgba(20, 20, 20, .95));
+            padding: 24px;
+            font-family: Orbitron, monospace;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .3), 0 0 15px rgba(176, 208, 255, .05);
+            will-change: transform;
+            color: #b0d0ff
+        }
+
+        .grid-chest,
+        .grid-inventory {
+            display: grid;
+            gap: 8px;
+            margin: 12px 0
+        }
+
+        #inventory,
+        .slot,
+        body {
+            overflow: hidden
+        }
+
+        #closeChest,
+        #closeInventory,
+        #debug button,
+        .slot {
+            cursor: pointer;
+            transition: .2s
+        }
+
+        #chestUI,
+        #inventory,
+        .tooltip,
+        body {
+            color: #b0d0ff
+        }
+
+        #fadeOverlay,
+        .tooltip {
+            opacity: 0;
+            pointer-events: none
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html,
+        body {
+            background: #0a0a0a;
+            font-family: Orbitron, 'Courier New', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden
+        }
+
+        canvas {
+            background: linear-gradient(135deg, #1a1a1a 0, #2d2d2d 100%);
+            display: block
+        }
+
+        #fadeOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #000;
+            z-index: 10000
+        }
+
+        #loadingSpinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(176, 208, 255, .3);
+            border-top: 5px solid #b0d0ff;
+            border-radius: 50%;
+            animation: 1s linear infinite spin;
+            z-index: 10001;
+            display: block
+        }
+
+        @keyframes spin {
+            0% {
+                transform: translate(-50%, -50%) rotate(0)
+            }
+
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg)
+            }
+        }
+
+        #debug {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, .4);
+            padding: 12px;
+            border: 1px dashed #b0d0ff;
+            border-radius: 8px;
+            width: 260px;
+            font-size: 11px;
+            line-height: 1.1;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, .1);
+            backdrop-filter: blur(8px);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            transition: .3s;
+            z-index: 1000
+        }
+
+        #debug:hover {
+            box-shadow: 0 0 20px rgba(176, 208, 255, .3);
+            border-color: #fff
+        }
+
+        #debug button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            background: linear-gradient(145deg, rgba(255, 0, 0, .3), rgba(255, 0, 0, .1));
+            color: #ff6b6b;
+            border: none;
+            border-radius: 0 0 8px 8px;
+            font-family: inherit;
+            font-size: 12px;
+            margin-bottom: 12px
+        }
+
+        #debug button:hover {
+            background: linear-gradient(145deg, rgba(255, 0, 0, .5), rgba(255, 0, 0, .2));
+            color: #fff
+        }
+
+        #inventory {
+            left: 50%;
+            transform: translate(-50%, -50%) scale(.9);
+            width: 450px;
+            height: 350px;
+            border: 2px solid #b0d0ff;
+            border-radius: 16px;
+            font-size: 14px;
+            animation: .2s cubic-bezier(.25, .46, .45, .94) uiSlideIn
+        }
+
+        @keyframes uiSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(.9)
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1)
+            }
+        }
+
+        #chestUI h2,
+        #inventory h2 {
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            background: linear-gradient(90deg, #b0d0ff, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 10px rgba(176, 208, 255, .5)
+        }
+
+        #inventoryGrid {
+            margin: 16px 0;
+            padding: 12px;
+            background: rgba(176, 208, 255, .05);
+            border-radius: 12px;
+            border: 1px solid rgba(176, 208, 255, .1)
+        }
+
+        #chestUI {
+            left: 50%;
+            width: 500px;
+            height: 550px;
+            border: 2px solid #b0d0ff;
+            border-radius: 16px;
+            font-size: 14px;
+            overflow-y: auto
+        }
+
+        #chestSection,
+        #playerSection {
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(176, 208, 255, .05);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid rgba(176, 208, 255, .1)
+        }
+
+        .item,
+        .slot {
+            align-items: center
+        }
+
+        #chestSection h3,
+        #playerSection h3 {
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #fff
+        }
+
+        .grid-inventory {
+            grid-template-columns: repeat(4, 1fr)
+        }
+
+        .grid-chest {
+            grid-template-columns: repeat(3, 1fr)
+        }
+
+        .item,
+        .slot {
+            display: flex
+        }
+
+        .slot {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(176, 208, 255, .3);
+            justify-content: center;
+            background: linear-gradient(145deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .02));
+            border-radius: 8px;
+            position: relative
+        }
+
+        .slot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(176, 208, 255, .1), transparent);
+            transition: left .5s
+        }
+
+        .slot:hover::before {
+            left: 100%
+        }
+
+        .slot:hover {
+            border-color: #b0d0ff;
+            box-shadow: 0 0 15px rgba(176, 208, 255, .3);
+            transform: scale(1.05)
+        }
+
+        .slot.has-item {
+            border-color: #fff;
+            box-shadow: inset 0 0 10px rgba(176, 208, 255, .2)
+        }
+
+        .item {
+            cursor: grab;
+            transition: transform .2s;
+            z-index: 10
+        }
+
+        .item:hover {
+            transform: scale(1.1)
+        }
+
+        .item:active {
+            cursor: grabbing
+        }
+
+        .item img {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .3);
+            filter: drop-shadow(0 0 5px rgba(176, 208, 255, .5))
+        }
+
+        #closeChest,
+        #closeInventory {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: linear-gradient(145deg, rgba(255, 0, 0, .2), rgba(255, 0, 0, .1));
+            border: 1px solid rgba(255, 0, 0, .5);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            color: #ff6b6b;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+        #closeChest:hover,
+        #closeInventory:hover {
+            background: linear-gradient(145deg, rgba(255, 0, 0, .4), rgba(255, 0, 0, .2));
+            color: #fff;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(255, 0, 0, .5)
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, .9);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            transition: opacity .2s;
+            z-index: 20;
+            backdrop-filter: blur(10px)
+        }
+
+        .slot:hover .tooltip {
+            opacity: 1
+        }
+
+        .render-canvas {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            image-rendering: pixelated !important;
+            image-rendering: -moz-crisp-edges !important;
+            image-rendering: crisp-edges !important;
+            z-index: 1;
+        }
+
+        #virtual-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 1000;
+            pointer-events: none; /* Allow interaction with canvas below */
+        }
+
+        #virtual-controls.active {
+            pointer-events: all; /* Enable interaction when active */
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .control-group.left {
+            grid-template-areas:
+                ". up"
+                "left down"
+                ". right";
+        }
+
+        #v-up { grid-area: up; }
+        #v-left { grid-area: left; }
+        #v-down { grid-area: down; }
+        #v-right { grid-area: right; }
+
+        .control-group.right {
+            grid-template-areas:
+                "jump dash"
+                "inv chest";
+        }
+
+        #v-jump { grid-area: jump; }
+        #v-dash { grid-area: dash; }
+        #v-inventory { grid-area: inv; }
+        #v-chest { grid-area: chest; }
+
+        .virtual-button {
+            background: rgba(176, 208, 255, 0.2);
+            border: 2px solid rgba(176, 208, 255, 0.5);
+            color: #b0d0ff;
+            font-size: 24px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            transition: background 0.2s, border-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .virtual-button:active {
+            background: rgba(176, 208, 255, 0.4);
+            border-color: #fff;
+            transform: scale(0.95);
+        }
+
+        .virtual-button:hover {
+            background: rgba(176, 208, 255, 0.3);
+        }
+
+
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loadingSpinner"></div>
+    <canvas id="game"></canvas>
+    <div id="fadeOverlay"></div>
+    <div id="debug"></div>
+    <div id="inventory">
+        <button id="closeInventory">&times;</button>
+        <h2>Inventory</h2>
+        <div id="inventoryGrid"></div>
+    </div>
+    <div id="chestUI">
+        <button id="closeChest">&times;</button>
+        <h2>Chest Interactions</h2>
+        <div id="chestSection">
+            <h3>Chest Contents</h3>
+            <div id="chestGrid" class="grid-chest"></div>
+        </div>
+        <div id="playerSection">
+            <h3>Your Inventory</h3>
+            <div id="playerGridInChest" class="grid-inventory"></div>
+        </div>
+    </div>
+    <div id="virtual-controls" style="display: none;">
+        <div class="control-group left">
+            <button id="v-up" class="virtual-button">↑</button>
+            <button id="v-left" class="virtual-button">←</button>
+            <button id="v-down" class="virtual-button">↓</button>
+            <button id="v-right" class="virtual-button">→</button>
+        </div>
+        <div class="control-group right">
+            <button id="v-jump" class="virtual-button">Jump</button>
+            <button id="v-dash" class="virtual-button">Dash</button>
+            <button id="v-inventory" class="virtual-button">Inv</button>
+            <button id="v-chest" class="virtual-button">Chest</button>
+        </div>
+    </div>
+    <script>
+        const config = {
+            gravity: 900,
+            playerSpeed: 200,
+            jumpHeight: 600,
+            airJumpCooldown: 1.5,
+            dashDirections: {
+                left: { speed: 800, duration: 0.2, key: ["ArrowLeft"] },
+                right: { speed: 800, duration: 0.2, key: ["ArrowRight"] },
+                up: { speed: 800, duration: 0.2, key: ["ArrowUp"] },
+                down: { speed: 800, duration: 0.2, key: ["ArrowDown"] }
+            },
+            downwardsDashSingleKey: "KeyS",
+            dashDuration: 0.2,
+            dashSpeed: 800,
+            cameraSmoothing: 0.12,
+            maxPlayerSlots: 12,
+            maxChestSlots: 9,
+            chestDetectionRadius: 100,
+            respawnDetectionRadius: 1200,
+            fadeDuration: 1,
+            mostlyDarkPercentage: 0.8,
+            autoSaveInterval: 10000,
+            pauseOnHidden: true,
+            pauseOnBlur: true,
+            renderWhenPaused: false,
+            pauseVideosWhenPaused: true,
+            maxDelta: 0.1,
+            videoUpdateInterval: 1 / 30,
+            debugKey: "KeyD",
+            inventoryKey: "KeyI",
+            chestKey: "KeyE",
+            respawnKey: "KeyR",
+            dashKeys: ["ShiftLeft", "ShiftRight"],
+            jumpKey: "ArrowUp",
+            leftKey: "ArrowLeft",
+            rightKey: "ArrowRight",
+            downKey: "ArrowDown",
+            clearStorageKey: "Backspace",
+            ctrlForClear: true,
+            godModeKey: "KeyG",
+            infiniteJumpKey: "KeyJ",
+            noclipKey: "KeyN",
+            maxPhysicsSubSteps: 6,
+            maxPhysicsStepsPerFrame: 1,
+            cellSize: 600,
+            maxVisibleEntities: 1000,
+            saveThrottle: 2000,
+            collisionEpsilon: 0.1,
+            adaptiveSubSteps: true,
+            minSubStepSize: 4.0,
+            spatialHashRebuildThreshold: 200,
+            renderWidth: 320,
+            renderHeight: 180,
+            pixelPerfect: true,
+            smoothScaling: false,
+            resolutionPreset: 1,
+            resolutionPresets: [
+                { width: 160, height: 90, name: "Extreme" },
+                { width: 320, height: 180, name: "Very Low" },
+                { width: 426, height: 240, name: "Low" },
+                { width: 640, height: 360, name: "Medium" },
+                { width: 854, height: 480, name: "SD" },
+                { width: 1280, height: 720, name: "HD" },
+                { width: 1920, height: 1080, name: "Full HD" },
+                { width: 2560, height: 1440, name: "QHD" },
+                { width: 3840, height: 2160, name: "4K Ultra HD" }
+            ],
+            cycleResolutionKey: "KeyP",
+            fovWidth: 1200,
+            fovHeight: 675,
+            maxParticleCount: 3000,
+            maxVisibleEntities: 200,
+            adaptiveSubSteps: 5,
+            particleQuality: 1.0,
+            enableVirtualControls: true
+        };
+
+        // Virtual Controls Logic
+        const virtualControls = document.getElementById('virtual-controls');
+        if (config.enableVirtualControls) {
+            virtualControls.style.display = 'flex';
+            virtualControls.classList.add('active');
+
+            const simulateKeyEvent = (key, type) => {
+                const event = new KeyboardEvent(type, {
+                    key: key,
+                    code: key,
+                    bubbles: true,
+                    cancelable: true,
+                });
+                document.dispatchEvent(event);
+            };
+
+            // Movement controls
+            document.getElementById('v-up').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.jumpKey, 'keydown'); });
+            document.getElementById('v-up').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.jumpKey, 'keyup'); });
+
+            document.getElementById('v-left').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.leftKey, 'keydown'); });
+            document.getElementById('v-left').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.leftKey, 'keyup'); });
+
+            document.getElementById('v-down').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.downKey, 'keydown'); });
+            document.getElementById('v-down').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.downKey, 'keyup'); });
+
+            document.getElementById('v-right').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.rightKey, 'keydown'); });
+            document.getElementById('v-right').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.rightKey, 'keyup'); });
+
+            // Action controls
+            document.getElementById('v-jump').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.jumpKey, 'keydown'); });
+            document.getElementById('v-jump').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.jumpKey, 'keyup'); });
+
+            document.getElementById('v-dash').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.dashKeys[0], 'keydown'); });
+            document.getElementById('v-dash').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.dashKeys[0], 'keyup'); });
+
+            document.getElementById('v-inventory').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.inventoryKey, 'keydown'); });
+            document.getElementById('v-inventory').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.inventoryKey, 'keyup'); });
+
+            document.getElementById('v-chest').addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(config.chestKey, 'keydown'); });
+            document.getElementById('v-chest').addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(config.chestKey, 'keyup'); });
+
+        } else {
+            virtualControls.style.display = 'none';
+            virtualControls.classList.remove('active');
+        }
+
+        const mapData =
+
+            { "playerStart": { "x": 125, "y": -5, "w": 59, "h": 100, "zIndex": 1, "angle": 0 }, "textures": ["http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/dirt-ground.png", "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/parkour-platform-ground.png", "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/spikes-1.png", "https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg", "https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg", "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm", "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg", "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/iron-chain.png", "http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-1.png", "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png", "http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/cage-1-v2.png", "http://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/static/bush-2.png"], "platforms": [{ "id": "jgWo6uTND6pu-Os4J6efGYCzb", "type": "platform", "x": 811, "y": 100, "w": 2400, "h": 100, "angle": 0, "texture": 0, "zIndex": 1 }, { "id": "kkjpb16uNZiC-wXbrlAZlZh6G", "type": "platform", "x": 750, "y": -360, "w": 100, "h": 200, "angle": 0, "texture": null, "zIndex": 65 }, { "id": "edCMMNq3n6xB-pQMRIUBnzSQ0", "type": "platform", "x": 900, "y": -210, "w": 200, "h": 100, "angle": 0, "texture": null, "zIndex": 4 }, { "id": "3rQKxqosrA06-8dkJiryN0Bbm", "type": "platform", "x": 1077, "y": -241, "w": 200, "h": 100, "angle": -20, "texture": null, "zIndex": 5 }, { "id": "X2Qnky1oVNud-IjZmQYypmDHg", "type": "platform", "x": 1211, "y": -281, "w": 100, "h": 100, "angle": -10, "texture": null, "zIndex": 6 }, { "id": "2KGvRRd1pYqF-lf6mZxwt59dc", "type": "platform", "x": 1302, "y": -289, "w": 100, "h": 100, "angle": 0, "texture": null, "zIndex": 7 }, { "id": "oWxYgmS6AQWg-kyNXNHFKVwAI", "type": "platform", "x": 1392, "y": -281, "w": 100, "h": 100, "angle": 10, "texture": null, "zIndex": 8 }, { "id": "8peAJm7lGCkV-kzrYFYGaCTDC", "type": "platform", "x": 1526, "y": -240, "w": 200, "h": 100, "angle": 20, "texture": null, "zIndex": 9 }, { "id": "MS1PZMAEiRFM-dZFkoEtwGk7j", "type": "platform", "x": 1250, "y": -360, "w": 900, "h": 200, "angle": 0, "texture": null, "zIndex": 11 }, { "id": "mB9AGahnURyG-SRwduaagJUTa", "type": "platform", "x": 1491, "y": -510, "w": 780, "h": 100, "angle": 0, "texture": null, "zIndex": 12 }, { "id": "4mSqoDGYUcVg-uVvKKDYiEFyL", "type": "platform", "x": 860, "y": -781, "w": 200, "h": 100, "angle": -20, "texture": null, "zIndex": 13 }, { "id": "0vTEKctsJJgh-bojJAgRYlkSz", "type": "platform", "x": 1093, "y": -839, "w": 300, "h": 100, "angle": -10, "texture": null, "zIndex": 14 }, { "id": "CmBavJ0hZhFq-GrwUXjNqhTpr", "type": "platform", "x": 1311, "y": -909, "w": 200, "h": 100, "angle": -30, "texture": null, "zIndex": 15 }, { "id": "VqLONgs03hiY-ogv3zTN5M3dK", "type": "platform", "x": 786, "y": -245, "w": 141, "h": 100, "angle": 45, "texture": null, "zIndex": 16 }, { "id": "Vb8HWAKBdL6Z-aIoE71xlQDgI", "type": "platform", "x": 1650, "y": -210, "w": 100, "h": 100, "angle": 0, "texture": null, "zIndex": 17 }, { "id": "84t3a75ooIRX-T1OnrwMWNA6B", "type": "platform", "x": 1529, "y": -979, "w": 300, "h": 100, "angle": -10, "texture": null, "zIndex": 18 }, { "id": "gE7XXXicjEat-mnS07sjDfPvx", "type": "platform", "x": 1739, "y": -913, "w": 300, "h": 100, "angle": 45, "texture": null, "zIndex": 19 }, { "id": "wR44RJanvFEX-xjzmUm1QIC83", "type": "platform", "x": 1831, "y": -701, "w": 100, "h": 283, "angle": 0, "texture": null, "zIndex": 20 }, { "id": "9RsFfEXShyPx-L3bz8ljUsu0C", "type": "platform", "x": 2310, "y": 50, "w": 600, "h": 200, "angle": 0, "texture": null, "zIndex": 1 }, { "id": "wFUMitBwRH8N-jaQEV6NVDoea", "type": "platform", "x": 1795, "y": -394, "w": 450, "h": 235, "angle": -40, "texture": null, "zIndex": 22 }, { "id": "IAJZ6SZzR4YH-bq4lnwKOYhsj", "type": "platform", "x": 1969, "y": -515, "w": 355, "h": 175, "angle": -20, "texture": null, "zIndex": 23 }, { "id": "h8UAI1ADfe9H-R4jmVGaQc9xO", "type": "platform", "x": 2295, "y": -605, "w": 355, "h": 175, "angle": -10, "texture": null, "zIndex": 24 }, { "id": "rZaZix5aGw88-qwNz0CJUpQKs", "type": "platform", "x": 3441, "y": -186, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 27 }, { "id": "zlUUglmdDa54-WEb8AuvqA7xS", "type": "platform", "x": 3771, "y": -237, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 28 }, { "id": "pTqWy92PbcBF-Pwa8dvWqg7M9", "type": "platform", "x": 2910, "y": -42, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 29 }, { "id": "A3ckQ4o67yQp-xqTd68CPc0Vx", "type": "platform", "x": 3199, "y": -52, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 30 }, { "id": "GWX8BWSXmc7L-d30Ee41JSOpy", "type": "platform", "x": 3984, "y": -417, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 31 }, { "id": "F3cbLQKZGswe-OzeWvsmhx3KC", "type": "platform", "x": 3673, "y": -574, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 32 }, { "id": "jURZ7N1idbLU-ilSWg1t84xuZ", "type": "deadly", "x": 2910, "y": -22, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 33 }, { "id": "hwOm68RaIRHX-zEXB3Ze04DaI", "type": "deadly", "x": 3199, "y": -32, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 34 }, { "id": "zzmsdIG86uol-ifMTnU8xQMB1", "type": "deadly", "x": 3441, "y": -166, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 35 }, { "id": "872NIw92j9aD-hA8iQGKGtXbU", "type": "deadly", "x": 3771, "y": -217, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 36 }, { "id": "BlhZ9dgvWdWB-kiHylVXZiObj", "type": "deadly", "x": 3984, "y": -397, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 37 }, { "id": "z39vM1L7cE5Q-bB9RBVbfTk8a", "type": "deadly", "x": 3673, "y": -554, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 38 }, { "id": "raAYBYWQSgvh-2ULmY9IOfiNv", "type": "platform", "x": 3385, "y": 450, "w": 2750, "h": 600, "angle": 0, "texture": null, "zIndex": 39 }, { "id": "p8jDcXstfhOM-QSNUJnBykSV3", "type": "platform", "x": 4460, "y": 50, "w": 600, "h": 200, "angle": 0, "texture": null, "zIndex": 40 }, { "id": "v0WiMvC6M2qK-kDjUXzqeANwX", "type": "platform", "x": 4650, "y": -371, "w": 800, "h": 400, "angle": 0, "texture": null, "zIndex": 41 }, { "id": "uCFZiV6yv4UN-SadspmUsg5FV", "type": "platform", "x": 3957, "y": -682, "w": 100, "h": 20, "angle": 0, "texture": 1, "zIndex": 42 }, { "id": "W3GH8M6LJkLs-TZBvsjZntFjg", "type": "deadly", "x": 3957, "y": -662, "w": 98, "h": 20, "angle": 0, "texture": 2, "zIndex": 43 }, { "id": "W0fXvWWTxMol-OMpY660ni3d1", "type": "platform", "x": 4150, "y": -1030, "w": 600, "h": 200, "angle": -10, "texture": null, "zIndex": 44 }, { "id": "UVRO79gn60Fa-qR4McfpfUNuv", "type": "platform", "x": 4648, "y": -1006, "w": 721, "h": 200, "angle": 7, "texture": null, "zIndex": 45 }, { "id": "1BUqI8Ofi6ms-oRamBygx0D9l", "type": "platform", "x": 4200, "y": -420, "w": 100, "h": 300, "angle": 0, "texture": null, "zIndex": 46 }, { "id": "6gehgTx3BD6O-xXi9vvMSMLBI", "type": "platform", "x": 4229, "y": -249, "w": 141, "h": 80, "angle": 45, "texture": null, "zIndex": 47 }, { "id": "pkpDsWpzctKL-5OwQigDTbIma", "type": "platform", "x": 3551, "y": -1070, "w": 721, "h": 200, "angle": 15, "texture": null, "zIndex": 48 }, { "id": "3LmKr3UGZEbo-oZqx3tKCAMDs", "type": "platform", "x": 2952, "y": -1109, "w": 600, "h": 200, "angle": -10, "texture": null, "zIndex": 49 }, { "id": "eoyRw3WubzR1-DbMIf038kjjL", "type": "platform", "x": 2576, "y": -855, "w": 600, "h": 200, "angle": -55, "texture": null, "zIndex": 50 }, { "id": "7KIgFCDRwdF8-U0yUPGrWyEqm", "type": "platform", "x": 4366, "y": -639, "w": 433, "h": 138, "angle": 0, "texture": null, "zIndex": 53 }, { "id": "VOvckp2nyAe5-Q8U76TEKoQeO", "type": "deadly", "x": 3385, "y": 140, "w": 1550, "h": 20, "angle": 0, "texture": null, "zIndex": 54 }, { "id": "udUfT3MNj0Cq-KJ7Zsh70Ue5q", "type": "platform", "x": 1308, "y": -88, "w": 220, "h": 20, "angle": 0, "texture": null, "zIndex": 57 }, { "id": "SGG8pcYQm6mQ-KelDCAx3MBhP", "type": "chest", "x": 1309, "y": -135, "w": 75, "h": 75, "angle": 0, "texture": null, "zIndex": 1, "detectionRadius": 100, "items": ["resin"], "closedTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Balsa_Wood_Texture.jpg", "openTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/0/09/Artificial_wood.jpg", "openingTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm", "closingTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm", "closedTextureId": 3, "openTextureId": 4, "openingTextureId": 5, "closingTextureId": 5 }, { "id": "1QDwJg388Lnv-bRNjkmuWhFaJ", "type": "platform", "x": 2156, "y": -739, "w": 700, "h": 300, "angle": 0, "texture": null, "zIndex": 59 }, { "id": "grUfrpf3npIq-vvdKdShPsT0r", "type": "platform", "x": 2174, "y": -1035, "w": 948, "h": 300, "angle": 0, "texture": null, "zIndex": 60 }, { "id": "PUWunsdRlN0O-JKgeIBhYmDtE", "type": "platform", "x": 4810, "y": 350, "w": 100, "h": 800, "angle": 0, "texture": null, "zIndex": 1 }, { "id": "bUCHEPHsDCZW-Ox8b1I5c4cng", "type": "platform", "x": 5010, "y": 350, "w": 100, "h": 800, "angle": 0, "texture": null, "zIndex": 62 }, { "id": "f3m3R5o2BQzW-fI3gFRtTA3ER", "type": "respawn", "x": 1731, "y": -610, "w": 100, "h": 100, "angle": 0, "texture": null, "zIndex": 0, "detectionRadius": 100, "passThrough": true, "respawnX": 1731, "respawnY": -610, "inactiveTextureUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Siam_lilacpoint.jpg/250px-Siam_lilacpoint.jpg", "activeTextureUrl": "https://hyperrushnet.github.io/the-fallen-kingdom/assets/textures/animated/rickroll.webm", "inactiveTextureId": 6, "activeTextureId": 5 }, { "id": "s4ftRYK69unh-IKn2TTHVOxnO", "type": "platform", "x": 4737, "y": 742, "w": 225, "h": 100, "angle": -20, "texture": null, "zIndex": 63 }, { "id": "rN7172iSnntt-GLPMwjrY0lfi", "type": "platform", "x": 4690, "y": 1120, "w": 1000, "h": 20, "angle": 0, "texture": null, "zIndex": 64 }, { "id": "zI1dgj8I8BWA-6uDB6qk0FfSt", "type": "platform", "x": 4909, "y": 1051, "w": 100, "h": 120, "angle": 0, "texture": null, "zIndex": 65 }, { "id": "aoRvamxwYmdf-mxZJkk6XQuSJ", "type": "platform", "x": 4653, "y": 1050, "w": 100, "h": 120, "angle": 0, "texture": null, "zIndex": 66 }, { "id": "HN2pjwU9h3pR-zDc5QMtfn1Cl", "type": "deadly", "x": 4781, "y": 1100, "w": 156, "h": 20, "angle": 0, "texture": null, "zIndex": 67 }, { "id": "ncegTFgLA2ie-UIS0Jz3UxrTa", "type": "platform", "x": 5009, "y": 1060, "w": 100, "h": 101, "angle": 0, "texture": null, "zIndex": 68 }, { "id": "N5uU5DI901jp-pmNVd2UagSY0", "type": "platform", "x": 5421, "y": 783, "w": 264, "h": 250, "angle": 0, "texture": null, "zIndex": 70 }, { "id": "YuOloEFFHQcJ-lKIRAOclyWAg", "type": "platform", "x": 5239, "y": 894, "w": 100, "h": 472, "angle": 0, "texture": null, "zIndex": 71 }, { "id": "Hb9Cl8lLcBc1-9G31QRE5ybJ1", "type": "deadly", "x": 5124, "y": 1100, "w": 131, "h": 20, "angle": 0, "texture": null, "zIndex": 72 }, { "id": "ioqMQ5eT63L3-ghV1tpbKlJVL", "type": "deadly", "x": 4550, "y": 760, "w": 156, "h": 20, "angle": 0, "texture": null, "zIndex": 62 }, { "id": "0m1n0Domtkx4-x6qh2qn8nrpK", "type": "deadly", "x": 4394, "y": 760, "w": 156, "h": 20, "angle": 0, "texture": null, "zIndex": 81 }, { "id": "TUqf6q6TgQnm-6xdKbFfWFHo3", "type": "platform", "x": 4207, "y": 742, "w": 225, "h": 100, "angle": 20, "texture": null, "zIndex": 82 }, { "id": "wo3voL0R5AZb-6RrYukjhhSpU", "type": "platform", "x": 4453, "y": 1035, "w": 300, "h": 150, "angle": 0, "texture": null, "zIndex": 83 }, { "id": "bytnbRNMKjg3-jDcSiuKErjkX", "type": "platform", "x": 5310, "y": 450, "w": 500, "h": 100, "angle": 0, "texture": null, "zIndex": 84 }], "decor": [{ "id": "HOJZq7kFaugY-LxBMwFAE7Nd0", "x": 1408, "y": -168, "w": 20, "h": 150, "angle": 0, "texture": 7, "zIndex": 7, "parallaxSpeed": 1 }, { "id": "HsNHzCP3C4Dt-1K9hrQ34VdzX", "x": 1208, "y": -168, "w": 20, "h": 150, "angle": 0, "texture": 7, "zIndex": 5, "parallaxSpeed": 1 }, { "id": "bFIRKwP3cEiu-LsH3wxEZm7iY", "x": -314, "y": 90, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 86, "parallaxSpeed": 1 }, { "id": "QfO354DBwXlI-z324E3WChP7m", "x": -184, "y": 100, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 87, "parallaxSpeed": 1 }, { "id": "F0h6oJWl1qiY-484AY2l7HSie", "x": -104, "y": 120, "w": 150, "h": 100, "angle": 0, "texture": 9, "zIndex": 88, "parallaxSpeed": 1 }, { "id": "VYDsmNuCNH90-2ISa6jqoCcx6", "x": -14, "y": 90, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 87, "parallaxSpeed": 1 }, { "id": "HfrP1IPuSDoQ-n5J5jYTprypZ", "x": 106, "y": 80, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 89, "parallaxSpeed": 1 }, { "id": "EFPaVACvOjdZ-iM2aNrFk11XH", "x": 176, "y": 81, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 90, "parallaxSpeed": 1 }, { "id": "AtJ6vC48SFa9-7Rwo8chEao6V", "x": 246, "y": 110, "w": 150, "h": 100, "angle": 0, "texture": 9, "zIndex": 91, "parallaxSpeed": 1 }, { "id": "Bt0v38SUhZ49-9H8k1RNK1L5O", "x": 357, "y": 110, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 92, "parallaxSpeed": 1 }, { "id": "cPr24Ce3J8p2-SrqIVi0JiEpl", "x": 500, "y": -48, "w": 450, "h": 300, "angle": -25, "texture": 10, "zIndex": 0, "parallaxSpeed": 1 }, { "id": "NH9j6pwbSPG0-nsivdxJKvFU0", "x": 427, "y": 80, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 93, "parallaxSpeed": 1 }, { "id": "bnJFXgbDjcgY-xyIMe2NfF4aU", "x": 527, "y": 80, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 94, "parallaxSpeed": 1 }, { "id": "Zbxh2DJZfgLv-1rhXkjC3bOmE", "x": 627, "y": 60, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 95, "parallaxSpeed": 1 }, { "id": "1fSwx2usiv0X-t1Ww4uIa7XqS", "x": 708, "y": 81, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 96, "parallaxSpeed": 1 }, { "id": "uDH9dqLXYHAs-RQ9eKWey4CL1", "x": 818, "y": 71, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 92, "parallaxSpeed": 1 }, { "id": "S0Qvi1OkQijH-KxHfq2JzkPTv", "x": 908, "y": 101, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 97, "parallaxSpeed": 1 }, { "id": "lCouKABXxMUn-GlxT0U4q0mUe", "x": 1018, "y": 91, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 98, "parallaxSpeed": 1 }, { "id": "aTV16BpoPtcy-N3egWpmpGaWM", "x": 1118, "y": 121, "w": 150, "h": 100, "angle": 0, "texture": 9, "zIndex": 99, "parallaxSpeed": 1 }, { "id": "ntBfFzAeIfvs-uCYA2nVIFZYV", "x": 1218, "y": 131, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 97, "parallaxSpeed": 1 }, { "id": "IK27GNQmonwB-VCD8mnEiMqbV", "x": 507, "y": 121, "w": 150, "h": 100, "angle": 0, "texture": 9, "zIndex": 100, "parallaxSpeed": 1 }, { "id": "uYN3UUmZWnxV-z0W2ss7hfo3n", "x": -264, "y": 120, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 101, "parallaxSpeed": 1 }, { "id": "7C90uNLh9gGp-EFCRqwC6u6fg", "x": 36, "y": 120, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 102, "parallaxSpeed": 1 }, { "id": "4TTBDA6V3I9X-A5fSlbZfebIh", "x": 166, "y": 121, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 90, "parallaxSpeed": 1 }, { "id": "z6I4K91FwIj0-c9QG2rWulMFX", "x": 880, "y": -182, "w": 150, "h": 100, "angle": 180, "texture": 8, "zIndex": 103, "parallaxSpeed": 1 }, { "id": "qODQzvNdLzSg-Yih3yYuMituy", "x": 960, "y": -192, "w": 150, "h": 100, "angle": 180, "texture": 9, "zIndex": 104, "parallaxSpeed": 1 }, { "id": "WvIWSEjanGVM-EWm8YLn3riQB", "x": 1076, "y": -212, "w": 150, "h": 100, "angle": 160, "texture": 8, "zIndex": 103, "parallaxSpeed": 1 }, { "id": "K4YFfLGAXXGh-V4eYLbh3pmvE", "x": 1166, "y": -252, "w": 150, "h": 100, "angle": 170, "texture": 8, "zIndex": 105, "parallaxSpeed": 1 }, { "id": "Uv0oHa50GXib-KzUA0ew1NM4v", "x": 1281, "y": -266, "w": 150, "h": 100, "angle": 170, "texture": 11, "zIndex": 106, "parallaxSpeed": 1 }, { "id": "72XuYiVNbWWG-0Pf32nZ6E709", "x": 1389, "y": -253, "w": 150, "h": 100, "angle": 180, "texture": 8, "zIndex": 107, "parallaxSpeed": 1 }, { "id": "CpWljMYMShfT-vRI7vPpHFvWa", "x": 800, "y": -202, "w": 150, "h": 100, "angle": 180, "texture": 8, "zIndex": 108, "parallaxSpeed": 1 }, { "id": "uMiYe3gpiZmz-fhBxV5GntJd3", "x": 766, "y": -231, "w": 150, "h": 100, "angle": 220, "texture": 8, "zIndex": 110, "parallaxSpeed": 1 }, { "id": "tu3FJfuT1Ygn-NZLjG8yEqZ2s", "x": 1138, "y": 71, "w": 150, "h": 100, "angle": 170, "texture": 11, "zIndex": 46, "parallaxSpeed": 1 }, { "id": "cMIB7rngiJAx-EqdloA8LRvX3", "x": 1261, "y": 76, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 96, "parallaxSpeed": 1 }, { "id": "QGT6q5nqeagJ-rvLo5woWdgsb", "x": 613, "y": 109, "w": 150, "h": 100, "angle": 0, "texture": 9, "zIndex": 111, "parallaxSpeed": 1 }, { "id": "BW6kpaFrbyIA-727wrlPFP4lG", "x": 706, "y": 130, "w": 150, "h": 100, "angle": 0, "texture": 8, "zIndex": 112, "parallaxSpeed": 1 }, { "id": "GBsstdFh96hJ-Q63iZFeK6oPR", "x": 1502, "y": -220, "w": 150, "h": 100, "angle": 200, "texture": 8, "zIndex": 113, "parallaxSpeed": 1 }, { "id": "VwcaXpl5WnEt-XUr34X8YuALk", "x": 1620, "y": -192, "w": 150, "h": 100, "angle": 190, "texture": 8, "zIndex": 114, "parallaxSpeed": 1 }, { "id": "smenxeZk1sZO-5WMLNSR9DHkH", "x": 1726, "y": -214, "w": 150, "h": 100, "angle": 130, "texture": 8, "zIndex": 115, "parallaxSpeed": 1 }], "particleFields": [{ "x": 0, "y": 0, "width": 6000, "height": 2000, "count": 60, "minSpeed": 10, "maxSpeed": 30, "minSize": 1, "maxSize": 3, "minOpacity": 0.2, "maxOpacity": 0.5, "colorR": 0.7, "colorG": 0.7, "colorB": 0.9, "colorVariation": 0.2, "zIndex": -10, "parallaxSpeed": 0.3, "connectionDistance": 0, "lineOpacity": 0.1, "lineColorR": 0.7, "lineColorG": 0.7, "lineColorB": 0.9, "wrapBounds": true }, { "x": 3000, "y": -500, "width": 2000, "height": 1500, "count": 3000, "minSpeed": 5, "maxSpeed": 20, "minSize": 0.5, "maxSize": 2, "minOpacity": 0.7, "maxOpacity": 0.8, "colorR": 0.9, "colorG": 0.6, "colorB": 0.8, "colorVariation": 0.15, "zIndex": -5, "parallaxSpeed": 0.5, "connectionDistance": 0, "lineOpacity": 0.05, "lineColorR": 0.9, "lineColorG": 0.6, "lineColorB": 0.8, "wrapBounds": true }] }
+
+            ;
+        const allItems = new Set();
+        mapData.platforms.forEach(plat => {
+            if (plat.type === "chest" && plat.items) {
+                plat.items.forEach(item => allItems.add(item));
+            }
+        });
+        const itemImages = {};
+        Array.from(allItems).forEach(item => {
+            const img = new Image();
+            img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+            itemImages[item] = img;
+        });
+        class Vec2 {
+            constructor(x = 0, y = 0) {
+                this.x = x;
+                this.y = y;
+            }
+            add(v) {
+                this.x += v.x;
+                this.y += v.y;
+                return this;
+            }
+            sub(v) {
+                this.x -= v.x;
+                this.y -= v.y;
+                return this;
+            }
+            scale(s) {
+                this.x *= s;
+                this.y *= s;
+                return this;
+            }
+            dot(v) {
+                return this.x * v.x + this.y * v.y;
+            }
+            perp() {
+                return new Vec2(-this.y, this.x);
+            }
+            len() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+            lenSq() {
+                return this.x * this.x + this.y * this.y;
+            }
+            norm() {
+                const lSq = this.x * this.x + this.y * this.y;
+                if (lSq > 1e-12) {
+                    const l = Math.sqrt(lSq);
+                    this.x /= l;
+                    this.y /= l;
+                }
+                return this;
+            }
+            clone() {
+                return new Vec2(this.x, this.y);
+            }
+            set(x, y) {
+                this.x = x;
+                this.y = y;
+                return this;
+            }
+        }
+        function aabbOverlap(a, b) {
+            return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
+        }
+        class Polygon {
+            constructor(points) {
+                this.points = points.map(p => new Vec2(p.x, p.y));
+                this.axes = this.getAxes();
+                this.isAxisAligned = false;
+            }
+            getAxes() {
+                const axes = [];
+                const pointsLen = this.points.length;
+                for (let i = 0; i < pointsLen; i++) {
+                    const nextIdx = (i + 1) % pointsLen;
+                    const edge = new Vec2(
+                        this.points[nextIdx].x - this.points[i].x,
+                        this.points[nextIdx].y - this.points[i].y
+                    );
+                    const axis = edge.perp().norm();
+                    if (axis.lenSq() > 0) axes.push(axis);
+                }
+                return axes;
+            }
+            getAABB(posX, posY) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of this.points) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    minX = Math.min(minX, px);
+                    minY = Math.min(minY, py);
+                    maxX = Math.max(maxX, px);
+                    maxY = Math.max(maxY, py);
+                }
+                return { minX, minY, maxX, maxY };
+            }
+            project(axis, posX, posY, proj) {
+                proj.min = Infinity;
+                proj.max = -Infinity;
+                for (const p of this.points) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    const projVal = px * axis.x + py * axis.y;
+                    proj.min = Math.min(proj.min, projVal);
+                    proj.max = Math.max(proj.max, projVal);
+                }
+            }
+            static overlap(A, posAX, posAY, B, posBX, posBY, projA, projB) {
+                if (A.isAxisAligned && B.isAxisAligned) {
+                    const aabbA = A.getAABB(posAX, posAY);
+                    const aabbB = B.getAABB(posBX, posBY);
+                    if (!aabbOverlap(aabbA, aabbB)) return null;
+                    const ox = Math.min(aabbA.maxX - aabbB.minX, aabbB.maxX - aabbA.minX);
+                    const oy = Math.min(aabbA.maxY - aabbB.minY, aabbB.maxY - aabbA.minY);
+                    const o = Math.min(ox, oy);
+                    if (o < 1e-6) return null;
+                    let axisX, axisY;
+                    if (ox < oy) {
+                        axisX = 1;
+                        axisY = 0;
+                    } else {
+                        axisX = 0;
+                        axisY = 1;
+                    }
+                    const dX = posAX - posBX;
+                    const dY = posAY - posBY;
+                    const dLenSq = dX * dX + dY * dY;
+                    let dirX = 0, dirY = 0;
+                    if (dLenSq > 1e-12) {
+                        const dLen = Math.sqrt(dLenSq);
+                        dirX = dX / dLen;
+                        dirY = dY / dLen;
+                    }
+                    const dirDotAxis = dirX * axisX + dirY * axisY;
+                    if (dirDotAxis < 0) {
+                        axisX = -axisX;
+                        axisY = -axisY;
+                    }
+                    return {
+                        axis: { x: axisX, y: axisY },
+                        overlap: o
+                    };
+                }
+                const axes = [...A.axes, ...B.axes];
+                let overlap = Infinity, smallestAxis = null;
+                for (const axis of axes) {
+                    if (axis.lenSq() < 1e-6) continue;
+                    A.project(axis, posAX, posAY, projA);
+                    B.project(axis, posBX, posBY, projB);
+                    const o = Math.min(projA.max, projB.max) - Math.max(projA.min, projB.min);
+                    if (o < 1e-6) return null;
+                    if (o < overlap) {
+                        overlap = o;
+                        smallestAxis = axis;
+                    }
+                }
+                if (!smallestAxis) return null;
+                const dX = posAX - posBX;
+                const dY = posAY - posBY;
+                const dLenSq = dX * dX + dY * dY;
+                let dirX = 0, dirY = -1;
+                if (dLenSq > 1e-12) {
+                    const dLen = Math.sqrt(dLenSq);
+                    dirX = dX / dLen;
+                    dirY = dY / dLen;
+                }
+                let axisX = smallestAxis.x;
+                let axisY = smallestAxis.y;
+                const dirDotAxis = dirX * axisX + dirY * axisY;
+                if (dirDotAxis < 0) {
+                    axisX = -axisX;
+                    axisY = -axisY;
+                }
+                return {
+                    axis: { x: axisX, y: axisY },
+                    overlap
+                };
+            }
+        }
+        function hexToRgb(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return new Float32Array([r, g, b, 1]);
+        }
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+        function createProgram(gl, vsource, fsource) {
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsource);
+            if (!vs) return null;
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsource);
+            if (!fs) return null;
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                gl.deleteProgram(program);
+                return null;
+            }
+            return program;
+        }
+        const projviewMatrix = new Float32Array(12);
+        function getProjViewMatrix(width, height, camX, camY, matrix, isUI = false) {
+            if (isUI) {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1;
+                matrix[9] = 1;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            } else {
+                matrix[0] = 2 / width;
+                matrix[1] = 0;
+                matrix[2] = 0;
+                matrix[3] = 0;
+                matrix[4] = 0;
+                matrix[5] = -2 / height;
+                matrix[6] = 0;
+                matrix[7] = 0;
+                matrix[8] = -1 - 2 * camX / width;
+                matrix[9] = 1 + 2 * camY / height;
+                matrix[10] = 1;
+                matrix[11] = 0;
+            }
+            return matrix;
+        }
+        const vsSource = `#version 300 es
+precision mediump float;
+layout(std140) uniform Matrices {
+    mat3 u_matrix;
+};
+layout(location = 0) in vec2 a_position;
+layout(location = 1) in vec2 a_texcoord;
+layout(location = 2) in vec4 a_color;
+out vec2 v_texcoord;
+out vec4 v_color;
+void main() {
+    gl_Position = vec4((u_matrix * vec3(a_position, 1.0)).xy, 0.0, 1.0);
+    v_texcoord = a_texcoord;
+    v_color = a_color;
+}`;
+        const fsSource = `#version 300 es
+precision mediump float;
+in vec2 v_texcoord;
+in vec4 v_color;
+uniform sampler2D u_texture;
+uniform bool u_useTexture;
+out vec4 fragColor;
+void main() {
+    if (u_useTexture) {
+        fragColor = texture(u_texture, v_texcoord) * v_color;
+    } else {
+        fragColor = v_color;
+    }
+}`;
+        function isTextureReady(texObj) {
+            if (!texObj) return false;
+            if (texObj && texObj.ready) return true;
+            if (texObj instanceof HTMLImageElement) {
+                return texObj.complete && texObj.naturalWidth > 0;
+            }
+            if (texObj.tagName === 'VIDEO') {
+                return texObj.readyState >= texObj.HAVE_CURRENT_DATA;
+            }
+            return false;
+        }
+        class BaseShape {
+            constructor(x, y, w, h, angleDeg, z, textureIndex, isDecor = false, parallaxSpeed = 0.7) {
+                this.pos = new Vec2(x, y);
+                this.width = w;
+                this.height = h;
+                this.angle = angleDeg * Math.PI / 180;
+                this.z = z || 0;
+                this.textureIndex = textureIndex;
+                this.isDecor = isDecor;
+                this.parallaxSpeed = parallaxSpeed;
+                const hw = w / 2, hh = h / 2;
+                const cos = Math.cos(this.angle), sin = Math.sin(this.angle);
+                this.localPoints = [
+                    new Vec2(-hw * cos - hh * sin, -hw * sin + hh * cos),
+                    new Vec2(hw * cos - hh * sin, hw * sin + hh * cos),
+                    new Vec2(hw * cos + hh * sin, hw * sin - hh * cos),
+                    new Vec2(-hw * cos + hh * sin, -hw * sin - hh * cos)
+                ];
+                this.shape = new Polygon(this.localPoints);
+                this.shape.isAxisAligned = Math.abs(this.angle) < 1e-6;
+                this.updateAABB();
+                this.lineArray = new Float32Array(16);
+                this.colorArray = hexToRgb("#4af");
+                if (!isDecor) {
+                    this.vel = new Vec2(0, 0);
+                    this.onGround = false;
+                    this.groundNormal = new Vec2(0, -1);
+                    this.oldOnGround = false;
+                    this.groundAngle = 0;
+                }
+            }
+            updateAABB() {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                const posX = this.pos.x;
+                const posY = this.pos.y;
+                for (const p of this.localPoints) {
+                    const px = p.x + posX;
+                    const py = p.y + posY;
+                    minX = Math.min(minX, px);
+                    minY = Math.min(minY, py);
+                    maxX = Math.max(maxX, px);
+                    maxY = Math.max(maxY, py);
+                }
+                this.aabb = { minX, minY, maxX, maxY };
+            }
+            updateLineArray(posX, posY) {
+                const la = this.lineArray;
+                for (let i = 0; i < 4; i++) {
+                    const curr = this.localPoints[i];
+                    const next = this.localPoints[(i + 1) % 4];
+                    const cx = curr.x + posX;
+                    const cy = curr.y + posY;
+                    const nx = next.x + posX;
+                    const ny = next.y + posY;
+                    const base = i * 4;
+                    la[base + 0] = cx;
+                    la[base + 1] = cy;
+                    la[base + 2] = nx;
+                    la[base + 3] = ny;
+                }
+            }
+            appendDebugLines(arr, lineColor, posX, posY, vel = null, velColor = null, startIdx = 0, world) {
+                this.updateLineArray(posX, posY);
+                const la = this.lineArray;
+                let idx = startIdx;
+                for (let k = 0; k < 4; k++) {
+                    const i = k * 4;
+                    arr[idx++] = la[i + 0];
+                    arr[idx++] = la[i + 1];
+                    arr[idx++] = 0;
+                    arr[idx++] = 0;
+                    arr[idx++] = lineColor[0];
+                    arr[idx++] = lineColor[1];
+                    arr[idx++] = lineColor[2];
+                    arr[idx++] = lineColor[3];
+                    arr[idx++] = la[i + 2];
+                    arr[idx++] = la[i + 3];
+                    arr[idx++] = 0;
+                    arr[idx++] = 0;
+                    arr[idx++] = lineColor[0];
+                    arr[idx++] = lineColor[1];
+                    arr[idx++] = lineColor[2];
+                    arr[idx++] = lineColor[3];
+                }
+                if (vel && vel.len() > 0) {
+                    const scale = 0.1;
+                    arr[idx++] = posX;
+                    arr[idx++] = posY;
+                    arr[idx++] = 0;
+                    arr[idx++] = 0;
+                    arr[idx++] = velColor[0];
+                    arr[idx++] = velColor[1];
+                    arr[idx++] = velColor[2];
+                    arr[idx++] = velColor[3];
+                    arr[idx++] = posX + vel.x * scale;
+                    arr[idx++] = posY + vel.y * scale;
+                    arr[idx++] = 0;
+                    arr[idx++] = 0;
+                    arr[idx++] = velColor[0];
+                    arr[idx++] = velColor[1];
+                    arr[idx++] = velColor[2];
+                    arr[idx++] = velColor[3];
+                }
+                return idx;
+            }
+        }
+        class Entity extends BaseShape {
+            constructor(x, y, w, h, angleDeg, color, isStatic = false, z, textureIndex, parallaxSpeed) {
+                super(x, y, w, h, angleDeg, z, textureIndex, false, parallaxSpeed);
+                this.colorArray = hexToRgb(color);
+                this.isStatic = isStatic;
+                this.deadly = false;
+                this.passThrough = false;
+                this.jumpBoost = 0;
+                this.teleportTarget = null;
+                this.teleportDelay = 0;
+                this.lastDirection = 1;
+                this.dashTimer = 0;
+                this.isDashing = false;
+                this.diagonalDash = false;
+                this.downwardDash = false;
+                this.oldDashTimer = 0;
+                this.jumpPressed = false;
+                this.airJumpCooldown = 0;
+                this.airJumpCooldownMax = config.airJumpCooldown;
+                this.currentTeleporter = null;
+                this.teleporterAccum = 0;
+                this.justLanded = false;
+                this.landedEntity = null;
+                this.isDying = false;
+                this.godMode = false;
+                this.infiniteJump = false;
+                this.noclip = false;
+                this.isMovingPlatform = false;
+                this.startPos = null;
+                this.targetPos = null;
+                this.speed = 0;
+                this.isGoingToTarget = true;
+                this.linked = [];
+                this.isLinkedPlatform = false;
+                this.movingParent = null;
+                this.deltaThisFrame = new Vec2(0, 0);
+                if (isStatic) this.updateAABB();
+            }
+            update(dt, world) {
+                if (this.isStatic) return;
+                if (this.isDying && !this.godMode) {
+                    this.vel.set(0, 0);
+                    return;
+                }
+                const dashStarted = this.dashTimer > 0 && this.oldDashTimer <= 0;
+                if (this.airJumpCooldown > 0 && !this.infiniteJump) {
+                    this.airJumpCooldown -= dt;
+                    if (this.airJumpCooldown < 0) this.airJumpCooldown = 0;
+                }
+                this.oldOnGround = this.onGround;
+                this.onGround = false;
+                this.justLanded = false;
+                this.landedEntity = null;
+                let input_speed;
+                let g_vec_x = 0;
+                let g_vec_y = 0;
+                if (this.dashTimer > 0) {
+                    this.dashTimer -= dt;
+                    this.isDashing = true;
+                    input_speed = 0;
+                    g_vec_y = 0;
+                    if (dashStarted && world.keys[config.downKey]) {
+                        this.downwardDash = true;
+                        this.diagonalDash = false;
+                    } else if (dashStarted && world.keys[config.jumpKey]) {
+                        this.diagonalDash = true;
+                        this.downwardDash = false;
+                    }
+                } else {
+                    this.isDashing = false;
+                    this.diagonalDash = false;
+                    this.downwardDash = false;
+                    input_speed = world.keys[config.leftKey] ? -config.playerSpeed : world.keys[config.rightKey] ? config.playerSpeed : 0;
+                    if (!this.godMode) g_vec_y = config.gravity * dt;
+                    if (this.oldOnGround && input_speed === 0 && g_vec_y !== 0) {
+                        g_vec_y = 0;
+                    }
+                }
+                const up_x = 0;
+                const up_y = -1;
+                if (this.oldOnGround && !this.noclip) {
+                    const tangent_x = -this.groundNormal.y;
+                    const tangent_y = this.groundNormal.x;
+                    const normalComp = this.vel.x * this.groundNormal.x + this.vel.y * this.groundNormal.y;
+                    this.vel.x = tangent_x * input_speed + this.groundNormal.x * normalComp;
+                    this.vel.y = tangent_y * input_speed + this.groundNormal.y * normalComp;
+                } else {
+                    this.vel.x = input_speed;
+                }
+                if (this.isDashing) {
+                    if (this.downwardDash) {
+                        this.vel.x = 0;
+                        this.vel.y = config.dashDirections.down.speed;
+                    } else if (this.diagonalDash) {
+                        const angle = Math.PI / 4;
+                        const cos = Math.cos(angle);
+                        const sin = Math.sin(angle);
+                        this.vel.x = this.lastDirection * config.dashSpeed * cos;
+                        this.vel.y = -config.dashSpeed * sin;
+                    } else {
+                        this.vel.x = this.lastDirection * config.dashSpeed;
+                        this.vel.y = 0;
+                    }
+                }
+                this.vel.x += g_vec_x;
+                this.vel.y += g_vec_y;
+                const disp_x = this.vel.x * dt;
+                const disp_y = this.vel.y * dt;
+                const dispLen = Math.sqrt(disp_x * disp_x + disp_y * disp_y);
+                let numSteps = 1;
+                if (config.adaptiveSubSteps && dispLen > config.minSubStepSize) {
+                    numSteps = Math.max(1, Math.min(config.maxPhysicsSubSteps, Math.ceil(dispLen / config.minSubStepSize)));
+                }
+                const sub_disp_x = disp_x / numSteps;
+                const sub_disp_y = disp_y / numSteps;
+                let currentPosX = this.pos.x;
+                let currentPosY = this.pos.y;
+                const beta = 0.5;
+                const epsilon = config.collisionEpsilon;
+                const projA = { min: 0, max: 0 };
+                const projB = { min: 0, max: 0 };
+                let has_ground = false;
+                let maxGroundOverlap = -Infinity;
+                let bestGround = null;
+                let ground_normal_x = 0;
+                let ground_normal_y = 0;
+                for (let step = 0; step < numSteps; step++) {
+                    let testPosX = currentPosX + sub_disp_x;
+                    let testPosY = currentPosY + sub_disp_y;
+                    if (this.noclip) {
+                        currentPosX = testPosX;
+                        currentPosY = testPosY;
+                        continue;
+                    }
+                    const nearby = world.getNearby(testPosX, testPosY);
+                    const nearbyLen = nearby.length;
+                    let testAABB = this.shape.getAABB(testPosX, testPosY);
+                    let deadlyCollision = false;
+                    let collisions = [];
+                    for (let ni = 0; ni < nearbyLen; ni++) {
+                        const other = nearby[ni];
+                        if (!other.shape || other === this || other.isDecor) continue;
+                        const otherAABB = other.aabb;
+                        if (!aabbOverlap(testAABB, otherAABB)) continue;
+                        const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y, projA, projB);
+                        if (res) {
+                            if (other.teleportTarget && this === world.player) {
+                            } else if (other.deadly && this === world.player && !this.godMode) {
+                                deadlyCollision = true;
+                                break;
+                            } else if (other.passThrough && this === world.player) {
+                            } else {
+                                const axis = res.axis;
+                                const d_x = testPosX - other.pos.x;
+                                const d_y = testPosY - other.pos.y;
+                                const dLenSq = d_x * d_x + d_y * d_y;
+                                let dir_x = 0;
+                                let dir_y = -1;
+                                if (dLenSq > 1e-12) {
+                                    const dLen = Math.sqrt(dLenSq);
+                                    dir_x = d_x / dLen;
+                                    dir_y = d_y / dLen;
+                                }
+                                const dirDotAxis = dir_x * axis.x + dir_y * axis.y;
+                                let push_x = axis.x;
+                                let push_y = axis.y;
+                                if (dirDotAxis < 0) {
+                                    push_x = -push_x;
+                                    push_y = -push_y;
+                                }
+                                collisions.push({ push_x, push_y, overlap: res.overlap, other });
+                            }
+                        }
+                    }
+                    if (!deadlyCollision) {
+                        let deepCollisions = [];
+                        const deepLen = collisions.length;
+                        for (let ci = 0; ci < deepLen; ci++) {
+                            const col = collisions[ci];
+                            if (col.overlap >= epsilon) deepCollisions.push(col);
+                        }
+                        const groupedDeep = new Map();
+                        for (let ci = 0; ci < deepCollisions.length; ci++) {
+                            const col = deepCollisions[ci];
+                            const key = `${col.push_x.toFixed(3)},${col.push_y.toFixed(3)}`;
+                            let g = groupedDeep.get(key);
+                            if (!g) {
+                                g = { push_x: col.push_x, push_y: col.push_y, maxOverlap: -Infinity, bestOther: null };
+                                groupedDeep.set(key, g);
+                            }
+                            if (col.overlap > g.maxOverlap) {
+                                g.maxOverlap = col.overlap;
+                                g.bestOther = col.other;
+                            }
+                        }
+                        for (const g of groupedDeep.values()) {
+                            const upward = g.push_x * up_x + g.push_y * up_y;
+                            if (upward > 0.01) {
+                                has_ground = true;
+                                if (g.maxOverlap > maxGroundOverlap) {
+                                    maxGroundOverlap = g.maxOverlap;
+                                    bestGround = g.bestOther;
+                                    ground_normal_x = g.push_x;
+                                    ground_normal_y = g.push_y;
+                                }
+                            }
+                            const push_dist = beta * g.maxOverlap;
+                            testPosX += g.push_x * push_dist;
+                            testPosY += g.push_y * push_dist;
+                            const vn = this.vel.x * g.push_x + this.vel.y * g.push_y;
+                            if (vn < 0) {
+                                this.vel.x -= g.push_x * vn;
+                                this.vel.y -= g.push_y * vn;
+                            }
+                        }
+                        testAABB = this.shape.getAABB(testPosX, testPosY);
+                        let remainingCollisions = [];
+                        for (let ni = 0; ni < nearbyLen; ni++) {
+                            const other = nearby[ni];
+                            if (!other.shape || other === this || other.isDecor) continue;
+                            const otherAABB = other.aabb;
+                            if (!aabbOverlap(testAABB, otherAABB)) continue;
+                            const res = Polygon.overlap(this.shape, testPosX, testPosY, other.shape, other.pos.x, other.pos.y, projA, projB);
+                            if (res && !other.teleportTarget && !(other.deadly && this === world.player) && !(other.passThrough && this === world.player)) {
+                                const axis = res.axis;
+                                const d_x = testPosX - other.pos.x;
+                                const d_y = testPosY - other.pos.y;
+                                const dLenSq = d_x * d_x + d_y * d_y;
+                                let dir_x = 0;
+                                let dir_y = -1;
+                                if (dLenSq > 1e-12) {
+                                    const dLen = Math.sqrt(dLenSq);
+                                    dir_x = d_x / dLen;
+                                    dir_y = d_y / dLen;
+                                }
+                                const dirDotAxis = dir_x * axis.x + dir_y * axis.y;
+                                let push_x = axis.x;
+                                let push_y = axis.y;
+                                if (dirDotAxis < 0) {
+                                    push_x = -push_x;
+                                    push_y = -push_y;
+                                }
+                                remainingCollisions.push({ push_x, push_y, overlap: res.overlap, other });
+                            }
+                        }
+                        const groupedRemaining = new Map();
+                        for (let ci = 0; ci < remainingCollisions.length; ci++) {
+                            const col = remainingCollisions[ci];
+                            if (col.overlap >= epsilon) {
+                                const key = `${col.push_x.toFixed(3)},${col.push_y.toFixed(3)}`;
+                                let g = groupedRemaining.get(key);
+                                if (!g) {
+                                    g = { push_x: col.push_x, push_y: col.push_y, maxOverlap: -Infinity, bestOther: null };
+                                    groupedRemaining.set(key, g);
+                                }
+                                if (col.overlap > g.maxOverlap) {
+                                    g.maxOverlap = col.overlap;
+                                    g.bestOther = col.other;
+                                }
+                            }
+                        }
+                        for (const g of groupedRemaining.values()) {
+                            const upward = g.push_x * up_x + g.push_y * up_y;
+                            if (upward > 0.01) {
+                                has_ground = true;
+                                if (g.maxOverlap > maxGroundOverlap) {
+                                    maxGroundOverlap = g.maxOverlap;
+                                    bestGround = g.bestOther;
+                                    ground_normal_x = g.push_x;
+                                    ground_normal_y = g.push_y;
+                                }
+                            }
+                            const push_dist = g.maxOverlap;
+                            testPosX += g.push_x * push_dist;
+                            testPosY += g.push_y * push_dist;
+                        }
+                    } else {
+                        if (this.godMode) {
+                            continue;
+                        }
+                        shakeScreen(30);
+                        this.isDying = true;
+                        this.vel.set(0, 0);
+                        const fadeDuration = config.fadeDuration;
+                        const mostlyDarkPercentage = config.mostlyDarkPercentage;
+                        fadeOverlay.style.transition = `opacity ${fadeDuration}s ease-out`;
+                        fadeOverlay.style.opacity = '1';
+                        setTimeout(() => {
+                            this.pos.set(world.currentRespawnPos.x, world.currentRespawnPos.y);
+                            this.updateAABB();
+                            this.vel.set(0, 0);
+                            this.onGround = false;
+                            setTimeout(() => {
+                                fadeOverlay.style.transition = `opacity ${fadeDuration}s ease-in`;
+                                fadeOverlay.style.opacity = '0';
+                                setTimeout(() => {
+                                    this.isDying = false;
+                                    world.scheduleSave();
+                                }, fadeDuration * 1000);
+                            }, fadeDuration * (1 - mostlyDarkPercentage) * 1000);
+                        }, fadeDuration * mostlyDarkPercentage * 1000);
+                        break;
+                    }
+                    currentPosX = testPosX;
+                    currentPosY = testPosY;
+                }
+                this.pos.x = currentPosX;
+                this.pos.y = currentPosY;
+                this.updateAABB();
+                this.onGround = has_ground;
+                if (this.onGround && input_speed === 0) {
+                    const tangent_x = -this.groundNormal.y;
+                    const tangent_y = this.groundNormal.x;
+                    const tang_comp = this.vel.x * tangent_x + this.vel.y * tangent_y;
+                    this.vel.x -= tangent_x * tang_comp;
+                    this.vel.y -= tangent_y * tang_comp;
+                }
+                if (has_ground && !this.oldOnGround) {
+                    this.justLanded = true;
+                    this.landedEntity = bestGround;
+                    this.groundNormal.set(ground_normal_x, ground_normal_y);
+                }
+                if (this.justLanded && this.landedEntity && this.landedEntity.jumpBoost > 0) {
+                    this.vel.y = -this.landedEntity.jumpBoost;
+                    this.airJumpCooldown = 0;
+                    this.onGround = false;
+                }
+                if (this.onGround && !this.oldOnGround) {
+                    this.airJumpCooldown = 0;
+                }
+                const jumpThisFrame = world.keys[config.jumpKey] && !this.jumpPressed;
+                this.jumpPressed = world.keys[config.jumpKey];
+                if (jumpThisFrame) {
+                    let doJump = false;
+                    if (this.oldOnGround || this.infiniteJump) {
+                        doJump = true;
+                    } else if (this.airJumpCooldown <= 0) {
+                        doJump = true;
+                        this.airJumpCooldown = this.airJumpCooldownMax;
+                    }
+                    if (doJump) {
+                        if (this.isDashing) {
+                            this.diagonalDash = true;
+                            const angle = Math.PI / 4;
+                            const cos = Math.cos(angle);
+                            const sin = Math.sin(angle);
+                            this.vel.x = this.lastDirection * config.dashSpeed * cos;
+                            this.vel.y = -config.dashSpeed * sin;
+                        } else {
+                            this.vel.y = -config.jumpHeight;
+                            this.vel.x = input_speed;
+                        }
+                        this.onGround = false;
+                    }
+                }
+                if (this.onGround && !this.isDashing && !this.noclip) {
+                    const tangent_x = -this.groundNormal.y;
+                    const tangent_y = this.groundNormal.x;
+                    this.vel.x = tangent_x * input_speed;
+                    this.vel.y = tangent_y * input_speed;
+                    const proj = this.vel.dot(this.groundNormal);
+                    if (proj < 0) {
+                        this.vel.sub(this.groundNormal.scale(proj));
+                    }
+                    this.groundAngle = Math.acos(Math.max(-1, Math.min(1, this.groundNormal.dot({ x: up_x, y: up_y })))) * 180 / Math.PI;
+                }
+                if (!this.isDashing && input_speed !== 0) {
+                    this.lastDirection = input_speed > 0 ? 1 : -1;
+                }
+                this.oldDashTimer = this.dashTimer;
+            }
+        }
+        class Chest extends Entity {
+            constructor(x, y, w, h, angleDeg, items, z, detectionRadius = config.chestDetectionRadius, closedTex = 0, openTex = 1, openingTex = 2, closingTex = 3) {
+                super(x, y, w, h, angleDeg, "#8B4513", true, z, closedTex);
+                this.items = items || new Array(config.maxChestSlots).fill(null);
+                this.opened = false;
+                this.detectionRadius = detectionRadius;
+                this.state = 'closed';
+                this.isAnimating = false;
+                this.animationTime = 0;
+                this.animationType = '';
+                this.targetState = '';
+                this.targetTexId = -1;
+                this.closedTextureId = closedTex;
+                this.openTextureId = openTex;
+                this.openingTextureId = openingTex;
+                this.closingTextureId = closingTex;
+                this.textureIndex = this.closedTextureId;
+                this.id = '';
+            }
+        }
+        class RespawnBox extends Entity {
+            constructor(x, y, w, h, angleDeg, z, detectionRadius = config.respawnDetectionRadius, passThrough = false, respawnX = x, respawnY = y, inactiveTex = -1, activeTex = -1) {
+                super(x, y, w, h, angleDeg, "#FFD700", true, z, inactiveTex);
+                this.detectionRadius = detectionRadius;
+                this.passThrough = passThrough;
+                this.respawnPos = new Vec2(respawnX, respawnY);
+                this.active = false;
+                this.inactiveTextureId = inactiveTex;
+                this.activeTextureId = activeTex;
+                this.textureIndex = this.inactiveTextureId;
+                this.id = '';
+            }
+            setActive(active) {
+                this.active = active;
+                if (active) {
+                    this.textureIndex = this.activeTextureId;
+                } else {
+                    this.textureIndex = this.inactiveTextureId;
+                }
+            }
+        }
+        class Particle {
+            constructor() {
+                this.x = 0;
+                this.y = 0;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = 1;
+                this.color = new Float32Array(4);
+            }
+            init(x, y, vx, vy, size, r, g, b, a) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color[0] = r;
+                this.color[1] = g;
+                this.color[2] = b;
+                this.color[3] = a;
+            }
+            update(dt, bounds) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                if (this.x < bounds.minX) this.x = bounds.maxX;
+                else if (this.x > bounds.maxX) this.x = bounds.minX;
+                if (this.y < bounds.minY) this.y = bounds.maxY;
+                else if (this.y > bounds.maxY) this.y = bounds.minY;
+            }
+        }
+        class ParticleField {
+            constructor(config) {
+                this.x = config.x || 0;
+                this.y = config.y || 0;
+                this.width = config.width || 1000;
+                this.height = config.height || 1000;
+                this.count = config.count || 50;
+                this.minSpeed = config.minSpeed || 10;
+                this.maxSpeed = config.maxSpeed || 40;
+                this.minSize = config.minSize || 1;
+                this.maxSize = config.maxSize || 3;
+                this.minOpacity = config.minOpacity || 0.2;
+                this.maxOpacity = config.maxOpacity || 0.6;
+                this.colorR = config.colorR !== undefined ? config.colorR : 0.7;
+                this.colorG = config.colorG !== undefined ? config.colorG : 0.7;
+                this.colorB = config.colorB !== undefined ? config.colorB : 0.9;
+                this.colorVariation = config.colorVariation || 0.2;
+                this.zIndex = config.zIndex || 0;
+                this.parallaxSpeed = config.parallaxSpeed !== undefined ? config.parallaxSpeed : 1.0;
+                this.connectionDistance = config.connectionDistance || 0;
+                this.lineOpacity = config.lineOpacity || 0.1;
+                this.lineColorR = config.lineColorR !== undefined ? config.lineColorR : this.colorR;
+                this.lineColorG = config.lineColorG !== undefined ? config.lineColorG : this.colorG;
+                this.lineColorB = config.lineColorB !== undefined ? config.lineColorB : this.colorB;
+                this.wrapBounds = config.wrapBounds !== undefined ? config.wrapBounds : true;
+                this.bounds = {
+                    minX: this.x - this.width / 2,
+                    maxX: this.x + this.width / 2,
+                    minY: this.y - this.height / 2,
+                    maxY: this.y + this.height / 2
+                };
+                this.particles = [];
+                this.connections = [];
+                this.connectionDistSq = this.connectionDistance * this.connectionDistance;
+                this._initParticles();
+            }
+            _initParticles() {
+                const count = this.count;
+                const width = this.width;
+                const height = this.height;
+                const minX = this.bounds.minX;
+                const minY = this.bounds.minY;
+                const speedRange = this.maxSpeed - this.minSpeed;
+                const sizeRange = this.maxSize - this.minSize;
+                const opacityRange = this.maxOpacity - this.minOpacity;
+                const colorVar = this.colorVariation;
+                const baseR = this.colorR;
+                const baseG = this.colorG;
+                const baseB = this.colorB;
+                for (let i = 0; i < count; i++) {
+                    const p = new Particle();
+                    const px = minX + Math.random() * width;
+                    const py = minY + Math.random() * height;
+                    const speed = this.minSpeed + Math.random() * speedRange;
+                    const angle = Math.random() * Math.PI * 2;
+                    const size = this.minSize + Math.random() * sizeRange;
+                    const opacity = this.minOpacity + Math.random() * opacityRange;
+                    const r = Math.max(0, Math.min(1, baseR + (Math.random() - 0.5) * colorVar));
+                    const g = Math.max(0, Math.min(1, baseG + (Math.random() - 0.5) * colorVar));
+                    const b = Math.max(0, Math.min(1, baseB + (Math.random() - 0.5) * colorVar));
+                    p.init(px, py, Math.cos(angle) * speed, Math.sin(angle) * speed, size, r, g, b, opacity);
+                    this.particles.push(p);
+                }
+            }
+            update(dt, camX, camY) {
+                const bounds = this.bounds;
+                const particles = this.particles;
+                const particlesLen = particles.length;
+                if (this.wrapBounds) {
+                    for (let i = 0; i < particlesLen; i++) {
+                        particles[i].update(dt, bounds);
+                    }
+                } else {
+                    for (let i = 0; i < particlesLen; i++) {
+                        const p = particles[i];
+                        p.x += p.vx * dt;
+                        p.y += p.vy * dt;
+                    }
+                }
+            }
+        }
+        function waitForTextures(textures) {
+            return Promise.all(textures.map((texObj) => {
+                if (texObj && texObj.ready) {
+                    return Promise.resolve();
+                } else if (texObj instanceof HTMLImageElement) {
+                    if (texObj.complete && texObj.naturalWidth > 0) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        texObj.onload = () => resolve();
+                        texObj.onerror = reject;
+                    });
+                } else if (texObj.tagName === 'VIDEO') {
+                    return new Promise(resolve => {
+                        if (texObj.readyState >= 2) resolve();
+                        else {
+                            texObj.oncanplay = () => resolve();
+                            texObj.onerror = () => resolve();
+                        }
+                    });
+                }
+                return Promise.resolve();
+            }));
+        }
+        class World {
+            constructor(gl) {
+                this.gl = gl;
+                this.statics = [];
+                this.dynamics = [];
+                this.decors = [];
+                this.chests = [];
+                this.respawnBoxes = [];
+                this.movingPlatforms = [];
+                this.keys = {};
+                this.cellSize = config.cellSize;
+                this.spatialHash = new Map();
+                this.player = null;
+                this.playerStartPos = new Vec2(0, 0);
+                this.currentRespawnPos = new Vec2(0, 0);
+                this.allEntities = [];
+                this.inventory = new Array(config.maxPlayerSlots).fill(null);
+                this.nearbyChest = null;
+                this.nearbyRespawnBox = null;
+                this.batchPositionBuffer = gl.createBuffer();
+                this.batchIndexBuffer = gl.createBuffer();
+                this.debugLineBuffer = gl.createBuffer();
+                this.vao = gl.createVertexArray();
+                this.debugVao = gl.createVertexArray();
+                this.maxQuads = 4096;
+                this.maxVerts = this.maxQuads * 4;
+                this.maxIndices = this.maxQuads * 6;
+                this.vertData = new Float32Array(this.maxVerts * 8);
+                this.indexData = new Uint16Array(this.maxIndices);
+                this.debugVertData = new Float32Array(1024);
+                this.uboMatrices = null;
+                this.lastSaveTime = 0;
+                this.savePending = false;
+                this.nearbyCache = [];
+                this.projA = { min: 0, max: 0 };
+                this.projB = { min: 0, max: 0 };
+                this.reusableVec = new Vec2();
+                this.reusableTestPos = new Vec2();
+                this.reusableDir = new Vec2();
+                this.reusableTangent = new Vec2();
+                this.reusableNormalComp = 0;
+                this.reusableDisp = new Vec2();
+                this.reusableVelLen = 0;
+                this.reusableScale = 0;
+                this.reusableProjUp = 0;
+                this.reusableGVecDot = 0;
+                this.reusableInterpPos = new Vec2();
+                this.reusableOffset = new Vec2();
+                this.reusableRenderPos = new Vec2();
+                this.reusableDebugPos = new Vec2();
+                this.reusableInterpVel = new Vec2();
+                this.reusableTexCoords = new Float32Array(8);
+                this.reusableFixedTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]);
+                this.reusableStandardTex = new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]);
+                this.reusableCol = new Float32Array(4);
+                this.reusablePointsBuf = new Float32Array(8);
+                this.reusableLineArray = new Float32Array(16);
+                this.reusableVelArrowStart = new Float32Array(4);
+                this.reusableVelArrowEnd = new Float32Array(4);
+                this.reusableVertDataChunk = new Float32Array(512);
+                this.reusableIndexDataChunk = new Uint16Array(256);
+                this.reusableBatch = { indexStart: 0, numElements: 0, texIndex: -1 };
+                this.reusableVisibleAABB = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+                this.prevPlayerPos = new Vec2();
+                this.spatialHashNeedsRebuild = true;
+                this.videoUpdateTime = 0;
+                this.videoTextures = new Set();
+                this.visibleEntitiesBuffer = [];
+                this.sortedVisible = [];
+                this.lastVideoUpdate = new Map();
+                this.particleFields = [];
+                this.particleFieldsSorted = [];
+            }
+            scheduleSave() {
+                if (this.savePending) return;
+                this.savePending = true;
+                setTimeout(() => {
+                    this.saveProgress();
+                    this.savePending = false;
+                }, 0);
+            }
+            saveProgress() {
+                const data = {
+                    position: {
+                        x: this.player.pos.x,
+                        y: this.player.pos.y
+                    },
+                    inventory: this.inventory.map(item => item ?? null),
+                    respawnPos: {
+                        x: this.currentRespawnPos.x,
+                        y: this.currentRespawnPos.y
+                    },
+                    chests: this.chests.map(c => ({
+                        id: c.id,
+                        items: c.items.map(item => item ?? null)
+                    })),
+                    lastUpdate: Date.now()
+                };
+                try {
+                    localStorage.setItem('gameSave', JSON.stringify(data));
+                } catch (e) { }
+            }
+            loadProgress() {
+                try {
+                    const json = localStorage.getItem('gameSave');
+                    if (!json) return null;
+                    const saved = JSON.parse(json);
+                    if (saved.inventory) {
+                        const loadedInv = new Array(config.maxPlayerSlots).fill(null);
+                        for (let i = 0; i < Math.min(saved.inventory.length, config.maxPlayerSlots); i++) {
+                            loadedInv[i] = saved.inventory[i];
+                        }
+                        this.inventory = loadedInv;
+                    }
+                    if (saved.chests) {
+                        saved.chests.forEach(schest => {
+                            const chest = this.chests.find(c => c.id === schest.id);
+                            if (chest) {
+                                const loadedItems = new Array(config.maxChestSlots).fill(null);
+                                for (let i = 0; i < Math.min(schest.items.length, config.maxChestSlots); i++) {
+                                    loadedItems[i] = schest.items[i];
+                                }
+                                chest.items = loadedItems;
+                            }
+                        });
+                    }
+                    return saved || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+            async loadMap(data, textures) {
+                if (data.playerStart) {
+                    const w = data.playerStart.w || 50;
+                    const h = data.playerStart.h || 100;
+                    const playerShape = new Polygon([
+                        { x: -w / 2, y: -h / 2 },
+                        { x: w / 2, y: -h / 2 },
+                        { x: w / 2, y: h / 2 },
+                        { x: -w / 2, y: h / 2 }
+                    ]);
+                    this.playerStartPos.set(data.playerStart.x || 0, data.playerStart.y || 0);
+                    this.currentRespawnPos.set(this.playerStartPos.x, this.playerStartPos.y);
+                    this.player = new Entity(data.playerStart.x || 0, data.playerStart.y || 0, w, h, data.playerStart.angle || 0, "#4af", false, data.playerStart.zIndex || 1);
+                    this.player.shape = playerShape;
+                    this.add(this.player);
+                    this.allEntities.push(this.player);
+                }
+                const platforms = data.platforms || [];
+                let staticEntities = [];
+                let platIdx = 0;
+                while (platIdx < platforms.length) {
+                    const batchEnd = Math.min(platIdx + 10, platforms.length);
+                    for (let j = platIdx; j < batchEnd; j++) {
+                        const plat = platforms[j];
+                        let e;
+                        let isChest = false;
+                        let isRespawn = false;
+                        let isMoving = false;
+                        if (plat.type === "chest") {
+                            isChest = true;
+                            const detectionRadius = plat.detectionRadius || config.chestDetectionRadius;
+                            const closedTex = plat.closedTextureId !== undefined ? plat.closedTextureId : 3;
+                            const openTex = plat.openTextureId !== undefined ? plat.openTextureId : 4;
+                            const openingTex = plat.openingTextureId !== undefined ? plat.openingTextureId : 5;
+                            const closingTex = plat.closingTextureId !== undefined ? plat.closingTextureId : 5;
+                            const chestItems = new Array(config.maxChestSlots).fill(null);
+                            if (plat.items) {
+                                for (let k = 0; k < Math.min(plat.items.length, config.maxChestSlots); k++) {
+                                    chestItems[k] = plat.items[k];
+                                }
+                            }
+                            e = new Chest(plat.x || 0, plat.y || 0, plat.w || 80, plat.h || 80, plat.angle || 0, chestItems, plat.zIndex || 0, detectionRadius, closedTex, openTex, openingTex, closingTex);
+                            e.id = plat.id;
+                            this.chests.push(e);
+                        } else if (plat.type === "respawn") {
+                            isRespawn = true;
+                            const detectionRadius = plat.detectionRadius || config.respawnDetectionRadius;
+                            const passThrough = plat.passThrough !== undefined ? plat.passThrough : false;
+                            const respawnX = plat.respawnX !== undefined ? plat.respawnX : (plat.x || 0);
+                            const respawnY = plat.respawnY !== undefined ? plat.respawnY : (plat.y || 0);
+                            const inactiveTex = plat.inactiveTextureId !== undefined ? plat.inactiveTextureId : 6;
+                            const activeTex = plat.activeTextureId !== undefined ? plat.activeTextureId : 5;
+                            e = new RespawnBox(plat.x || 0, plat.y || 0, plat.w || 60, plat.h || 60, plat.angle || 0, plat.zIndex || 0, detectionRadius, passThrough, respawnX, respawnY, inactiveTex, activeTex);
+                            e.id = plat.id;
+                            e.passThrough = passThrough;
+                            this.respawnBoxes.push(e);
+                        } else if (plat.type === "movingPlatform") {
+                            isMoving = true;
+                            let color = "#555";
+                            e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
+                            e.id = plat.id;
+                            e.isMovingPlatform = true;
+                            e.startPos = new Vec2(e.pos.x, e.pos.y);
+                            e.targetPos = new Vec2(plat.targetX || e.pos.x, plat.targetY || e.pos.y);
+                            e.speed = plat.speed || 100;
+                            e.isGoingToTarget = true;
+                            e.linked = [];
+                            this.movingPlatforms.push(e);
+                        } else {
+                            let color = "#555";
+                            if (plat.type === "wall") color = "#666";
+                            else if (plat.type === "deadly") color = "#f00";
+                            else if (plat.type === "teleporter") color = "#00f";
+                            else if (plat.type === "jumpPad") color = "#0f0";
+                            e = new Entity(plat.x || 0, plat.y || 0, plat.w || 100, plat.h || 20, plat.angle || 0, color, true, plat.zIndex || 0, plat.texture !== null ? plat.texture : -1);
+                            e.id = plat.id;
+                            if (plat.type === "deadly") e.deadly = true;
+                            if (plat.passThrough !== undefined) e.passThrough = plat.passThrough;
+                            if (plat.type === "teleporter") {
+                                e.teleportTarget = new Vec2(plat.targetX || 0, plat.targetY || 0);
+                                e.teleportDelay = plat.teleportDelay || 0;
+                            }
+                            if (plat.type === "jumpPad") {
+                                e.jumpBoost = plat.jumpBoost || 800;
+                            }
+                        }
+                        this.allEntities.push(e);
+                        if (!isChest && !isRespawn) {
+                            staticEntities.push(e);
+                        }
+                    }
+                    platIdx = batchEnd;
+                    if (platIdx < platforms.length) {
+                        await new Promise(resolve => setTimeout(resolve, 16));
+                    }
+                }
+                const decorsData = data.decor || [];
+                let decorIdx = 0;
+                while (decorIdx < decorsData.length) {
+                    const batchEnd = Math.min(decorIdx + 10, decorsData.length);
+                    for (let j = decorIdx; j < batchEnd; j++) {
+                        const d = decorsData[j];
+                        const dd = new BaseShape(d.x || 0, d.y || 0, d.w || 100, d.h || 100, d.angle || 0, d.zIndex || 0, d.texture !== null ? d.texture : -1, true, d.parallaxSpeed || 0.7);
+                        this.decors.push(dd);
+                        this.allEntities.push(dd);
+                    }
+                    decorIdx = batchEnd;
+                    if (decorIdx < decorsData.length) {
+                        await new Promise(resolve => setTimeout(resolve, 16));
+                    }
+                }
+                this.statics.push(...staticEntities);
+                const entityById = new Map();
+                for (const e of this.allEntities) {
+                    if (e.id) entityById.set(e.id, e);
+                }
+                for (const plat of platforms) {
+                    if (plat.linkedTo) {
+                        const linkedE = entityById.get(plat.id);
+                        const mp = entityById.get(plat.linkedTo);
+                        if (mp && mp.isMovingPlatform) {
+                            mp.linked.push(linkedE);
+                            linkedE.isLinkedPlatform = true;
+                            linkedE.movingParent = mp;
+                        }
+                    }
+                }
+                this.chests.forEach(chest => {
+                    chest.state = 'closed';
+                    chest.textureIndex = chest.closedTextureId;
+                });
+                this.allEntities.sort((a, b) => a.z - b.z);
+                this.rebuildSpatialHash();
+                this.initParticleFields(data);
+                const saved = await this.loadProgress();
+                if (saved) {
+                    this.player.pos.set(saved.position.x, saved.position.y);
+                    this.player.updateAABB();
+                    this.currentRespawnPos.set(saved.respawnPos.x || this.playerStartPos.x, saved.respawnPos.y || this.playerStartPos.y);
+                    this.respawnBoxes.forEach(box => box.setActive(false));
+                    let activeBox = null;
+                    const respawnBoxesLen = this.respawnBoxes.length;
+                    const respawnX = this.currentRespawnPos.x;
+                    const respawnY = this.currentRespawnPos.y;
+                    for (let i = 0; i < respawnBoxesLen; i++) {
+                        const box = this.respawnBoxes[i];
+                        const dx = box.respawnPos.x - respawnX;
+                        const dy = box.respawnPos.y - respawnY;
+                        if (dx * dx + dy * dy < 100) {
+                            activeBox = box;
+                            break;
+                        }
+                    }
+                    if (activeBox) activeBox.setActive(true);
+                    this.updateInventoryUI();
+                }
+            }
+            add(e) {
+                if (e.isDecor) this.decors.push(e);
+                else if (e.isStatic) this.statics.push(e);
+                else this.dynamics.push(e);
+            }
+            getHash(posX, posY) {
+                return `${Math.floor(posX / this.cellSize)},${Math.floor(posY / this.cellSize)}`;
+            }
+            rebuildSpatialHash() {
+                this.spatialHash.clear();
+                const staticsLen = this.statics.length;
+                const decorsLen = this.decors.length;
+                const chestsLen = this.chests.length;
+                const respawnBoxesLen = this.respawnBoxes.length;
+                for (let i = 0; i < staticsLen; i++) {
+                    const e = this.statics[i];
+                    this._addToSpatialHash(e, 50);
+                }
+                for (let i = 0; i < decorsLen; i++) {
+                    const e = this.decors[i];
+                    this._addToSpatialHash(e, 150);
+                }
+                for (let i = 0; i < chestsLen; i++) {
+                    const e = this.chests[i];
+                    this._addToSpatialHash(e, 50);
+                }
+                for (let i = 0; i < respawnBoxesLen; i++) {
+                    const e = this.respawnBoxes[i];
+                    this._addToSpatialHash(e, 50);
+                }
+                this.spatialHashNeedsRebuild = false;
+            }
+            _addToSpatialHash(e, expand) {
+                const aabb = e.aabb;
+                const minX = Math.floor((aabb.minX - expand) / this.cellSize);
+                const maxX = Math.floor((aabb.maxX + expand) / this.cellSize);
+                const minY = Math.floor((aabb.minY - expand) / this.cellSize);
+                const maxY = Math.floor((aabb.maxY + expand) / this.cellSize);
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        const h = `${x},${y}`;
+                        let cell = this.spatialHash.get(h);
+                        if (!cell) {
+                            cell = [];
+                            this.spatialHash.set(h, cell);
+                        }
+                        cell.push(e);
+                    }
+                }
+            }
+            initParticleFields(data) {
+                this.particleFields = [];
+                const fieldsData = data.particleFields || [];
+                const fieldsLen = fieldsData.length;
+                const qualityMultiplier = config.particleQuality || 1.0;
+
+                for (let i = 0; i < fieldsLen; i++) {
+                    const fieldData = { ...fieldsData[i] };
+                    if (fieldData.count) {
+                        fieldData.count = Math.max(10, Math.floor(fieldData.count * qualityMultiplier));
+                    }
+                    this.particleFields.push(new ParticleField(fieldData));
+                }
+                this.particleFieldsSorted = this.particleFields.slice().sort((a, b) => a.zIndex - b.zIndex);
+            }
+            getNearby(posX, posY) {
+                this.nearbyCache.length = 0;
+                const dynLen = this.dynamics.length;
+                for (let i = 0; i < dynLen; i++) {
+                    this.nearbyCache.push(this.dynamics[i]);
+                }
+                const cx = Math.floor(posX / this.cellSize);
+                const cy = Math.floor(posY / this.cellSize);
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const h = `${cx + dx},${cy + dy}`;
+                        const cell = this.spatialHash.get(h);
+                        if (cell) {
+                            const cellLen = cell.length;
+                            for (let i = 0; i < cellLen; i++) {
+                                const e = cell[i];
+                                if (!e.isDecor) this.nearbyCache.push(e);
+                            }
+                        }
+                    }
+                }
+                return this.nearbyCache;
+            }
+            checkNearbyChest() {
+                this.nearbyChest = null;
+                let closestChest = null;
+                let minDistSq = Infinity;
+                const px = this.player.pos.x;
+                const py = this.player.pos.y;
+                const chestsLen = this.chests.length;
+                for (let i = 0; i < chestsLen; i++) {
+                    const chest = this.chests[i];
+                    const dx = chest.pos.x - px;
+                    const dy = chest.pos.y - py;
+                    const distSq = dx * dx + dy * dy;
+                    const radiusSq = chest.detectionRadius * chest.detectionRadius;
+                    if (distSq < radiusSq && distSq < minDistSq) {
+                        minDistSq = distSq;
+                        closestChest = chest;
+                    }
+                }
+                this.nearbyChest = closestChest;
+            }
+            checkNearbyRespawnBox() {
+                this.nearbyRespawnBox = null;
+                let closestBox = null;
+                let minDistSq = Infinity;
+                const px = this.player.pos.x;
+                const py = this.player.pos.y;
+                const respawnBoxesLen = this.respawnBoxes.length;
+                for (let i = 0; i < respawnBoxesLen; i++) {
+                    const box = this.respawnBoxes[i];
+                    const dx = box.pos.x - px;
+                    const dy = box.pos.y - py;
+                    const distSq = dx * dx + dy * dy;
+                    const radiusSq = box.detectionRadius * box.detectionRadius;
+                    if (distSq < radiusSq && distSq < minDistSq) {
+                        minDistSq = distSq;
+                        closestBox = box;
+                    }
+                }
+                this.nearbyRespawnBox = closestBox;
+            }
+            setRespawnAtBox(box) {
+                if (!box) return;
+                this.respawnBoxes.forEach(b => {
+                    if (b !== box) {
+                        b.setActive(false);
+                    }
+                });
+                box.setActive(true);
+                this.currentRespawnPos.set(box.respawnPos.x, box.respawnPos.y);
+                this.scheduleSave();
+            }
+            openChestUI(chest, textures) {
+                if (!chest) return;
+                if (chest.state === 'open' || chest.state === 'opening') {
+                } else if (chest.state === 'closed') {
+                    chest.state = 'opening';
+                    chest.isAnimating = true;
+                    chest.animationTime = 0;
+                    chest.animationType = 'oneshot';
+                    chest.targetState = 'open';
+                    chest.targetTexId = chest.openTextureId;
+                }
+                currentOpenChest = chest;
+                populateChestUI();
+                chestUI.style.display = 'block';
+                chestUI.style.opacity = '1';
+            }
+            updateInventoryUI() {
+                updateSlots('inventoryGrid', this.inventory, 'player');
+                updateSlots('playerGridInChest', this.inventory, 'player');
+            }
+            getInterpolatedPosition(entity, alpha) {
+                if (alpha <= 0 || entity !== this.player) {
+                    this.reusableInterpPos.set(entity.pos.x, entity.pos.y);
+                    return this.reusableInterpPos;
+                }
+                alpha = Math.max(0, Math.min(1, alpha));
+                const dx = entity.pos.x - this.prevPlayerPos.x;
+                const dy = entity.pos.y - this.prevPlayerPos.y;
+                this.reusableInterpPos.set(this.prevPlayerPos.x + dx * alpha, this.prevPlayerPos.y + dy * alpha);
+                return this.reusableInterpPos;
+            }
+            getInterpolatedVel(entity, alpha) {
+                if (entity.vel) {
+                    this.reusableInterpVel.set(entity.vel.x, entity.vel.y);
+                    return this.reusableInterpVel;
+                } else {
+                    this.reusableInterpVel.set(0, 0);
+                    return this.reusableInterpVel;
+                }
+            }
+            update(dt) {
+                let hashRebuilt = false;
+                for (const mp of this.movingPlatforms) {
+                    mp.deltaThisFrame.set(0, 0);
+                    const target = mp.isGoingToTarget ? mp.targetPos : mp.startPos;
+                    world.reusableVec.set(target.x - mp.pos.x, target.y - mp.pos.y);
+                    const distSq = world.reusableVec.lenSq();
+                    if (distSq <= 1) {
+                        mp.isGoingToTarget = !mp.isGoingToTarget;
+                    } else {
+                        const dist = Math.sqrt(distSq);
+                        const moveDist = Math.min(mp.speed * dt, dist);
+                        world.reusableVec.norm().scale(moveDist);
+                        mp.pos.add(world.reusableVec);
+                        mp.updateAABB();
+                        const linkedLen = mp.linked.length;
+                        for (let li = 0; li < linkedLen; li++) {
+                            const linked = mp.linked[li];
+                            linked.deltaThisFrame.set(world.reusableVec.x, world.reusableVec.y);
+                            linked.pos.add(world.reusableVec);
+                            linked.updateAABB();
+                        }
+                        mp.deltaThisFrame.set(world.reusableVec.x, world.reusableVec.y);
+                        if (distSq > config.spatialHashRebuildThreshold) {
+                            this.spatialHashNeedsRebuild = true;
+                        }
+                    }
+                }
+                if (this.spatialHashNeedsRebuild && !hashRebuilt) {
+                    this.rebuildSpatialHash();
+                    hashRebuilt = true;
+                }
+                for (const e of this.dynamics) {
+                    e.update(dt, this);
+                }
+                if (this.player && this.player.onGround && this.player.landedEntity) {
+                    const landed = this.player.landedEntity;
+                    if (landed.isMovingPlatform) {
+                        this.player.pos.add(landed.deltaThisFrame);
+                    } else if (landed.isLinkedPlatform && landed.movingParent) {
+                        this.player.pos.add(landed.movingParent.deltaThisFrame);
+                    }
+                    this.player.updateAABB();
+                }
+                this.chests.forEach(chest => {
+                    if (chest.isAnimating) {
+                        chest.animationTime += dt;
+                        const animDuration = 2.0;
+                        if (chest.animationType === 'oneshot' && chest.animationTime >= animDuration) {
+                            chest.isAnimating = false;
+                            chest.state = chest.targetState;
+                            chest.textureIndex = chest.targetTexId;
+                            chest.animationTime = 0;
+                        } else {
+                            chest.textureIndex = chest.openingTextureId;
+                        }
+                    }
+                });
+                this.respawnBoxes.forEach(box => {
+                    if (box.active) {
+                        box.textureIndex = box.activeTextureId;
+                    } else {
+                        box.textureIndex = box.inactiveTextureId;
+                    }
+                });
+                if (this.player) {
+                    let currentTele = null;
+                    const playerAABB = this.player.aabb;
+                    for (const other of this.statics) {
+                        if (other.teleportTarget && aabbOverlap(playerAABB, other.aabb)) {
+                            currentTele = other;
+                            break;
+                        }
+                    }
+                    if (currentTele) {
+                        if (currentTele.teleportDelay === 0) {
+                            this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
+                            this.player.vel.set(0, 0);
+                            this.player.onGround = false;
+                            this.player.currentTeleporter = null;
+                            this.player.teleporterAccum = 0;
+                            this.player.updateAABB();
+                        } else {
+                            if (this.player.currentTeleporter !== currentTele) {
+                                this.player.currentTeleporter = currentTele;
+                                this.player.teleporterAccum = 0;
+                            }
+                            this.player.teleporterAccum += dt;
+                            if (this.player.teleporterAccum >= currentTele.teleportDelay) {
+                                this.player.pos.set(currentTele.teleportTarget.x, currentTele.teleportTarget.y);
+                                this.player.vel.set(0, 0);
+                                this.player.onGround = false;
+                                this.player.currentTeleporter = null;
+                                this.player.teleporterAccum = 0;
+                                this.player.updateAABB();
+                            }
+                        }
+                    } else {
+                        this.player.currentTeleporter = null;
+                        this.player.teleporterAccum = 0;
+                    }
+                    if (this.player) {
+                        this.checkNearbyChest();
+                        this.checkNearbyRespawnBox();
+                    }
+                }
+                const fieldsLen = this.particleFields.length;
+                for (let i = 0; i < fieldsLen; i++) {
+                    const field = this.particleFields[i];
+                    const camX = this.player ? this.player.pos.x : 0;
+                    const camY = this.player ? this.player.pos.y : 0;
+                    field.update(dt, camX, camY);
+                }
+                const now = performance.now();
+                if (now - this.lastSaveTime > config.saveThrottle) {
+                    this.scheduleSave();
+                    this.lastSaveTime = now;
+                }
+            }
+            draw(debug, camX, camY, frameCount, textures, renderAlpha, width, height) {
+                const gl = this.gl;
+                const currentTime = performance.now() / 1000;
+                const pad = 20;
+                const visMinX = camX - pad;
+                const visMaxX = camX + width + pad;
+                const visMinY = camY - pad;
+                const visMaxY = camY + height + pad;
+                this.reusableVisibleAABB.minX = visMinX;
+                this.reusableVisibleAABB.maxX = visMaxX;
+                this.reusableVisibleAABB.minY = visMinY;
+                this.reusableVisibleAABB.maxY = visMaxY;
+                const visibleVideos = new Set();
+                this.visibleEntitiesBuffer.length = 0;
+                const allEntitiesLen = this.allEntities.length;
+                for (let i = 0; i < allEntitiesLen; i++) {
+                    const e = this.allEntities[i];
+                    const aabb = e.aabb;
+                    let checkMinX = aabb.minX;
+                    let checkMaxX = aabb.maxX;
+                    let checkMinY = aabb.minY;
+                    let checkMaxY = aabb.maxY;
+                    if (e.isDecor) {
+                        const offsetX = camX * (1 - e.parallaxSpeed);
+                        const offsetY = camY * (1 - e.parallaxSpeed);
+                        checkMinX += offsetX;
+                        checkMaxX += offsetX;
+                        checkMinY += offsetY;
+                        checkMaxY += offsetY;
+                    }
+                    if (checkMaxX >= visMinX && checkMinX <= visMaxX && checkMaxY >= visMinY && checkMinY <= visMaxY) {
+                        this.visibleEntitiesBuffer.push(e);
+                        const texIdx = e.textureIndex;
+                        if (texIdx >= 0) {
+                            const texObj = textures[texIdx];
+                            if (texObj && texObj.tagName === 'VIDEO') {
+                                visibleVideos.add(texIdx);
+                            }
+                        }
+                    }
+                }
+                if (this.visibleEntitiesBuffer.length > config.maxVisibleEntities) {
+                    this.visibleEntitiesBuffer.length = config.maxVisibleEntities;
+                }
+                this.sortedVisible = this.visibleEntitiesBuffer;
+                const now = performance.now() / 1000;
+                const updateInterval = config.videoUpdateInterval || 1 / 30;
+                for (const i of visibleVideos) {
+                    const texObj = textures[i];
+                    if (texObj && texObj.tagName === 'VIDEO') {
+                        const last = this.lastVideoUpdate.get(i) || 0;
+                        const currentTime = texObj.currentTime;
+                        const lastTime = this.lastVideoUpdate.get(i + '_time') || 0;
+                        if (now - last > updateInterval || Math.abs(currentTime - lastTime) > 0.033) {
+                            gl.bindTexture(gl.TEXTURE_2D, glTextures[i]);
+                            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texObj);
+                            this.lastVideoUpdate.set(i, now);
+                            this.lastVideoUpdate.set(i + '_time', currentTime);
+                        }
+                    }
+                }
+                getProjViewMatrix(width, height, camX, camY, projviewMatrix, false);
+                if (this.uboMatrices) {
+                    gl.bindBuffer(gl.UNIFORM_BUFFER, this.uboMatrices);
+                    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, projviewMatrix);
+                }
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                let vertIdx = 0;
+                let indexIdx = 0;
+                let currentBatch = { indexStart: 0, numElements: 0, texIndex: -1 };
+                let batches = [];
+                const whiteColor = new Float32Array([1, 1, 1, 1]);
+                let drewPlayer = false;
+                const sortedLen = this.sortedVisible.length;
+                for (let ei = 0; ei < sortedLen; ei++) {
+                    const e = this.sortedVisible[ei];
+                    const interpPos = this.getInterpolatedPosition(e, renderAlpha);
+                    let renderPosX = interpPos.x;
+                    let renderPosY = interpPos.y;
+                    if (e.isDecor) {
+                        const offsetX = camX * (1 - e.parallaxSpeed);
+                        const offsetY = camY * (1 - e.parallaxSpeed);
+                        renderPosX += offsetX;
+                        renderPosY += offsetY;
+                    }
+                    let thisTex = e.textureIndex ?? -1;
+                    let effectiveTex = -1;
+                    if (thisTex >= 0) {
+                        const texObj = textures[thisTex];
+                        if (isTextureReady(texObj) && (e.isDecor || (e.width != null && e.height != null))) {
+                            effectiveTex = thisTex;
+                        }
+                    }
+                    let col = effectiveTex >= 0 ? whiteColor : e.colorArray;
+                    const baseVert = vertIdx / 8;
+                    const texCoords = effectiveTex >= 0 ? this.reusableStandardTex : this.reusableFixedTex;
+                    const points = e.shape.points;
+                    for (let j = 0; j < 4; j++) {
+                        const lp = points[j];
+                        const px = lp.x + renderPosX;
+                        const py = lp.y + renderPosY;
+                        const tx = texCoords[j * 2];
+                        const ty = texCoords[j * 2 + 1];
+                        this.vertData[vertIdx++] = px;
+                        this.vertData[vertIdx++] = py;
+                        this.vertData[vertIdx++] = tx;
+                        this.vertData[vertIdx++] = ty;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                    }
+                    if (currentBatch.numElements > 0 && effectiveTex !== currentBatch.texIndex) {
+                        batches.push({ indexStart: currentBatch.indexStart, numElements: currentBatch.numElements, texIndex: currentBatch.texIndex });
+                        currentBatch.indexStart = indexIdx;
+                        currentBatch.numElements = 0;
+                        currentBatch.texIndex = effectiveTex;
+                    } else if (currentBatch.numElements === 0) {
+                        currentBatch.indexStart = indexIdx;
+                        currentBatch.texIndex = effectiveTex;
+                    }
+                    currentBatch.numElements += 6;
+                    const base = baseVert;
+                    this.indexData[indexIdx++] = base + 0;
+                    this.indexData[indexIdx++] = base + 1;
+                    this.indexData[indexIdx++] = base + 2;
+                    this.indexData[indexIdx++] = base + 0;
+                    this.indexData[indexIdx++] = base + 2;
+                    this.indexData[indexIdx++] = base + 3;
+                    if (e === this.player) drewPlayer = true;
+                }
+                if (!drewPlayer && this.player) {
+                    const interpPos = this.getInterpolatedPosition(this.player, renderAlpha);
+                    let renderPosX = interpPos.x;
+                    let renderPosY = interpPos.y;
+                    let thisTex = this.player.textureIndex ?? -1;
+                    let effectiveTex = -1;
+                    if (thisTex >= 0) {
+                        const texObj = textures[thisTex];
+                        if (isTextureReady(texObj) && (this.player.isDecor || (this.player.width != null && this.player.height != null))) {
+                            effectiveTex = thisTex;
+                        }
+                    }
+                    let col = effectiveTex >= 0 ? whiteColor : this.player.colorArray;
+                    const baseVert = vertIdx / 8;
+                    const texCoords = effectiveTex >= 0 ? this.reusableStandardTex : this.reusableFixedTex;
+                    const points = this.player.shape.points;
+                    for (let j = 0; j < 4; j++) {
+                        const lp = points[j];
+                        const px = lp.x + renderPosX;
+                        const py = lp.y + renderPosY;
+                        const tx = texCoords[j * 2];
+                        const ty = texCoords[j * 2 + 1];
+                        this.vertData[vertIdx++] = px;
+                        this.vertData[vertIdx++] = py;
+                        this.vertData[vertIdx++] = tx;
+                        this.vertData[vertIdx++] = ty;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                    }
+                    if (currentBatch.numElements > 0 && effectiveTex !== currentBatch.texIndex) {
+                        batches.push({ indexStart: currentBatch.indexStart, numElements: currentBatch.numElements, texIndex: currentBatch.texIndex });
+                        currentBatch.indexStart = indexIdx;
+                        currentBatch.numElements = 0;
+                        currentBatch.texIndex = effectiveTex;
+                    } else if (currentBatch.numElements === 0) {
+                        currentBatch.indexStart = indexIdx;
+                        currentBatch.texIndex = effectiveTex;
+                    }
+                    currentBatch.numElements += 6;
+                    const base = baseVert;
+                    this.indexData[indexIdx++] = base + 0;
+                    this.indexData[indexIdx++] = base + 1;
+                    this.indexData[indexIdx++] = base + 2;
+                    this.indexData[indexIdx++] = base + 0;
+                    this.indexData[indexIdx++] = base + 2;
+                    this.indexData[indexIdx++] = base + 3;
+                }
+                if (currentBatch.numElements > 0) batches.push({ indexStart: currentBatch.indexStart, numElements: currentBatch.numElements, texIndex: currentBatch.texIndex });
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertData.subarray(0, vertIdx));
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
+                gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, this.indexData.subarray(0, indexIdx));
+                gl.bindVertexArray(this.vao);
+                const batchesLen = batches.length;
+                for (let bi = 0; bi < batchesLen; bi++) {
+                    const b = batches[bi];
+                    if (b.texIndex >= 0) {
+                        gl.activeTexture(gl.TEXTURE0);
+                        gl.bindTexture(gl.TEXTURE_2D, glTextures[b.texIndex]);
+                        gl.uniform1i(useTextureLoc, 1);
+                    } else {
+                        gl.uniform1i(useTextureLoc, 0);
+                    }
+                    gl.drawElements(gl.TRIANGLES, b.numElements, gl.UNSIGNED_SHORT, b.indexStart * 2);
+                }
+                this.drawParticles(gl, camX, camY, width, height, vertIdx, indexIdx);
+                if (debug && this.player) {
+                    let debugVertIdx = 0;
+                    const interpPos = this.getInterpolatedPosition(this.player, renderAlpha);
+                    let debugPosX = interpPos.x;
+                    let debugPosY = interpPos.y;
+                    const interpVel = this.getInterpolatedVel(this.player, renderAlpha);
+                    debugVertIdx = this.player.appendDebugLines(this.debugVertData, redColor, debugPosX, debugPosY, interpVel, greenColor, debugVertIdx, this);
+                    if (debugVertIdx > 0) {
+                        gl.bindBuffer(gl.ARRAY_BUFFER, this.debugLineBuffer);
+                        gl.bufferData(gl.ARRAY_BUFFER, this.debugVertData.subarray(0, debugVertIdx), gl.DYNAMIC_DRAW);
+                        gl.bindVertexArray(this.debugVao);
+                        gl.uniform1i(useTextureLoc, 0);
+                        gl.drawArrays(gl.LINES, 0, debugVertIdx / 8);
+                    }
+                }
+            }
+            drawParticles(gl, camX, camY, width, height, startVertIdx, startIndexIdx) {
+                const pad = 200;
+                const visMinX = camX - pad;
+                const visMaxX = camX + width + pad;
+                const visMinY = camY - pad;
+                const visMaxY = camY + height + pad;
+                let vertIdx = startVertIdx;
+                let indexIdx = startIndexIdx;
+                let particleCount = 0;
+                const maxParticles = config.maxParticleCount || 3000;
+                const sortedFields = this.particleFieldsSorted;
+                const fieldsLen = sortedFields.length;
+                for (let fi = 0; fi < fieldsLen; fi++) {
+                    const field = sortedFields[fi];
+                    const parallaxOffsetX = camX * (1 - field.parallaxSpeed);
+                    const parallaxOffsetY = camY * (1 - field.parallaxSpeed);
+                    const particles = field.particles;
+                    const particlesLen = particles.length;
+                    const stepSize = Math.max(1, Math.floor(particlesLen / (field.count * config.particleQuality || particlesLen)));
+                    for (let pi = 0; pi < particlesLen; pi += stepSize) {
+                        if (particleCount >= maxParticles) break;
+                        const p = particles[pi];
+                        const px = p.x + parallaxOffsetX;
+                        const py = p.y + parallaxOffsetY;
+                        if (px < visMinX || px > visMaxX || py < visMinY || py > visMaxY) continue;
+                        const size = p.size;
+                        const halfSize = size * 0.5;
+                        const baseVert = vertIdx / 8;
+                        const col = p.color;
+                        this.vertData[vertIdx++] = px - halfSize;
+                        this.vertData[vertIdx++] = py - halfSize;
+                        this.vertData[vertIdx++] = 0;
+                        this.vertData[vertIdx++] = 1;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                        this.vertData[vertIdx++] = px + halfSize;
+                        this.vertData[vertIdx++] = py - halfSize;
+                        this.vertData[vertIdx++] = 1;
+                        this.vertData[vertIdx++] = 1;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                        this.vertData[vertIdx++] = px + halfSize;
+                        this.vertData[vertIdx++] = py + halfSize;
+                        this.vertData[vertIdx++] = 1;
+                        this.vertData[vertIdx++] = 0;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                        this.vertData[vertIdx++] = px - halfSize;
+                        this.vertData[vertIdx++] = py + halfSize;
+                        this.vertData[vertIdx++] = 0;
+                        this.vertData[vertIdx++] = 0;
+                        this.vertData[vertIdx++] = col[0];
+                        this.vertData[vertIdx++] = col[1];
+                        this.vertData[vertIdx++] = col[2];
+                        this.vertData[vertIdx++] = col[3];
+                        this.indexData[indexIdx++] = baseVert + 0;
+                        this.indexData[indexIdx++] = baseVert + 1;
+                        this.indexData[indexIdx++] = baseVert + 2;
+                        this.indexData[indexIdx++] = baseVert + 0;
+                        this.indexData[indexIdx++] = baseVert + 2;
+                        this.indexData[indexIdx++] = baseVert + 3;
+                        particleCount++;
+                    }
+                }
+                if (particleCount > 0) {
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.batchPositionBuffer);
+                    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertData.subarray(0, vertIdx));
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer);
+                    gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, this.indexData.subarray(0, indexIdx));
+                    gl.bindVertexArray(this.vao);
+                    gl.uniform1i(useTextureLoc, 0);
+                    gl.drawElements(gl.TRIANGLES, particleCount * 6, gl.UNSIGNED_SHORT, startIndexIdx * 2);
+                }
+            }
+        }
+        function createItemDiv(item, slotIdx, invType) {
+            if (!item || typeof item !== 'string' || item === 'undefined') return null;
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.draggable = true;
+            div.dataset.item = item;
+            div.dataset.inventoryType = invType;
+            div.dataset.slotIndex = slotIdx.toString();
+            const img = document.createElement('img');
+            const preloaded = itemImages[item];
+            if (preloaded && preloaded.complete) {
+                img.src = preloaded.src;
+            } else {
+                img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                img.onerror = () => {
+                    img.src = 'https://placehold.co/32x32/FF0000/FFFFFF?text=?';
+                };
+            }
+            img.alt = item;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+            div.appendChild(img);
+            div.appendChild(tooltip);
+            div.addEventListener('dragstart', (e) => {
+                const currentItem = e.currentTarget.dataset.item;
+                const sourceInv = e.currentTarget.dataset.inventoryType;
+                const sourceSlot = parseInt(e.currentTarget.dataset.slotIndex);
+                e.dataTransfer.setData('text/plain', currentItem);
+                e.dataTransfer.setData('sourceInventory', sourceInv);
+                e.dataTransfer.setData('sourceSlot', sourceSlot.toString());
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            div.addEventListener('dragend', (e) => { });
+            return div;
+        }
+        function updateSlots(gridId, itemsArray, invType) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            const cleanItems = itemsArray.map(it => (typeof it === 'string' && it !== 'undefined') ? it : null);
+            for (let i = 0; i < cleanItems.length; i++) {
+                const slot = grid.children[i];
+                if (!slot) continue;
+                const item = cleanItems[i];
+                let itemDiv = slot.querySelector('.item');
+                if (item && !itemDiv) {
+                    const newDiv = createItemDiv(item, i, invType);
+                    if (newDiv) {
+                        slot.appendChild(newDiv);
+                        slot.classList.add('has-item');
+                    }
+                } else if (!item && itemDiv) {
+                    itemDiv.remove();
+                    slot.classList.remove('has-item');
+                } else if (item && itemDiv) {
+                    itemDiv.dataset.item = item;
+                    itemDiv.dataset.inventoryType = invType;
+                    itemDiv.dataset.slotIndex = i.toString();
+                    const tooltip = itemDiv.querySelector('.tooltip');
+                    tooltip.textContent = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+                    const img = itemDiv.querySelector('img');
+                    const preloaded = itemImages[item];
+                    if (preloaded && preloaded.complete) {
+                        img.src = preloaded.src;
+                    } else {
+                        img.src = `https://placehold.co/32x32/0000FF/FFFFFF?text=${item.charAt(0).toUpperCase()}`;
+                    }
+                }
+            }
+        }
+        function handleDrop(e) {
+            e.preventDefault();
+            const item = e.dataTransfer.getData('text/plain');
+            if (!item || item === 'undefined') return;
+            const sourceInv = e.dataTransfer.getData('sourceInventory');
+            const sourceSlotStr = e.dataTransfer.getData('sourceSlot');
+            const sourceSlot = parseInt(sourceSlotStr);
+            const targetInv = e.currentTarget.dataset.inventory;
+            const targetSlot = parseInt(e.currentTarget.dataset.slot);
+            const sourceMax = sourceInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots;
+            if (isNaN(sourceSlot) || sourceSlot < 0 || sourceSlot >= sourceMax || isNaN(targetSlot) || targetSlot < 0 || targetSlot >= (targetInv === 'player' ? config.maxPlayerSlots : config.maxChestSlots)) {
+                return;
+            }
+            if (sourceInv === targetInv) {
+                if (sourceInv === 'player') {
+                    const temp = world.inventory[sourceSlot];
+                    world.inventory[sourceSlot] = world.inventory[targetSlot];
+                    world.inventory[targetSlot] = temp ?? null;
+                } else if (sourceInv === 'chest' && currentOpenChest) {
+                    const temp = currentOpenChest.items[sourceSlot];
+                    currentOpenChest.items[sourceSlot] = currentOpenChest.items[targetSlot];
+                    currentOpenChest.items[targetSlot] = temp ?? null;
+                }
+            } else {
+                if (targetInv === 'player' && (world.inventory[targetSlot] === null || world.inventory[targetSlot] === undefined)) {
+                    world.inventory[targetSlot] = item;
+                    if (sourceInv === 'chest' && currentOpenChest) {
+                        currentOpenChest.items[sourceSlot] = null;
+                    }
+                } else if (targetInv === 'chest' && currentOpenChest && (currentOpenChest.items[targetSlot] === null || currentOpenChest.items[targetSlot] === undefined)) {
+                    currentOpenChest.items[targetSlot] = item;
+                    if (sourceInv === 'player') {
+                        world.inventory[sourceSlot] = null;
+                    }
+                } else {
+                    return;
+                }
+            }
+            world.inventory = world.inventory.map(it => it ?? null);
+            if (currentOpenChest) {
+                currentOpenChest.items = currentOpenChest.items.map(it => it ?? null);
+            }
+            world.updateInventoryUI();
+            if (currentOpenChest) {
+                updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            }
+            world.scheduleSave();
+        }
+        function populateGrid(gridId, itemsArray, numSlots, invType) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            grid.innerHTML = '';
+            const gridClass = invType === 'chest' ? 'grid-chest' : 'grid-inventory';
+            grid.className = gridClass;
+            for (let i = 0; i < numSlots; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                slot.dataset.slot = i;
+                slot.dataset.inventory = invType;
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', handleDrop);
+                grid.appendChild(slot);
+            }
+        }
+        function initUIGrids() {
+            populateGrid('inventoryGrid', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('playerGridInChest', new Array(config.maxPlayerSlots).fill(null), config.maxPlayerSlots, 'player');
+            populateGrid('chestGrid', new Array(config.maxChestSlots).fill(null), config.maxChestSlots, 'chest');
+        }
+        function populateChestUI() {
+            if (!currentOpenChest) return;
+            updateSlots('chestGrid', currentOpenChest.items, 'chest');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        }
+        const canvas = document.getElementById("game");
+        const fadeOverlay = document.getElementById("fadeOverlay");
+        const loadingSpinner = document.getElementById("loadingSpinner");
+
+        const renderCanvas = document.createElement('canvas');
+        renderCanvas.width = config.renderWidth;
+        renderCanvas.height = config.renderHeight;
+        renderCanvas.className = 'render-canvas';
+        renderCanvas.style.position = 'absolute';
+        renderCanvas.style.top = '0';
+        renderCanvas.style.left = '0';
+        renderCanvas.style.width = '100vw';
+        renderCanvas.style.height = '100vh';
+        renderCanvas.style.imageRendering = config.smoothScaling ? 'auto' : 'pixelated';
+        renderCanvas.style.imageRendering = 'crisp-edges';
+
+        const gl = renderCanvas.getContext("webgl2", { alpha: true, powerPreference: "high-performance" });
+
+        canvas.style.display = 'none';
+        document.body.appendChild(renderCanvas);
+
+        function updateResolutionScale() {
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const scaleX = viewportWidth / config.renderWidth;
+            const scaleY = viewportHeight / config.renderHeight;
+            const scale = Math.min(scaleX, scaleY);
+
+            const scaledWidth = config.renderWidth * scale;
+            const scaledHeight = config.renderHeight * scale;
+            const offsetX = (viewportWidth - scaledWidth) / 2;
+            const offsetY = (viewportHeight - scaledHeight) / 2;
+
+            renderCanvas.style.width = scaledWidth + 'px';
+            renderCanvas.style.height = scaledHeight + 'px';
+            renderCanvas.style.left = offsetX + 'px';
+            renderCanvas.style.top = offsetY + 'px';
+        }
+
+        updateResolutionScale();
+
+        window.addEventListener('resize', updateResolutionScale);
+
+        console.log(`Resolution System: ${config.renderWidth}x${config.renderHeight} render target, scaled to viewport`);
+        console.log(`Fixed FOV: ${config.fovWidth}x${config.fovHeight} game units`);
+
+        function getQualityMultiplier(presetIndex) {
+            const preset = config.resolutionPresets[presetIndex];
+            const totalPixels = preset.width * preset.height;
+            const basePixels = 1280 * 720;
+            return Math.sqrt(totalPixels / basePixels);
+        }
+
+        function applyPerformanceSettings(presetIndex) {
+            const qualityMultiplier = getQualityMultiplier(presetIndex);
+            const baseParticleCount = 3000;
+            const baseMaxVisible = 200;
+            const baseSubSteps = 5;
+
+            if (presetIndex <= 1) {
+                config.maxParticleCount = Math.floor(baseParticleCount * 0.1);
+                config.maxVisibleEntities = Math.floor(baseMaxVisible * 0.3);
+                config.adaptiveSubSteps = Math.max(1, Math.floor(baseSubSteps * 0.4));
+                config.particleQuality = 0.3;
+            } else if (presetIndex <= 3) {
+                config.maxParticleCount = Math.floor(baseParticleCount * 0.3);
+                config.maxVisibleEntities = Math.floor(baseMaxVisible * 0.6);
+                config.adaptiveSubSteps = Math.max(1, Math.floor(baseSubSteps * 0.7));
+                config.particleQuality = 0.6;
+            } else {
+                config.maxParticleCount = baseParticleCount;
+                config.maxVisibleEntities = baseMaxVisible;
+                config.adaptiveSubSteps = baseSubSteps;
+                config.particleQuality = 1.0;
+            }
+
+            if (world && world.particleFields) {
+                world.particleFields.forEach(field => {
+                    const targetCount = Math.floor(field.count * config.particleQuality);
+                    if (field.particles.length > targetCount) {
+                        field.particles.length = targetCount;
+                    }
+                });
+            }
+        }
+
+        function cycleResolution() {
+            config.resolutionPreset = (config.resolutionPreset + 1) % config.resolutionPresets.length;
+            const preset = config.resolutionPresets[config.resolutionPreset];
+            config.renderWidth = preset.width;
+            config.renderHeight = preset.height;
+
+
+            renderCanvas.width = config.renderWidth;
+            renderCanvas.height = config.renderHeight;
+            gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
+
+            updateResolutionScale();
+            applyPerformanceSettings(config.resolutionPreset);
+
+            console.log(`Resolution changed to: ${preset.name} (${config.renderWidth}x${config.renderHeight}) - FOV remains: ${config.fovWidth}x${config.fovHeight}`);
+        }
+        if (!gl) {
+            alert("WebGL2 not supported");
+        }
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        const debugDiv = document.getElementById("debug");
+        debugDiv.style.display = 'none';
+        const inventoryDiv = document.getElementById("inventory");
+        const closeInventoryBtn = document.getElementById("closeInventory");
+        const chestUI = document.getElementById("chestUI");
+        const closeChestBtn = document.getElementById("closeChest");
+        let currentOpenChest = null;
+        const program = createProgram(gl, vsSource, fsSource);
+        if (!program) {
+            alert("Shader program failed");
+            throw new Error("Failed to create program");
+        }
+        gl.useProgram(program);
+        const textureLoc = gl.getUniformLocation(program, "u_texture");
+        const useTextureLoc = gl.getUniformLocation(program, "u_useTexture");
+        gl.uniform1i(textureLoc, 0);
+        const matricesBlockIndex = gl.getUniformBlockIndex(program, "Matrices");
+        let uboMatrices = null;
+        if (matricesBlockIndex !== gl.INVALID_INDEX) {
+            gl.uniformBlockBinding(program, matricesBlockIndex, 0);
+            uboMatrices = gl.createBuffer();
+            gl.bindBuffer(gl.UNIFORM_BUFFER, uboMatrices);
+            gl.bufferData(gl.UNIFORM_BUFFER, 48, gl.DYNAMIC_DRAW);
+            gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, uboMatrices);
+        }
+        const cyanColor = new Float32Array([0, 1, 1, 1]);
+        const redColor = hexToRgb("#f00");
+        const greenColor = new Float32Array([0, 1, 0, 1]);
+        const whiteColor = new Float32Array([1, 1, 1, 1]);
+        const world = new World(gl);
+        world.uboMatrices = uboMatrices;
+        gl.bindVertexArray(world.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, world.batchPositionBuffer);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 8);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
+        gl.enableVertexAttribArray(2);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, world.batchIndexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, world.vertData.byteLength, gl.DYNAMIC_DRAW);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, world.indexData.byteLength, gl.DYNAMIC_DRAW);
+        gl.bindVertexArray(null);
+        gl.bindVertexArray(world.debugVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, world.debugLineBuffer);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 32, 8);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16);
+        gl.enableVertexAttribArray(2);
+        gl.bindVertexArray(null);
+        const textures = [];
+        const glTextures = [];
+        mapData.textures.forEach((url, i) => {
+            const tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+            let textureObj;
+            if (url.match(/\.(webm|mp4)$/i)) {
+                const video = document.createElement('video');
+                video.crossOrigin = 'anonymous';
+                video.loop = true;
+                video.muted = true;
+                video.src = url;
+                video.preload = 'metadata';
+                textureObj = video;
+            } else {
+                textureObj = new Image();
+                textureObj.crossOrigin = "anonymous";
+                textureObj.src = url;
+                textureObj.onerror = () => {
+                    textureObj.src = 'https://placehold.co/80x80/808080/FFFFFF?text=Err';
+                };
+            }
+            textures.push(textureObj);
+            glTextures.push(tex);
+        });
+        initUIGrids();
+        closeChestBtn.addEventListener('click', () => {
+            if (currentOpenChest) {
+                const chest = currentOpenChest;
+                if (chest.state === 'open') {
+                    chest.state = 'closing';
+                    chest.isAnimating = true;
+                    chest.animationTime = 0;
+                    chest.animationType = 'oneshot';
+                    chest.targetState = 'closed';
+                    chest.targetTexId = chest.closedTextureId;
+                }
+                chestUI.style.display = 'none';
+                currentOpenChest = null;
+                world.scheduleSave();
+            }
+        });
+        async function clearSave() {
+            try {
+                localStorage.removeItem('gameSave');
+                world.player.pos.set(world.playerStartPos.x, world.playerStartPos.y);
+                world.player.vel.set(0, 0);
+                world.player.updateAABB();
+                world.inventory.fill(null);
+                world.updateInventoryUI();
+                world.currentRespawnPos.set(world.playerStartPos.x, world.playerStartPos.y);
+                world.respawnBoxes.forEach(box => box.setActive(false));
+                const initialChestsData = mapData.platforms.filter(plat => plat.type === "chest").map(plat => ({
+                    id: plat.id,
+                    items: (plat.items || []).slice(0, config.maxChestSlots).concat(new Array(Math.max(0, config.maxChestSlots - (plat.items || []).length)).fill(null))
+                }));
+                world.chests.forEach(chest => {
+                    const initial = initialChestsData.find(ic => ic.id === chest.id);
+                    if (initial) {
+                        chest.items = initial.items.slice();
+                    }
+                });
+                if (inventoryOpen) {
+                    inventoryOpen = false;
+                    inventoryDiv.style.display = 'none';
+                }
+                if (currentOpenChest) {
+                    closeChestBtn.click();
+                    currentOpenChest = null;
+                }
+            } catch (e) { }
+        }
+        debugDiv.addEventListener('click', (e) => {
+            if (e.target.id === 'clearSave') clearSave();
+        });
+        let resizePending = false;
+        function resizeCanvasNow() {
+
+            renderCanvas.width = config.renderWidth;
+            renderCanvas.height = config.renderHeight;
+            gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
+
+            updateResolutionScale();
+        }
+        function onResize() {
+            if (resizePending) return;
+            resizePending = true;
+            requestAnimationFrame(() => {
+                resizePending = false;
+                resizeCanvasNow();
+            });
+        }
+        resizeCanvasNow();
+        window.addEventListener('resize', onResize);
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        let debugMode = false;
+        let inventoryOpen = false;
+        let gameReady = false;
+        let paused = false;
+        function setPaused(value) {
+            paused = value;
+            if (config.pauseVideosWhenPaused) {
+                for (let i = 0; i < textures.length; i++) {
+                    const t = textures[i];
+                    if (t && t.tagName === 'VIDEO') {
+                        if (paused) {
+                            try { t.pause(); } catch (e) { }
+                        } else {
+                            if (isTextureReady(t)) {
+                                t.play().catch(() => { });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (config.pauseOnHidden) setPaused(document.hidden);
+        });
+        window.addEventListener('blur', () => {
+            if (config.pauseOnBlur) setPaused(true);
+        });
+        window.addEventListener('focus', () => {
+            if (config.pauseOnBlur) setPaused(false);
+        });
+        canvas.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            paused = true;
+            loadingSpinner.style.display = 'block';
+        });
+        canvas.addEventListener('webglcontextrestored', () => {
+            location.reload();
+        });
+        window.addEventListener("keydown", async (e) => {
+            const keyCode = e.code;
+            if (keyCode === config.debugKey) {
+                debugMode = !debugMode;
+                console.log(`Debug mode: ${debugMode ? 'ON' : 'OFF'}`);
+            }
+            if (config.ctrlForClear && e.ctrlKey && keyCode === config.clearStorageKey) {
+                e.preventDefault();
+                clearSave();
+            }
+            if (keyCode === config.godModeKey && world.player) {
+                world.player.godMode = !world.player.godMode;
+            }
+            if (keyCode === config.infiniteJumpKey && world.player) {
+                world.player.infiniteJump = !world.player.infiniteJump;
+            }
+            if (keyCode === config.noclipKey && world.player) {
+                world.player.noclip = !world.player.noclip;
+            }
+            if (keyCode === config.cycleResolutionKey) {
+                cycleResolution();
+            }
+            const wasPressed = world.keys[keyCode];
+            world.keys[keyCode] = true;
+            if (!wasPressed) {
+
+                if (config.dashKeys.includes(keyCode) && keyCode !== config.downwardsDashSingleKey) {
+                    if (world.player && world.player.dashTimer <= 0) {
+
+                        world.player.dashTimer = config.dashDuration;
+                        world.player.isDashing = true;
+                        if (keyCode === config.dashDirections.left.key[0]) {
+                            world.player.lastDirection = -1;
+                        } else if (keyCode === config.dashDirections.right.key[0]) {
+                            world.player.lastDirection = 1;
+                        }
+                    }
+                }
+
+                if (keyCode === config.downwardsDashSingleKey) {
+                    if (world.player && world.player.dashTimer <= 0) {
+                        world.player.dashTimer = config.dashDuration;
+                        world.player.isDashing = true;
+                        world.player.downwardDash = true;
+                        world.player.diagonalDash = false;
+                    }
+                }
+                if (keyCode === config.chestKey && world.nearbyChest) {
+                    world.openChestUI(world.nearbyChest, textures);
+                }
+                if (keyCode === config.respawnKey && world.nearbyRespawnBox) {
+                    world.setRespawnAtBox(world.nearbyRespawnBox);
+                }
+                if (keyCode === config.inventoryKey) {
+                    inventoryOpen = !inventoryOpen;
+                    inventoryDiv.style.display = inventoryOpen ? 'block' : 'none';
+                    if (inventoryOpen) world.updateInventoryUI();
+                    else world.scheduleSave();
+                }
+            }
+            if (keyCode === config.jumpKey) e.preventDefault();
+        });
+        window.addEventListener("keyup", e => world.keys[e.code] = false);
+        closeInventoryBtn.addEventListener('click', () => {
+            inventoryOpen = false;
+            inventoryDiv.style.display = 'none';
+            world.scheduleSave();
+        });
+        world.updateInventoryUI = () => {
+            updateSlots('inventoryGrid', world.inventory, 'player');
+            updateSlots('playerGridInChest', world.inventory, 'player');
+        };
+        async function initializeGame() {
+            await waitForTextures(textures);
+            textures.forEach((texObj, i) => {
+                const tex = glTextures[i];
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                if (texObj instanceof HTMLImageElement && texObj.complete) {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texObj);
+                } else if (texObj.tagName === 'VIDEO' && texObj.readyState >= 2) {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texObj);
+                    texObj.play().catch(e => console.error('Video play failed in init:', e));
+                }
+            });
+            applyPerformanceSettings(config.resolutionPreset);
+            await world.loadMap(mapData, textures);
+            world.updateInventoryUI();
+            gameReady = true;
+            loadingSpinner.style.display = 'none';
+            requestAnimationFrame(loop);
+        }
+        initializeGame().catch(() => { });
+        let shakeTime = 0;
+        let shakeDuration = 0;
+        let shakeIntensity = 0;
+        function shakeScreen(intensity) {
+            shakeIntensity = intensity;
+            shakeDuration = 1.0;
+            shakeTime = 0;
+        }
+        let lastTime = performance.now(), frameCount = 0, lastFPSTime = lastTime, fps = 120;
+        let lastDebugTime = lastTime;
+        let camX = 0, camY = 0;
+        const cameraSmoothingRate = config.cameraSmoothing * 120;
+        let accumulator = 0;
+        const fixedDt = 1 / 240;
+        function loop(currentTime) {
+            frameCount++;
+            if (currentTime - lastFPSTime >= 1000) {
+                fps = Math.round(frameCount * 1000 / (currentTime - lastFPSTime));
+                frameCount = 0;
+                lastFPSTime = currentTime;
+            }
+            let delta = (currentTime - lastTime) / 1000;
+            if (config.maxDelta) delta = Math.min(delta, config.maxDelta);
+            lastTime = currentTime;
+            if (gameReady && world.player && !paused) {
+                world.prevPlayerPos.set(world.player.pos.x, world.player.pos.y);
+                world.update(delta);
+                const alpha = 0.5;
+                const targetCamX = world.getInterpolatedPosition(world.player, alpha).x - config.fovWidth / 2;
+                const targetCamY = world.getInterpolatedPosition(world.player, alpha).y - config.fovHeight / 2;
+                camX += (targetCamX - camX) * cameraSmoothingRate * delta;
+                camY += (targetCamY - camY) * cameraSmoothingRate * delta;
+                if (shakeTime < shakeDuration) {
+                    shakeTime += delta;
+                    const progress = shakeTime / shakeDuration;
+                    const currentIntensity = shakeIntensity * (1 - progress);
+                    let shakeOffsetX = (Math.random() - 0.5) * 5 * currentIntensity;
+                    let shakeOffsetY = (Math.random() - 0.5) * 5 * currentIntensity;
+                    const maxShake = 2500;
+                    shakeOffsetX = Math.max(-maxShake, Math.min(maxShake, shakeOffsetX));
+                    shakeOffsetY = Math.max(-maxShake, Math.min(maxShake, shakeOffsetY));
+                    camX += shakeOffsetX;
+                    camY += shakeOffsetY;
+                    if (shakeTime >= shakeDuration) {
+                        shakeTime = shakeDuration;
+                        shakeIntensity = 0;
+                    }
+                }
+                world.draw(debugMode, camX, camY, frameCount, textures, alpha, config.fovWidth, config.fovHeight);
+
+                debugDiv.style.display = debugMode ? 'block' : 'none';
+
+                if (currentTime - lastDebugTime >= 1000 && debugMode) {
+                    const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
+                    const interpPos = world.getInterpolatedPosition(world.player, alpha);
+                    const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
+                    const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
+                    const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
+                    const resolutionInfo = `Resolution: ${config.renderWidth}x${config.renderHeight} (${config.resolutionPresets[config.resolutionPreset].name}) - FOV: ${config.fovWidth}x${config.fovHeight}`;
+                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
+                    lastDebugTime = currentTime;
+                }
+            } else if (gameReady && world.player && config.renderWhenPaused) {
+                world.draw(debugMode, camX, camY, frameCount, textures, 0, config.fovWidth, config.fovHeight);
+
+                debugDiv.style.display = debugMode ? 'block' : 'none';
+
+                if (currentTime - lastDebugTime >= 1000 && debugMode) {
+                    const activeKeys = Object.keys(world.keys).filter(k => world.keys[k]).join(", ") || "None";
+                    const interpPos = world.getInterpolatedPosition(world.player, 0);
+                    const chestInfo = world.nearbyChest ? `${world.nearbyChest.id} (${world.nearbyChest.state})` : 'No chest';
+                    const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
+                    const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
+                    const resolutionInfo = `Resolution: ${config.renderWidth}x${config.renderHeight} (${config.resolutionPresets[config.resolutionPreset].name}) - FOV: ${config.fovWidth}x${config.fovHeight}`;
+                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
+                    lastDebugTime = currentTime;
+                }
+            } else {
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+            }
+            requestAnimationFrame(loop);
+        }
+    </script>
+</body>
+
+</html>
