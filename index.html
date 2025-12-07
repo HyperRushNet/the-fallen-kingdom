@@ -487,12 +487,20 @@
                 { width: 3840, height: 2160, name: "4K Ultra HD" }
             ],
             cycleResolutionKey: "KeyP",
+            toggleVsyncKey: "KeyV",
+            toggleFrameInterpolationKey: "KeyI",
+            increaseFPSKey: "ArrowUp",
+            decreaseFPSKey: "ArrowDown",
             fovWidth: 1200,
             fovHeight: 675,
             maxParticleCount: 3000,
             maxVisibleEntities: 200,
             adaptiveSubSteps: 5,
-            particleQuality: 1.0
+            particleQuality: 1.0,
+            vsync: true,
+            targetFPS: 60,
+            frameInterpolation: true,
+            interpolationStrength: 0.5
         };
         const mapData =
 
@@ -992,11 +1000,11 @@ void main() {
                     this.vel.y = tangent_y * input_speed + this.groundNormal.y * normalComp;
                 } else {
                     // Use WASM physics for air friction if available
-                     if (window.wasmPhysics && !this.onGround) {
-                         this.vel.x = window.wasmPhysics.applyFriction(input_speed, 0.8);
-                     } else {
-                         this.vel.x = input_speed;
-                     }
+                    if (window.wasmPhysics && !this.onGround) {
+                        this.vel.x = window.wasmPhysics.applyFriction(input_speed, 0.8);
+                    } else {
+                        this.vel.x = input_speed;
+                    }
                 }
                 if (this.isDashing) {
                     if (this.downwardDash) {
@@ -1550,7 +1558,11 @@ void main() {
                         id: c.id,
                         items: c.items.map(item => item ?? null)
                     })),
-                    lastUpdate: Date.now()
+                    lastUpdate: Date.now(),
+                    vsync: config.vsync,
+                    targetFPS: config.targetFPS,
+                    frameInterpolation: config.frameInterpolation,
+                    interpolationStrength: config.interpolationStrength
                 };
                 try {
                     localStorage.setItem('gameSave', JSON.stringify(data));
@@ -1579,6 +1591,19 @@ void main() {
                                 chest.items = loadedItems;
                             }
                         });
+                    }
+                    if (saved.vsync !== undefined) {
+                        config.vsync = saved.vsync;
+                    }
+                    if (saved.targetFPS !== undefined) {
+                        config.targetFPS = saved.targetFPS;
+                        targetFrameTime = 1000 / config.targetFPS;
+                    }
+                    if (saved.frameInterpolation !== undefined) {
+                        config.frameInterpolation = saved.frameInterpolation;
+                    }
+                    if (saved.interpolationStrength !== undefined) {
+                        config.interpolationStrength = saved.interpolationStrength;
                     }
                     return saved || null;
                 } catch (e) {
@@ -2801,6 +2826,24 @@ void main() {
             if (keyCode === config.cycleResolutionKey) {
                 cycleResolution();
             }
+            if (keyCode === config.toggleVsyncKey) {
+                config.vsync = !config.vsync;
+                console.log(`VSync ${config.vsync ? 'enabled' : 'disabled'}`);
+            }
+            if (keyCode === config.toggleFrameInterpolationKey) {
+                config.frameInterpolation = !config.frameInterpolation;
+                console.log(`Frame interpolation ${config.frameInterpolation ? 'enabled' : 'disabled'}`);
+            }
+            if (keyCode === config.increaseFPSKey && e.ctrlKey) {
+                config.targetFPS = Math.min(config.targetFPS + 10, 240);
+                targetFrameTime = 1000 / config.targetFPS;
+                console.log(`Target FPS increased to ${config.targetFPS}`);
+            }
+            if (keyCode === config.decreaseFPSKey && e.ctrlKey) {
+                config.targetFPS = Math.max(config.targetFPS - 10, 15);
+                targetFrameTime = 1000 / config.targetFPS;
+                console.log(`Target FPS decreased to ${config.targetFPS}`);
+            }
             const wasPressed = world.keys[keyCode];
             world.keys[keyCode] = true;
             if (!wasPressed) {
@@ -2885,6 +2928,12 @@ void main() {
         const cameraSmoothingRate = config.cameraSmoothing * 120;
         let accumulator = 0;
         const fixedDt = 1 / 240;
+        let targetFrameTime = 1000 / config.targetFPS;
+        let lastFrameTime = performance.now();
+        let renderAlpha = 0;
+        let accumulatorTime = 0;
+        let previousState = null;
+        let currentState = null;
         function loop(currentTime) {
             frameCount++;
             if (currentTime - lastFPSTime >= 1000) {
@@ -2892,13 +2941,49 @@ void main() {
                 frameCount = 0;
                 lastFPSTime = currentTime;
             }
+            
+            // Frame timing voor vsync en target FPS
+            if (!config.vsync) {
+                // Wanneer vsync uit is, gebruik target FPS
+                const currentFrameTime = currentTime - lastFrameTime;
+                if (currentFrameTime < targetFrameTime) {
+                    requestAnimationFrame(loop);
+                    return;
+                }
+            }
+            lastFrameTime = currentTime;
+            
             let delta = (currentTime - lastTime) / 1000;
             if (config.maxDelta) delta = Math.min(delta, config.maxDelta);
             lastTime = currentTime;
             if (gameReady && world.player && !paused) {
+                // Frame interpolation: sla vorige staat op
+                if (config.frameInterpolation) {
+                    previousState = {
+                        playerPos: { x: world.player.pos.x, y: world.player.pos.y },
+                        playerVel: { x: world.player.vel.x, y: world.player.vel.y },
+                        camX: camX,
+                        camY: camY,
+                        shakeTime: shakeTime,
+                        shakeIntensity: shakeIntensity
+                    };
+                }
+                
                 world.prevPlayerPos.set(world.player.pos.x, world.player.pos.y);
                 world.update(delta);
-                const alpha = 0.5;
+                
+                // Bereken render alpha voor interpolatie
+                if (config.frameInterpolation) {
+                    accumulatorTime += delta;
+                    const maxAccumulator = fixedDt * 2;
+                    accumulatorTime = Math.min(accumulatorTime, maxAccumulator);
+                    renderAlpha = accumulatorTime / fixedDt;
+                    renderAlpha = Math.max(0, Math.min(1, renderAlpha));
+                } else {
+                    renderAlpha = 0.5; // Standaard waarde
+                }
+                
+                const alpha = config.frameInterpolation ? renderAlpha : 0.5;
                 const targetCamX = world.getInterpolatedPosition(world.player, alpha).x - config.fovWidth / 2;
                 const targetCamY = world.getInterpolatedPosition(world.player, alpha).y - config.fovHeight / 2;
                 camX += (targetCamX - camX) * cameraSmoothingRate * delta;
@@ -2930,7 +3015,9 @@ void main() {
                     const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
                     const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
                     const resolutionInfo = `Resolution: ${config.renderWidth}x${config.renderHeight} (${config.resolutionPresets[config.resolutionPreset].name}) - FOV: ${config.fovWidth}x${config.fovHeight}`;
-                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
+                    const vsyncInfo = `VSync: ${config.vsync ? 'ON' : 'OFF'}, Target FPS: ${config.targetFPS}`;
+                    const interpolationInfo = `Frame Interpolation: ${config.frameInterpolation ? 'ON' : 'OFF'}, Render Alpha: ${renderAlpha.toFixed(3)}`;
+                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${vsyncInfo}<br>${interpolationInfo}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
                     lastDebugTime = currentTime;
                 }
             } else if (gameReady && world.player && config.renderWhenPaused) {
@@ -2945,7 +3032,9 @@ void main() {
                     const respawnInfo = world.nearbyRespawnBox ? `${world.nearbyRespawnBox.id} (${world.nearbyRespawnBox.active ? 'Active' : 'Inactive'})` : 'No respawn box';
                     const cheatsInfo = `God: ${world.player.godMode}, InfJump: ${world.player.infiniteJump}, Noclip: ${world.player.noclip}`;
                     const resolutionInfo = `Resolution: ${config.renderWidth}x${config.renderHeight} (${config.resolutionPresets[config.resolutionPreset].name}) - FOV: ${config.fovWidth}x${config.fovHeight}`;
-                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
+                    const vsyncInfo = `VSync: ${config.vsync ? 'ON' : 'OFF'}, Target FPS: ${config.targetFPS}`;
+                    const interpolationInfo = `Frame Interpolation: ${config.frameInterpolation ? 'ON' : 'OFF'}, Render Alpha: ${renderAlpha.toFixed(3)}`;
+                    debugDiv.innerHTML = `<button id="clearSave">Clear Storage (Ctrl+Backspace)</button>Player Debug<br>pos: (${interpPos.x.toFixed(2)}, ${interpPos.y.toFixed(2)})<br>vel: (${world.player.vel.x.toFixed(2)}, ${world.player.vel.y.toFixed(2)})<br>onGround: ${world.player.onGround}<br>groundAngle: ${world.player.groundAngle.toFixed(1)}°<br>z: ${world.player.z}<br>dashing: ${world.player.isDashing}<br>airJumpCooldown: ${world.player.airJumpCooldown.toFixed(2)}<br>keys: ${activeKeys}<br>fps: ${fps}<br>${vsyncInfo}<br>${interpolationInfo}<br>${resolutionInfo}<br>${chestInfo}<br>${respawnInfo}<br>${cheatsInfo}`;
                     lastDebugTime = currentTime;
                 }
             } else {
@@ -2973,26 +3062,26 @@ void main() {
                     vecAdd: (x1, y1, x2, y2) => {
                         return { x: x1 + x2, y: y1 + y2 };
                     },
-                    
+
                     // Fast position interpolation (optimized for game rendering)
                     fastInterpolate: (startX, startY, endX, endY, alpha) => {
                         const x = startX + (endX - startX) * alpha;
                         const y = startY + (endY - startY) * alpha;
                         return { x, y };
                     },
-                    
+
                     // Fast distance calculation
                     fastDistance: (x1, y1, x2, y2) => {
                         const dx = x2 - x1;
                         const dy = y2 - y1;
                         return Math.sqrt(dx * dx + dy * dy);
                     },
-                    
+
                     // Fast clamp function
                     fastClamp: (value, min, max) => {
                         return Math.max(min, Math.min(max, value));
                     },
-                    
+
                     // Fast multiplication
                     multiply: (a, b) => a * b
                 };
@@ -3000,9 +3089,9 @@ void main() {
                 console.warn('WASM vector module failed, using JS implementations');
                 return {
                     vecAdd: (x1, y1, x2, y2) => ({ x: x1 + x2, y: y1 + y2 }),
-                    fastInterpolate: (startX, startY, endX, endY, alpha) => ({ 
-                        x: startX + (endX - startX) * alpha, 
-                        y: startY + (endY - startY) * alpha 
+                    fastInterpolate: (startX, startY, endX, endY, alpha) => ({
+                        x: startX + (endX - startX) * alpha,
+                        y: startY + (endY - startY) * alpha
                     }),
                     fastDistance: (x1, y1, x2, y2) => {
                         const dx = x2 - x1;
@@ -3020,19 +3109,19 @@ void main() {
             const memory = new WebAssembly.Memory({ initial: 256, maximum: 512 });
             const buffer = new Float32Array(memory.buffer);
             const intBuffer = new Int32Array(memory.buffer);
-            
+
             return {
                 // Fast position buffer operations
                 setPosition: (index, x, y) => {
                     buffer[index * 2] = x;
                     buffer[index * 2 + 1] = y;
                 },
-                
+
                 getPosition: (index) => ({
                     x: buffer[index * 2],
                     y: buffer[index * 2 + 1]
                 }),
-                
+
                 // Batch position updates for multiple entities
                 batchUpdatePositions: (positions, startIndex = 0) => {
                     for (let i = 0; i < positions.length; i++) {
@@ -3041,7 +3130,7 @@ void main() {
                         buffer[(startIndex + i) * 2 + 1] = pos.y;
                     }
                 },
-                
+
                 // Fast interpolation for multiple positions
                 batchInterpolate: (startPositions, endPositions, alpha, startIndex = 0) => {
                     const results = [];
@@ -3061,23 +3150,32 @@ void main() {
 
         // Optimized game loop integration
         const originalGetInterpolatedPosition = World.prototype.getInterpolatedPosition;
-        World.prototype.getInterpolatedPosition = function(entity, alpha) {
+        World.prototype.getInterpolatedPosition = function (entity, alpha) {
             if (alpha <= 0 || entity !== this.player) {
                 this.reusableInterpPos.set(entity.pos.x, entity.pos.y);
                 return this.reusableInterpPos;
             }
+
+            // Geavanceerde frame interpolation met smoothing
+            if (config.frameInterpolation) {
+                // Gebruik een smoothing factor voor natuurlijke beweging
+                const smoothAlpha = alpha * alpha * (3 - 2 * alpha); // Smoothstep functie
+                const clampedAlpha = Math.max(0, Math.min(1, smoothAlpha));
+                
+                // Interpoleer positie met sub-pixel precisie
+                const dx = entity.pos.x - this.prevPlayerPos.x;
+                const dy = entity.pos.y - this.prevPlayerPos.y;
+                const interpX = this.prevPlayerPos.x + dx * clampedAlpha;
+                const interpY = this.prevPlayerPos.y + dy * clampedAlpha;
+                
+                this.reusableInterpPos.set(interpX, interpY);
+            } else {
+                // Standaard interpolatie zonder smoothing
+                const dx = entity.pos.x - this.prevPlayerPos.x;
+                const dy = entity.pos.y - this.prevPlayerPos.y;
+                this.reusableInterpPos.set(this.prevPlayerPos.x + dx * alpha, this.prevPlayerPos.y + dy * alpha);
+            }
             
-            // Use WASM-optimized interpolation
-            alpha = fastMath.fastClamp(alpha, 0, 1);
-            const result = fastMath.fastInterpolate(
-                this.prevPlayerPos.x, 
-                this.prevPlayerPos.y,
-                entity.pos.x, 
-                entity.pos.y, 
-                alpha
-            );
-            
-            this.reusableInterpPos.set(result.x, result.y);
             return this.reusableInterpPos;
         };
 
@@ -3099,7 +3197,7 @@ void main() {
                 adjustBrightness: (pixelValue, brightness) => {
                     return Math.min(255, Math.max(0, pixelValue + brightness));
                 },
-                
+
                 // Fast color mixing for texture blending
                 mixColors: (r1, g1, b1, r2, g2, b2, mix) => {
                     const mixFactor = Math.max(0, Math.min(1, mix));
@@ -3109,7 +3207,7 @@ void main() {
                         b: Math.round(b1 * (1 - mixFactor) + b2 * mixFactor)
                     };
                 },
-                
+
                 // Fast alpha blending for texture compositing
                 alphaBlend: (srcR, srcG, srcB, srcA, dstR, dstG, dstB, dstA) => {
                     const alpha = srcA / 255;
@@ -3121,18 +3219,18 @@ void main() {
                         a: Math.round(srcA + dstA * invAlpha)
                     };
                 },
-                
+
                 // Optimized pixel manipulation for WebGL textures
                 processTexturePixels: (imageData, operation, params = {}) => {
                     const data = imageData.data;
                     const processed = new Uint8ClampedArray(data.length);
-                    
+
                     for (let i = 0; i < data.length; i += 4) {
                         const r = data[i];
                         const g = data[i + 1];
                         const b = data[i + 2];
                         const a = data[i + 3];
-                        
+
                         switch (operation) {
                             case 'brightness':
                                 const brightness = params.brightness || 0;
@@ -3152,10 +3250,10 @@ void main() {
                                 processed.set(data.subarray(i, i + 4), i);
                         }
                     }
-                    
+
                     return new ImageData(processed, imageData.width, imageData.height);
                 },
-                
+
                 // Fast texture coordinate calculations
                 calculateTexCoords: (x, y, width, height, textureWidth, textureHeight) => {
                     const u = x / textureWidth;
@@ -3175,7 +3273,7 @@ void main() {
                     // Pack RGBA values into a single 32-bit integer
                     return (r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16) | ((a & 0xFF) << 24);
                 },
-                
+
                 // Fast vertex position interpolation
                 interpolateVertex: (x1, y1, x2, y2, t) => {
                     const clampedT = Math.max(0, Math.min(1, t));
@@ -3184,7 +3282,7 @@ void main() {
                         y: y1 + (y2 - y1) * clampedT
                     };
                 },
-                
+
                 // Optimized buffer data preparation
                 prepareBufferData: (vertices, colors, texCoords) => {
                     const bufferData = new Float32Array(vertices.length * 8); // x,y,z,r,g,b,a,u,v
@@ -3193,14 +3291,14 @@ void main() {
                         bufferData[baseIndex] = vertices[i];     // x
                         bufferData[baseIndex + 1] = vertices[i + 1]; // y
                         bufferData[baseIndex + 2] = vertices[i + 2]; // z
-                        
+
                         if (colors && colors.length > i) {
                             bufferData[baseIndex + 3] = colors[i];     // r
                             bufferData[baseIndex + 4] = colors[i + 1]; // g
                             bufferData[baseIndex + 5] = colors[i + 2]; // b
                             bufferData[baseIndex + 6] = colors[i + 3]; // a
                         }
-                        
+
                         if (texCoords && texCoords.length > i * 2) {
                             bufferData[baseIndex + 7] = texCoords[i * 2];     // u
                             bufferData[baseIndex + 8] = texCoords[i * 2 + 1]; // v
@@ -3215,19 +3313,19 @@ void main() {
         const optimizeWebGLRendering = () => {
             // Override texture loading with WASM processing
             const originalLoadTexture = loadTexture;
-            window.loadTexture = function(gl, url) {
+            window.loadTexture = function (gl, url) {
                 const texture = gl.createTexture();
                 gl.bindTexture(gl.TEXTURE_2D, texture);
-                
+
                 // Placeholder texture
                 const pixel = new Uint8Array([255, 255, 255, 255]);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-                
+
                 const image = new Image();
-                image.onload = function() {
+                image.onload = function () {
                     gl.bindTexture(gl.TEXTURE_2D, texture);
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-                    
+
                     // WASM-optimized texture processing
                     if (image.complete && image.naturalHeight !== 0) {
                         const canvas = document.createElement('canvas');
@@ -3235,7 +3333,7 @@ void main() {
                         canvas.width = image.width;
                         canvas.height = image.height;
                         ctx.drawImage(image, 0, 0);
-                        
+
                         try {
                             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                             // Could apply WASM image processing here if needed
@@ -3243,7 +3341,7 @@ void main() {
                             console.warn('WASM texture processing skipped due to CORS');
                         }
                     }
-                    
+
                     if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
                         gl.generateMipmap(gl.TEXTURE_2D);
                     } else {
@@ -3253,10 +3351,10 @@ void main() {
                     }
                 };
                 image.src = url;
-                
+
                 return texture;
             };
-            
+
             console.log('WASM WebGL optimizations enabled');
         };
 
@@ -3274,7 +3372,7 @@ void main() {
                 checkCollisionAABB: (x1, y1, w1, h1, x2, y2, w2, h2) => {
                     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
                 },
-                
+
                 // Resolve collision between two AABBs
                 resolveCollision: (x1, y1, vx1, vy1, x2, y2, vx2, vy2) => {
                     // Simple elastic collision response
@@ -3285,12 +3383,12 @@ void main() {
                         y2: y2 - vy2 * 0.5
                     };
                 },
-                
+
                 // Calculate gravity force
                 calculateGravity: (mass, gravity) => {
                     return mass * gravity;
                 },
-                
+
                 // Apply friction to velocity
                 applyFriction: (velocity, friction) => {
                     return velocity * (1 - friction);
@@ -3303,15 +3401,15 @@ void main() {
             // Test image processing
             const testBrightness = wasmImageProcessing.adjustBrightness(128, 50);
             console.log('JS Image Processing - Brightness test:', testBrightness);
-            
+
             // Test WebGL
             const testColor = wasmWebGL.calculateVertexColor(255, 128, 64, 255);
             console.log('JS WebGL - Color test:', testColor);
-            
+
             // Test Physics
             const testCollision = wasmPhysics.checkCollisionAABB(0, 0, 10, 10, 5, 5, 10, 10);
             console.log('JS Physics - Collision test:', testCollision);
-            
+
             console.log('All JavaScript modules loaded successfully!');
         } catch (error) {
             console.error('JavaScript module test failed:', error);
@@ -3324,11 +3422,11 @@ void main() {
             const floatView = new Float32Array(entityMemory.buffer);
             const intView = new Int32Array(entityMemory.buffer);
             const byteView = new Uint8Array(entityMemory.buffer);
-            
+
             // Memory layout optimization for game entities
             const ENTITY_SIZE = 32; // bytes per entity
             const MAX_ENTITIES = 10000;
-            
+
             return {
                 // Entity memory management
                 allocateEntity: (entityId) => {
@@ -3339,40 +3437,40 @@ void main() {
                     }
                     return offset;
                 },
-                
+
                 // Fast entity position updates
                 setEntityPosition: (offset, x, y, z = 0) => {
                     floatView[offset / 4] = x;
                     floatView[offset / 4 + 1] = y;
                     floatView[offset / 4 + 2] = z;
                 },
-                
+
                 getEntityPosition: (offset) => ({
                     x: floatView[offset / 4],
                     y: floatView[offset / 4 + 1],
                     z: floatView[offset / 4 + 2]
                 }),
-                
+
                 // Fast entity velocity updates
                 setEntityVelocity: (offset, vx, vy, vz = 0) => {
                     floatView[offset / 4 + 3] = vx;
                     floatView[offset / 4 + 4] = vy;
                     floatView[offset / 4 + 5] = vz;
                 },
-                
+
                 getEntityVelocity: (offset) => ({
                     x: floatView[offset / 4 + 3],
                     y: floatView[offset / 4 + 4],
                     z: floatView[offset / 4 + 5]
                 }),
-                
+
                 // Entity state management
                 setEntityState: (offset, state) => {
                     intView[offset / 4 + 6] = state;
                 },
-                
+
                 getEntityState: (offset) => intView[offset / 4 + 6],
-                
+
                 // Batch entity operations for performance
                 batchUpdatePositions: (entities) => {
                     for (let i = 0; i < entities.length; i++) {
@@ -3381,20 +3479,20 @@ void main() {
                         this.setEntityPosition(offset, entity.pos.x, entity.pos.y, entity.pos.z || 0);
                     }
                 },
-                
+
                 // Memory-efficient collision detection
                 checkCollisions: (entityOffset, otherEntities, radius = 1.0) => {
                     const pos = this.getEntityPosition(entityOffset);
                     const collisions = [];
-                    
+
                     for (let i = 0; i < otherEntities.length; i++) {
                         const otherOffset = otherEntities[i] * ENTITY_SIZE;
                         const otherPos = this.getEntityPosition(otherOffset);
-                        
+
                         const dx = pos.x - otherPos.x;
                         const dy = pos.y - otherPos.y;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-                        
+
                         if (distance < radius) {
                             collisions.push({
                                 entityId: otherEntities[i],
@@ -3403,10 +3501,10 @@ void main() {
                             });
                         }
                     }
-                    
+
                     return collisions;
                 },
-                
+
                 // Memory cleanup
                 deallocateEntity: (entityId) => {
                     const offset = entityId * ENTITY_SIZE;
@@ -3415,7 +3513,7 @@ void main() {
                         floatView[offset / 4 + i] = 0;
                     }
                 },
-                
+
                 // Memory statistics
                 getMemoryStats: () => ({
                     totalBytes: entityMemory.buffer.byteLength,
@@ -3431,29 +3529,29 @@ void main() {
         const wasmSerialization = (() => {
             const serializeMemory = new WebAssembly.Memory({ initial: 256, maximum: 512 });
             const buffer = new Uint8Array(serializeMemory.buffer);
-            
+
             return {
                 // Fast game state serialization
                 serializeGameState: (gameState) => {
                     const stateString = JSON.stringify(gameState);
                     const encoder = new TextEncoder();
                     const data = encoder.encode(stateString);
-                    
+
                     if (data.length > buffer.length) {
                         console.warn('Game state too large for WASM buffer');
                         return null;
                     }
-                    
+
                     buffer.set(data);
                     return { data, length: data.length };
                 },
-                
+
                 // Fast game state deserialization
                 deserializeGameState: (length) => {
                     const decoder = new TextDecoder();
                     const data = buffer.slice(0, length);
                     const stateString = decoder.decode(data);
-                    
+
                     try {
                         return JSON.parse(stateString);
                     } catch (e) {
@@ -3461,14 +3559,14 @@ void main() {
                         return null;
                     }
                 },
-                
+
                 // Memory-efficient save data compression
                 compressSaveData: (saveData) => {
                     // Simple RLE compression using WASM
                     const compressed = [];
                     let count = 1;
                     let current = saveData[0];
-                    
+
                     for (let i = 1; i < saveData.length; i++) {
                         if (saveData[i] === current && count < 255) {
                             count++;
@@ -3479,7 +3577,7 @@ void main() {
                         }
                     }
                     compressed.push(count, current);
-                    
+
                     return new Uint8Array(compressed);
                 }
             };
@@ -3489,22 +3587,22 @@ void main() {
         const enhanceWorldWithWasm = () => {
             if (typeof World !== 'undefined') {
                 const originalWorldConstructor = World.prototype.constructor;
-                
-                World.prototype.constructor = function(gl) {
+
+                World.prototype.constructor = function (gl) {
                     originalWorldConstructor.call(this, gl);
-                    
+
                     // Initialize WASM memory for entities
                     this.entityMemory = wasmGameMemory;
                     this.serialization = wasmSerialization;
-                    
+
                     // WASM-optimized entity management
                     this.wasmEntityCache = new Map();
-                    
+
                     console.log('World enhanced with WASM memory management');
                 };
-                
+
                 // WASM-optimized entity updates
-                World.prototype.updateEntityWasm = function(entity) {
+                World.prototype.updateEntityWasm = function (entity) {
                     const offset = this.entityMemory.allocateEntity(entity.id);
                     if (offset >= 0) {
                         this.entityMemory.setEntityPosition(offset, entity.pos.x, entity.pos.y, entity.pos.z || 0);
@@ -3513,9 +3611,9 @@ void main() {
                         this.wasmEntityCache.set(entity.id, offset);
                     }
                 };
-                
+
                 // WASM-optimized collision detection
-                World.prototype.checkCollisionsWasm = function(entityId, radius = 1.0) {
+                World.prototype.checkCollisionsWasm = function (entityId, radius = 1.0) {
                     const offset = this.wasmEntityCache.get(entityId);
                     if (offset !== undefined) {
                         const otherEntityIds = Array.from(this.wasmEntityCache.keys()).filter(id => id !== entityId);
@@ -3532,14 +3630,14 @@ void main() {
                 enhanceWorldWithWasm();
                 console.log('All WASM optimizations initialized successfully');
                 console.log('Available WASM modules:', {
-            fastMath: typeof fastMath !== 'undefined',
-            wasmMemory: typeof wasmMemory !== 'undefined',
-            wasmImageProcessing: typeof wasmImageProcessing !== 'undefined',
-            wasmWebGL: typeof wasmWebGL !== 'undefined',
-            wasmGameMemory: typeof wasmGameMemory !== 'undefined',
-            wasmSerialization: typeof wasmSerialization !== 'undefined',
-            wasmPhysics: typeof wasmPhysics !== 'undefined'
-        });
+                    fastMath: typeof fastMath !== 'undefined',
+                    wasmMemory: typeof wasmMemory !== 'undefined',
+                    wasmImageProcessing: typeof wasmImageProcessing !== 'undefined',
+                    wasmWebGL: typeof wasmWebGL !== 'undefined',
+                    wasmGameMemory: typeof wasmGameMemory !== 'undefined',
+                    wasmSerialization: typeof wasmSerialization !== 'undefined',
+                    wasmPhysics: typeof wasmPhysics !== 'undefined'
+                });
             } catch (error) {
                 console.error('WASM initialization failed:', error);
                 console.warn('Falling back to JavaScript implementations');
